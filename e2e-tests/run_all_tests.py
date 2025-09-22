@@ -57,7 +57,7 @@ def check_envoy_running():
     try:
         # Simple request with minimal content
         payload = {
-            "model": "gemma3:27b",
+            "model": "microsoft/Phi-3-mini-4k-instruct",
             "messages": [{"role": "user", "content": "test"}],
         }
         response = requests.post(

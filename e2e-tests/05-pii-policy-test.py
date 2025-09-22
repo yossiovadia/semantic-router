@@ -24,9 +24,9 @@ from test_base import SemanticRouterTestBase
 ENVOY_URL = "http://localhost:8801"
 OPENAI_ENDPOINT = "/v1/chat/completions"
 ROUTER_METRICS_URL = "http://localhost:9190/metrics"
-DEFAULT_MODEL = "gemma3:27b"  # Use configured model
+DEFAULT_MODEL = "microsoft/Phi-3-mini-4k-instruct"  # Use configured model
 
-# PII test cases - based on gemma3:27b policy: allows ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
+# PII test cases - based on microsoft/Phi-3-mini-4k-instruct policy: allows ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
 PII_TEST_CASES = [
     {
         "name": "Allowed PII - Email",
@@ -60,7 +60,7 @@ PII_TEST_CASES = [
     },
 ]
 
-# Cases that might contain PII types not allowed by gemma3:27b policy
+# Cases that might contain PII types not allowed by microsoft/Phi-3-mini-4k-instruct policy
 POTENTIAL_BLOCKED_PII_CASES = [
     {
         "name": "Credit Card Number",
@@ -435,7 +435,7 @@ class PIIDetectionPolicyTest(SemanticRouterTestBase):
             "Verifies that the router correctly applies different PII policies for different models",
         )
 
-        # Test with gemma3:27b (has restrictive PII policy)
+        # Test with microsoft/Phi-3-mini-4k-instruct (has restrictive PII policy)
         test_models = [DEFAULT_MODEL]
         test_content = "Contact John at john@company.com"
 

@@ -24,7 +24,7 @@ from test_base import SemanticRouterTestBase
 ENVOY_URL = "http://localhost:8801"
 OPENAI_ENDPOINT = "/v1/chat/completions"
 ROUTER_METRICS_URL = "http://localhost:9190/metrics"
-DEFAULT_MODEL = "gemma3:27b"  # Use configured model
+DEFAULT_MODEL = "microsoft/Phi-3-mini-4k-instruct"  # Use configured model
 
 # Model selection test cases - based on category scores in config.yaml
 MODEL_SELECTION_TEST_CASES = [
@@ -43,10 +43,10 @@ MODEL_SELECTION_TEST_CASES = [
         "reasoning_enabled": False,
     },
     {
-        "name": "Law Query - Should Prefer gemma3:27b",
+        "name": "Law Query - Should Prefer microsoft/Phi-3-mini-4k-instruct",
         "category": "law",
         "content": "What are the legal implications of GDPR compliance for international data transfers?",
-        "preferred_models": ["gemma3:27b"],  # gemma3:27b has score 0.8 for law
+        "preferred_models": ["microsoft/Phi-3-mini-4k-instruct"],  # microsoft/Phi-3-mini-4k-instruct has score 0.8 for law
         "reasoning_enabled": False,
     },
     {
@@ -67,7 +67,7 @@ MODEL_SELECTION_TEST_CASES = [
         "name": "General Query - Should Use Default",
         "category": "other",
         "content": "What is artificial intelligence and how does it work?",
-        "preferred_models": ["gemma3:27b"],  # gemma3:27b has score 0.8 for other
+        "preferred_models": ["microsoft/Phi-3-mini-4k-instruct"],  # microsoft/Phi-3-mini-4k-instruct has score 0.8 for other
         "reasoning_enabled": False,
     },
 ]

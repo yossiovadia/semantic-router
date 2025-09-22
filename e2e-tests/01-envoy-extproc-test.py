@@ -23,7 +23,7 @@ from test_base import SemanticRouterTestBase
 # Constants
 ENVOY_URL = "http://localhost:8801"
 OPENAI_ENDPOINT = "/v1/chat/completions"
-DEFAULT_MODEL = "gemma3:27b"  # Use configured model
+DEFAULT_MODEL = "microsoft/Phi-3-mini-4k-instruct"  # Use configured model
 
 
 class EnvoyExtProcTest(SemanticRouterTestBase):
