@@ -57,7 +57,7 @@ def check_envoy_running():
     try:
         # Simple request with minimal content
         payload = {
-            "model": "microsoft/Phi-3-mini-4k-instruct",
+            "model": "Qwen/Qwen2-0.5B-Instruct",
             "messages": [{"role": "user", "content": "test"}],
         }
         response = requests.post(
@@ -108,11 +108,14 @@ def main():
     # Find all test files matching the pattern
     test_files = sorted(glob.glob(args.pattern))
 
-    # Filter out this script and __init__.py
+    # Filter out this script, utility files, and __init__.py
     test_files = [
         f
         for f in test_files
-        if f != os.path.basename(__file__) and not f.startswith("__")
+        if f != os.path.basename(__file__)
+        and not f.startswith("__")
+        and f != "mock-vllm-server.py"
+        and f != "test_base.py"
     ]
 
     if not test_files:

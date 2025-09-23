@@ -51,6 +51,7 @@ cd tests && python -m pytest
 
 ## Prerequisites
 
-- Envoy must be running (make run-envoy)
-- Router must be running (make run-router)
-- Python dependencies installed 
+make run-envoy    # Terminal 1
+make run-router   # Terminal 2
+./e2e-tests/start-vllm-servers.sh    # Terminal 3
+make test-e2e-vllm                   # Run tests or python cd 2e2-tests; run_all_tests.py

@@ -26,20 +26,20 @@ prompt_guard:
   use_cpu: true
   jailbreak_mapping_path: "models/jailbreak_classifier_modernbert-base_model/jailbreak_type_mapping.json"
 
-# vLLM Endpoints Configuration (single Phi-3 model)
+# vLLM Endpoints Configuration (single Qwen model)
 vllm_endpoints:
-  - name: "phi3-endpoint"
+  - name: "qwen-endpoint"
     address: "127.0.0.1"
     port: 8000
     models:
-      - "microsoft/Phi-3-mini-4k-instruct"
+      - "Qwen/Qwen2-0.5B-Instruct"
     weight: 1
     health_check_path: "/health"
 
 model_config:
-  "microsoft/Phi-3-mini-4k-instruct":
-    reasoning_family: "gpt-oss"  # This model uses GPT-OSS reasoning syntax
-    preferred_endpoints: ["phi3-endpoint"]
+  "Qwen/Qwen2-0.5B-Instruct":
+    reasoning_family: "qwen3"  # This model uses Qwen reasoning syntax
+    preferred_endpoints: ["qwen-endpoint"]
     pii_policy:
       allow_by_default: true
       allowed_types: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
@@ -63,76 +63,76 @@ classifier:
 categories:
   - name: business
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false  # Business performs better without reasoning
   - name: law
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: psychology
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: biology
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: chemistry
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: true  # Enable reasoning for complex chemistry
   - name: history
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: other
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: health
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: economics
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: math
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: true  # Enable reasoning for complex math
   - name: physics
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: true  # Enable reasoning for physics
   - name: computer science
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: philosophy
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
   - name: engineering
     model_scores:
-      - model: microsoft/Phi-3-mini-4k-instruct
+      - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
         use_reasoning: false
 
-default_model: microsoft/Phi-3-mini-4k-instruct
+default_model: Qwen/Qwen2-0.5B-Instruct
 
 # Reasoning family configurations
 reasoning_families:
