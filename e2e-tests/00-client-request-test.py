@@ -22,7 +22,7 @@ from test_base import SemanticRouterTestBase
 # Constants
 ENVOY_URL = "http://localhost:8801"
 OPENAI_ENDPOINT = "/v1/chat/completions"
-DEFAULT_MODEL = "microsoft/Phi-3-mini-4k-instruct"  # Use configured model
+DEFAULT_MODEL = "Qwen/Qwen2-0.5B-Instruct"  # Use configured model that matches router config
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 

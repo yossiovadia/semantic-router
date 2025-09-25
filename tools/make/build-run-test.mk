@@ -95,3 +95,47 @@ test-vllm:
 	curl -X POST $(VLLM_ENDPOINT)/v1/chat/completions \
 		-H "Content-Type: application/json" \
 		-d '{"model": "qwen2.5:32b", "messages": [{"role": "assistant", "content": "You are a professional math teacher. Explain math concepts clearly and show step-by-step solutions to problems."}, {"role": "user", "content": "What is the derivative of f(x) = x^3 + 2x^2 - 5x + 7?"}], "temperature": 0.7}' | jq
+
+# ============== E2E Tests ==============
+
+# Start mock vLLM servers for testing (foreground mode for development)
+start-mock-vllm:
+	@echo "Starting mock vLLM servers in foreground mode..."
+	@echo "Press Ctrl+C to stop servers"
+	@./e2e-tests/start-mock-servers.sh
+
+# Start real vLLM servers for testing
+start-vllm:
+	@echo "Starting real vLLM servers..."
+	@./e2e-tests/start-vllm-servers.sh
+
+# Stop real vLLM servers
+stop-vllm:
+	@echo "Stopping real vLLM servers..."
+	@./e2e-tests/stop-vllm-servers.sh
+
+# Run e2e tests with mock vLLM (assumes mock servers already running)
+test-e2e-mock:
+	@echo "Running e2e tests with mock vLLM servers..."
+	@echo "⚠️  Note: Make sure mock servers are running with 'make start-mock-vllm'"
+	@python3 e2e-tests/run_all_tests.py --mock
+
+# Run e2e tests with real vLLM (assumes real servers already running)
+test-e2e-real:
+	@echo "Running e2e tests with real vLLM servers..."
+	@echo "⚠️  Note: Make sure real vLLM servers are running with 'make start-vllm'"
+	@python3 e2e-tests/run_all_tests.py --real
+
+
+# Note: Automated tests not supported with foreground-only mock servers
+# Use the manual workflow: make start-mock-vllm in one terminal, then run tests in another
+
+# Full automated test with cleanup (for CI/CD)
+test-e2e-real-automated: start-vllm
+	@echo "Running automated e2e tests with real vLLM servers..."
+	@sleep 5
+	@python3 e2e-tests/run_all_tests.py --real || ($(MAKE) stop-vllm && exit 1)
+	@$(MAKE) stop-vllm
+
+# Run all e2e tests (both mock and real)
+test-e2e-all: test-e2e-mock test-e2e-real
