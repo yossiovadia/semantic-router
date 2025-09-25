@@ -2,22 +2,18 @@ bert_model:
   model_id: sentence-transformers/all-MiniLM-L12-v2
   threshold: 0.6
   use_cpu: true
-
 semantic_cache:
   enabled: true
   backend_type: "memory"  # Options: "memory" or "milvus"
   similarity_threshold: 0.8
   max_entries: 1000  # Only applies to memory backend
   ttl_seconds: 3600
-  eviction_policy: "fifo"  
-
 tools:
-  enabled: true
-  top_k: 3
-  similarity_threshold: 0.2
+  enabled: true  # Set to true to enable automatic tool selection
+  top_k: 3        # Number of most relevant tools to select
+  similarity_threshold: 0.2  # Threshold for tool similarity
   tools_db_path: "config/tools_db.json"
-  fallback_to_empty: true
-
+  fallback_to_empty: true  # If true, return no tools on failure; if false, return error
 prompt_guard:
   enabled: true
   use_modernbert: true
@@ -26,13 +22,20 @@ prompt_guard:
   use_cpu: true
   jailbreak_mapping_path: "models/jailbreak_classifier_modernbert-base_model/jailbreak_type_mapping.json"
 
-# vLLM Endpoints Configuration (single Qwen model)
+# vLLM Endpoints Configuration - mock servers for testing
 vllm_endpoints:
   - name: "qwen-endpoint"
     address: "127.0.0.1"
     port: 8000
     models:
       - "Qwen/Qwen2-0.5B-Instruct"
+    weight: 1
+    health_check_path: "/health"
+  - name: "tinyllama-endpoint"
+    address: "127.0.0.1"
+    port: 8001
+    models:
+      - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     weight: 1
     health_check_path: "/health"
 
@@ -42,9 +45,14 @@ model_config:
     preferred_endpoints: ["qwen-endpoint"]
     pii_policy:
       allow_by_default: true
-      allowed_types: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
+      pii_types_allowed: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
+  "TinyLlama/TinyLlama-1.1B-Chat-v1.0":
+    preferred_endpoints: ["tinyllama-endpoint"]
+    pii_policy:
+      allow_by_default: true
+      pii_types_allowed: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
 
-# Classifier configuration
+# Classifier configuration for text classification
 classifier:
   category_model:
     model_id: "models/category_classifier_modernbert-base_model"
@@ -58,83 +66,141 @@ classifier:
     threshold: 0.7
     use_cpu: true
     pii_mapping_path: "models/pii_classifier_modernbert-base_presidio_token_model/pii_type_mapping.json"
-
-# Categories with new use_reasoning field structure
 categories:
   - name: business
+    use_reasoning: false
+    reasoning_description: "Business content is typically conversational"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false  # Business performs better without reasoning
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.4
   - name: law
+    use_reasoning: false
+    reasoning_description: "Legal content is typically explanatory"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: psychology
+    use_reasoning: false
+    reasoning_description: "Psychology content is usually explanatory"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.4
   - name: biology
+    use_reasoning: true
+    reasoning_description: "Biological processes benefit from structured analysis"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: chemistry
+    use_reasoning: true
+    reasoning_description: "Chemical reactions and formulas require systematic thinking"
+    reasoning_effort: high
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: true  # Enable reasoning for complex chemistry
+        use_reasoning: true
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: history
+    use_reasoning: false
+    reasoning_description: "Historical content is narrative-based"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: other
+    use_reasoning: false
+    reasoning_description: "General content doesn't require reasoning"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: health
+    use_reasoning: false
+    reasoning_description: "Health information is typically informational"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.8
   - name: economics
+    use_reasoning: false
+    reasoning_description: "Economic discussions are usually explanatory"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.8
   - name: math
+    use_reasoning: true
+    reasoning_description: "Mathematical problems require step-by-step reasoning"
+    reasoning_effort: high
     model_scores:
-      - model: Qwen/Qwen2-0.5B-Instruct
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
         score: 1.0
-        use_reasoning: true  # Enable reasoning for complex math
+      - model: Qwen/Qwen2-0.5B-Instruct
+        score: 0.8
+        use_reasoning: true
   - name: physics
+    use_reasoning: true
+    reasoning_description: "Physics concepts need logical analysis"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: true  # Enable reasoning for physics
+        use_reasoning: true
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.4
   - name: computer science
+    use_reasoning: true
+    reasoning_description: "Programming and algorithms need logical reasoning"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: philosophy
+    use_reasoning: false
+    reasoning_description: "Philosophical discussions are conversational"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
   - name: engineering
+    use_reasoning: true
+    reasoning_description: "Engineering problems require systematic problem-solving"
     model_scores:
       - model: Qwen/Qwen2-0.5B-Instruct
         score: 1.0
-        use_reasoning: false
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        score: 0.6
 
 default_model: Qwen/Qwen2-0.5B-Instruct
 
-# Reasoning family configurations
+# API Configuration
+api:
+  batch_classification:
+    # Metrics configuration for monitoring batch classification performance
+    metrics:
+      enabled: true              # Enable comprehensive metrics collection
+      detailed_goroutine_tracking: true  # Track individual goroutine lifecycle
+      high_resolution_timing: false      # Use nanosecond precision timing
+      sample_rate: 1.0                   # Collect metrics for all requests (1.0 = 100%, 0.5 = 50%)
+      # Histogram buckets for metrics (directly configure what you need)
+      duration_buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30]
+      size_buckets: [1, 2, 5, 10, 20, 50, 100, 200]
+
+# Reasoning family configurations - define how different model families handle reasoning syntax
 reasoning_families:
   deepseek:
     type: "chat_template_kwargs"
@@ -147,23 +213,10 @@ reasoning_families:
   gpt-oss:
     type: "reasoning_effort"
     parameter: "reasoning_effort"
+
   gpt:
     type: "reasoning_effort"
     parameter: "reasoning_effort"
 
 # Global default reasoning effort level
-default_reasoning_effort: high
-
-# API Configuration
-api:
-  batch_classification:
-    max_batch_size: 100
-    concurrency_threshold: 5
-    max_concurrency: 8
-    metrics:
-      enabled: true
-      detailed_goroutine_tracking: true
-      high_resolution_timing: false
-      sample_rate: 1.0
-      duration_buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30]
-      size_buckets: [1, 2, 5, 10, 20, 50, 100, 200]
+default_reasoning_effort: medium  # Default reasoning effort level (low, medium, high)
