@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-katan"
-version = "0.1.4"
+version = "0.1.6"
 description = "LLM Katan - Lightweight LLM Server for Testing - Real tiny models with FastAPI and HuggingFace"
 readme = "README.md"
 authors = [
@@ -13,7 +13,7 @@ authors = [
 maintainers = [
     {name = "Yossi Ovadia", email = "yovadia@redhat.com"}
 ]
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.8"
 keywords = ["llm", "testing", "fastapi", "huggingface", "vllm", "ai", "ml"]
 classifiers = [
