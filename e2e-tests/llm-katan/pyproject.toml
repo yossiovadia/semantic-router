@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-katan"
-version = "0.1.6"
+version = "0.1.7"
 description = "LLM Katan - Lightweight LLM Server for Testing - Real tiny models with FastAPI and HuggingFace"
 readme = "README.md"
 authors = [
@@ -19,7 +19,7 @@ keywords = ["llm", "testing", "fastapi", "huggingface", "vllm", "ai", "ml"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
