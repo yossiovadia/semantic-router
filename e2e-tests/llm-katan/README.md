@@ -66,13 +66,21 @@ llm-katan --model Qwen/Qwen3-0.6B --port 8000 --backend vllm
 
 ### Multi-Instance Testing
 
-```bash
-# Terminal 1: Qwen endpoint
-llm-katan --model Qwen/Qwen3-0.6B --port 8000 --served-model-name "Qwen/Qwen2-0.5B-Instruct"
+**🎬 [Live Demo](./terminal-demo.html)** - See this in action with animated terminals!
 
-# Terminal 2: Same model, different name
-llm-katan --model Qwen/Qwen3-0.6B --port 8001 --served-model-name "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+```bash
+# Terminal 1: Mock GPT-3.5-Turbo
+llm-katan --model Qwen/Qwen3-0.6B --port 8000 --served-model-name "gpt-3.5-turbo"
+
+# Terminal 2: Mock Claude-3-Haiku
+llm-katan --model Qwen/Qwen3-0.6B --port 8001 --served-model-name "claude-3-haiku"
+
+# Terminal 3: Test both endpoints
+curl http://localhost:8000/v1/models  # Returns "gpt-3.5-turbo"
+curl http://localhost:8001/v1/models  # Returns "claude-3-haiku"
 ```
+
+**Perfect for testing multi-provider scenarios with one tiny model!**
 
 ## API Endpoints
 
@@ -116,10 +124,24 @@ curl http://127.0.0.1:8000/health
 
 ## Use Cases
 
-- **Testing**: Lightweight alternative to full LLM deployments
-- **Development**: Fast iteration with real model behavior
-- **CI/CD**: Automated testing with actual inference
-- **Prototyping**: Quick setup for AI application development
+### Strengths
+- **Fastest time-to-test**: 30 seconds from install to running
+- **Minimal resource footprint**: Designed for tiny models and efficient testing
+- **No GPU required**: Runs on laptops, Macs, and any CPU-only environment
+- **CI/CD integration friendly**: Lightweight and automation-ready
+- **Multiple instances**: Run same model with different names on different ports
+
+### Ideal For
+- **Automated testing pipelines**: Quick LLM endpoint setup for test suites
+- **Development environment mocking**: Real inference without production overhead
+- **Quick prototyping**: Fast iteration with actual model behavior
+- **Educational/learning scenarios**: Easy setup for AI development learning
+
+### Not Ideal For
+- **Production workloads**: Use Ollama or vLLM for production deployments
+- **Large model serving**: Designed for tiny models (< 1B parameters)
+- **Complex multi-agent workflows**: Use Semantic Kernel or similar frameworks
+- **High-performance inference**: Use vLLM or specialized serving solutions
 
 ## Configuration
 
