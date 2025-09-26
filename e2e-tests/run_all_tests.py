@@ -59,7 +59,7 @@ def check_envoy_running():
     try:
         # Simple request with minimal content
         payload = {
-            "model": "gemma3:27b",
+            "model": "Qwen/Qwen2-0.5B-Instruct",
             "messages": [{"role": "user", "content": "test"}],
         }
         response = requests.post(
