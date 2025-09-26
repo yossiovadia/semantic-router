@@ -66,7 +66,40 @@ llm-katan --model Qwen/Qwen3-0.6B --port 8000 --backend vllm
 
 ### Multi-Instance Testing
 
-**🎬 [Live Demo](./terminal-demo.html)** - See this in action with animated terminals!
+**🎬 [Live Demo](https://yossiovadia.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - See this in action with animated terminals!
+
+> *Note: If GitHub Pages isn't enabled, you can also [download and open the demo locally](./terminal-demo.html)*
+
+<details>
+<summary>📺 Preview (click to expand)</summary>
+
+```bash
+# Terminal 1: Installing and starting GPT-3.5-Turbo mock
+$ pip install llm-katan
+Successfully installed llm-katan-0.1.8
+
+$ llm-katan --model Qwen/Qwen3-0.6B --port 8000 --served-model-name "gpt-3.5-turbo"
+🚀 Starting LLM Katan server with model: Qwen/Qwen3-0.6B
+📛 Served model name: gpt-3.5-turbo
+✅ Server running on http://0.0.0.0:8000
+
+# Terminal 2: Starting Claude-3-Haiku mock
+$ llm-katan --model Qwen/Qwen3-0.6B --port 8001 --served-model-name "claude-3-haiku"
+🚀 Starting LLM Katan server with model: Qwen/Qwen3-0.6B
+📛 Served model name: claude-3-haiku
+✅ Server running on http://0.0.0.0:8001
+
+# Terminal 3: Testing both endpoints
+$ curl localhost:8000/v1/models | jq '.data[0].id'
+"gpt-3.5-turbo"
+
+$ curl localhost:8001/v1/models | jq '.data[0].id'
+"claude-3-haiku"
+
+# Same tiny model, different API names! 🎯
+```
+
+</details>
 
 ```bash
 # Terminal 1: Mock GPT-3.5-Turbo
