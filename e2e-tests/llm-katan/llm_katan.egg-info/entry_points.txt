@@ -1,2 +1,0 @@
-[console_scripts]
-llm-katan = llm_katan.cli:main

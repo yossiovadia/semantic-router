@@ -18,6 +18,12 @@ run-router: build-router download-models
 	@export LD_LIBRARY_PATH=${PWD}/candle-binding/target/release && \
 		./bin/router -config=${CONFIG_FILE}
 
+# Run the router with e2e config for testing
+run-router-e2e: build-router download-models
+	@echo "Running router with e2e config: config/config.e2e.yaml"
+	@export LD_LIBRARY_PATH=${PWD}/candle-binding/target/release && \
+		./bin/router -config=config/config.e2e.yaml
+
 # Unit test semantic-router
 # By default, Milvus tests are skipped. To enable them, set SKIP_MILVUS_TESTS=false
 # Example: make test-semantic-router SKIP_MILVUS_TESTS=false
@@ -101,7 +107,13 @@ test-vllm:
 
 # ============== E2E Tests ==============
 
-# Start mock vLLM servers for testing (foreground mode for development)
+# Start LLM Katan servers for e2e testing (foreground mode for development)
+start-llm-katan:
+	@echo "Starting LLM Katan servers in foreground mode..."
+	@echo "Press Ctrl+C to stop servers"
+	@./e2e-tests/start-llm-katan.sh
+
+# Legacy: Start mock vLLM servers for testing (foreground mode for development)
 start-mock-vllm:
 	@echo "Starting mock vLLM servers in foreground mode..."
 	@echo "Press Ctrl+C to stop servers"
@@ -117,7 +129,13 @@ stop-vllm:
 	@echo "Stopping real vLLM servers..."
 	@./e2e-tests/stop-vllm-servers.sh
 
-# Run e2e tests with mock vLLM (assumes mock servers already running)
+# Run e2e tests with LLM Katan (lightweight real models)
+test-e2e-vllm:
+	@echo "Running e2e tests with LLM Katan servers..."
+	@echo "⚠️  Note: Make sure LLM Katan servers are running with 'make start-llm-katan'"
+	@python3 e2e-tests/run_all_tests.py
+
+# Legacy: Run e2e tests with mock vLLM (assumes mock servers already running)
 test-e2e-mock:
 	@echo "Running e2e tests with mock vLLM servers..."
 	@echo "⚠️  Note: Make sure mock servers are running with 'make start-mock-vllm'"
@@ -131,7 +149,7 @@ test-e2e-real:
 
 
 # Note: Automated tests not supported with foreground-only mock servers
-# Use the manual workflow: make start-mock-vllm in one terminal, then run tests in another
+# Use the manual workflow: make start-llm-katan in one terminal, then run tests in another
 
 # Full automated test with cleanup (for CI/CD)
 test-e2e-real-automated: start-vllm
@@ -140,5 +158,5 @@ test-e2e-real-automated: start-vllm
 	@python3 e2e-tests/run_all_tests.py --real || ($(MAKE) stop-vllm && exit 1)
 	@$(MAKE) stop-vllm
 
-# Run all e2e tests (both mock and real)
-test-e2e-all: test-e2e-mock test-e2e-real
+# Run all e2e tests (LLM Katan, mock and real)
+test-e2e-all: test-e2e-vllm test-e2e-mock test-e2e-real

@@ -61,6 +61,20 @@ vllm_endpoints:
       - "phi4"  # Same model can be served by multiple endpoints for redundancy
       - "mistral-small3.1"
     weight: 2  # Higher weight for more powerful endpoint
+  - name: "qwen-endpoint"
+    address: "127.0.0.1"
+    port: 8000
+    models:
+      - "Qwen/Qwen2-0.5B-Instruct"
+    weight: 1
+    health_check_path: "/health"
+  - name: "tinyllama-endpoint"
+    address: "127.0.0.1"
+    port: 8001
+    models:
+      - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    weight: 1
+    health_check_path: "/health"
 
 model_config:
   phi4:
@@ -113,6 +127,17 @@ model_config:
       allow_by_default: false  # Deny all PII by default
       pii_types_allowed: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]  # Only allow these specific PII types
     preferred_endpoints: ["endpoint2", "endpoint3"]
+  "Qwen/Qwen2-0.5B-Instruct":
+    reasoning_family: "qwen3"  # This model uses Qwen reasoning syntax
+    preferred_endpoints: ["qwen-endpoint"]
+    pii_policy:
+      allow_by_default: true
+      pii_types_allowed: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
+  "TinyLlama/TinyLlama-1.1B-Chat-v1.0":
+    preferred_endpoints: ["tinyllama-endpoint"]
+    pii_policy:
+      allow_by_default: true
+      pii_types_allowed: ["EMAIL_ADDRESS", "PERSON", "GPE", "PHONE_NUMBER"]
 
 # Classifier configuration for text classification
 classifier:
@@ -226,8 +251,10 @@ categories:
     reasoning_description: "Mathematical problems require step-by-step reasoning"
     reasoning_effort: high  # Math problems need high reasoning effort
     model_scores:
-      - model: phi4
+      - model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
         score: 1.0
+      - model: phi4
+        score: 0.9
       - model: mistral-small3.1
         score: 0.8
       - model: gemma3:27b
