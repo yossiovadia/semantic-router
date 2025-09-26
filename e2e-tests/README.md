@@ -39,13 +39,17 @@ This test suite provides a progressive approach to testing the Semantic Router, 
 
 ## Running Tests
 
-### Development Workflow (Mock vLLM - Recommended)
+### Development Workflow (LLM Katan - Recommended)
 
-For fast development and testing without GPU requirements:
+For fast development and testing with real tiny models (no GPU required):
 
 ```bash
-# Terminal 1: Start mock vLLM servers (shows request logs, Ctrl+C to stop)
-make start-mock-vllm
+# Terminal 1: Start LLM Katan servers (shows request logs, Ctrl+C to stop)
+./e2e-tests/start-llm-katan.sh
+
+# Or manually start individual servers:
+llm-katan --model Qwen/Qwen3-0.6B --port 8000 --served-model-name "Qwen/Qwen2-0.5B-Instruct"
+llm-katan --model Qwen/Qwen3-0.6B --port 8001 --served-model-name "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 # Terminal 2: Start Envoy proxy
 make run-envoy
@@ -55,10 +59,10 @@ make run-router
 
 # Terminal 4: Run tests
 python e2e-tests/00-client-request-test.py    # Individual test
-python e2e-tests/run_all_tests.py --mock     # All available tests
+python e2e-tests/run_all_tests.py             # All available tests
 ```
 
-**Note**: The mock servers run in foreground mode, allowing you to see real-time request logs and use Ctrl+C to stop them cleanly.
+**Note**: The LLM Katan servers use real tiny models for actual inference while being lightweight enough for development. The script runs in foreground mode, allowing you to see real-time request logs and use Ctrl+C to stop all servers cleanly.
 
 ### Future: Production Testing (Real vLLM)
 
@@ -76,5 +80,5 @@ python e2e-tests/00-client-request-test.py
 
 Or run all available tests with:
 ```bash
-python e2e-tests/run_all_tests.py --mock
+python e2e-tests/run_all_tests.py
 ```
