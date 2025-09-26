@@ -12,8 +12,8 @@ __version__ = "0.1.4"
 __author__ = "Yossi Ovadia"
 __email__ = "yovadia@redhat.com"
 
-from .server import create_app
-from .model import ModelBackend
 from .cli import main
+from .model import ModelBackend
+from .server import create_app
 
 __all__ = ["create_app", "ModelBackend", "main"]

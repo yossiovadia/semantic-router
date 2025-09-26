@@ -150,8 +150,8 @@ def main(
             sys.exit(1)
 
     try:
-        import transformers  # noqa: F401
         import torch  # noqa: F401
+        import transformers  # noqa: F401
     except ImportError:
         click.echo(
             "❌ Required dependencies missing. "

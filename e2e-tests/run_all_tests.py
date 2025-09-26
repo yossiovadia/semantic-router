@@ -89,8 +89,12 @@ def main():
     )
     parser.add_argument("--pattern", default="*.py", help="Test file pattern to run")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-    parser.add_argument("--mock", action="store_true", help="Running with mock vLLM servers")
-    parser.add_argument("--real", action="store_true", help="Running with real vLLM servers")
+    parser.add_argument(
+        "--mock", action="store_true", help="Running with mock vLLM servers"
+    )
+    parser.add_argument(
+        "--real", action="store_true", help="Running with real vLLM servers"
+    )
     args = parser.parse_args()
 
     # Get the directory where this script is located

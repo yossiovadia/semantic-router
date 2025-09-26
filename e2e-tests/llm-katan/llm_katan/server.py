@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .config import ServerConfig
@@ -78,7 +78,7 @@ metrics = {
     "total_requests": 0,
     "total_tokens_generated": 0,
     "response_times": [],
-    "start_time": time.time()
+    "start_time": time.time(),
 }
 
 
@@ -153,7 +153,9 @@ def create_app(config: ServerConfig) -> FastAPI:
 
         try:
             # Convert messages to dict format
-            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+            messages = [
+                {"role": msg.role, "content": msg.content} for msg in request.messages
+            ]
 
             # Update metrics
             metrics["total_requests"] += 1
@@ -189,7 +191,9 @@ def create_app(config: ServerConfig) -> FastAPI:
                 response_time = time.time() - start_time
                 metrics["response_times"].append(response_time)
                 if "choices" in response and response["choices"]:
-                    generated_text = response["choices"][0].get("message", {}).get("content", "")
+                    generated_text = (
+                        response["choices"][0].get("message", {}).get("content", "")
+                    )
                     token_count = len(generated_text.split())  # Rough token estimate
                     metrics["total_tokens_generated"] += token_count
 
@@ -214,7 +218,8 @@ def create_app(config: ServerConfig) -> FastAPI:
         """Prometheus-style metrics endpoint"""
         avg_response_time = (
             sum(metrics["response_times"]) / len(metrics["response_times"])
-            if metrics["response_times"] else 0.0
+            if metrics["response_times"]
+            else 0.0
         )
 
         uptime = time.time() - metrics["start_time"]

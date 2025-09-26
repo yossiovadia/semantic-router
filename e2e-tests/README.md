@@ -71,14 +71,17 @@ Will be added in future PRs for testing with actual model inference.
 ## Available Tests
 
 Currently implemented:
+
 - **00-client-request-test.py** ✅ - Complete client request validation and smart routing
 
 Individual tests can be run with:
+
 ```bash
 python e2e-tests/00-client-request-test.py
 ```
 
 Or run all available tests with:
+
 ```bash
 python e2e-tests/run_all_tests.py
 ```

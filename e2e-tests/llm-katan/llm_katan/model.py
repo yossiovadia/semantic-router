@@ -58,8 +58,8 @@ class TransformersBackend(ModelBackend):
         logger.info(f"Loading model {self.config.model_name} with transformers backend")
 
         try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
             import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError as e:
             raise ImportError(
                 "transformers and torch are required for TransformersBackend. "
@@ -103,7 +103,9 @@ class TransformersBackend(ModelBackend):
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         max_tokens = max_tokens or self.config.max_tokens
-        temperature = temperature if temperature is not None else self.config.temperature
+        temperature = (
+            temperature if temperature is not None else self.config.temperature
+        )
 
         # Convert messages to prompt
         prompt = self._messages_to_prompt(messages)
@@ -160,7 +162,9 @@ class TransformersBackend(ModelBackend):
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {"content": word + " " if i < len(words) - 1 else word},
+                            "delta": {
+                                "content": word + " " if i < len(words) - 1 else word
+                            },
                             "finish_reason": None,
                         }
                     ],
@@ -264,7 +268,9 @@ class VLLMBackend(ModelBackend):
         from vllm.sampling_params import SamplingParams
 
         max_tokens = max_tokens or self.config.max_tokens
-        temperature = temperature if temperature is not None else self.config.temperature
+        temperature = (
+            temperature if temperature is not None else self.config.temperature
+        )
 
         # Convert messages to prompt
         prompt = self._messages_to_prompt(messages)
@@ -299,7 +305,8 @@ class VLLMBackend(ModelBackend):
             "usage": {
                 "prompt_tokens": len(output.prompt_token_ids),
                 "completion_tokens": len(output.outputs[0].token_ids),
-                "total_tokens": len(output.prompt_token_ids) + len(output.outputs[0].token_ids),
+                "total_tokens": len(output.prompt_token_ids)
+                + len(output.outputs[0].token_ids),
             },
         }
 
@@ -315,7 +322,9 @@ class VLLMBackend(ModelBackend):
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {"content": word + " " if i < len(words) - 1 else word},
+                            "delta": {
+                                "content": word + " " if i < len(words) - 1 else word
+                            },
                             "finish_reason": None,
                         }
                     ],

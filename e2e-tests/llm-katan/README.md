@@ -25,21 +25,25 @@ pip install llm-katan
 #### HuggingFace Token (Required)
 
 LLM Katan uses HuggingFace transformers to download models. You'll need a HuggingFace token for:
+
 - Private models
 - Avoiding rate limits
 - Reliable model downloads
 
 **Option 1: Environment Variable**
+
 ```bash
 export HUGGINGFACE_HUB_TOKEN="your_token_here"
 ```
 
 **Option 2: Login via CLI**
+
 ```bash
 huggingface-cli login
 ```
 
 **Option 3: Token file in home directory**
+
 ```bash
 # Create ~/.cache/huggingface/token file with your token
 echo "your_token_here" > ~/.cache/huggingface/token

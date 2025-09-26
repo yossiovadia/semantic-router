@@ -36,7 +36,9 @@ class ServerConfig:
 
         # Validate backend
         if self.backend not in ["transformers", "vllm"]:
-            raise ValueError(f"Invalid backend: {self.backend}. Must be 'transformers' or 'vllm'")
+            raise ValueError(
+                f"Invalid backend: {self.backend}. Must be 'transformers' or 'vllm'"
+            )
 
     @property
     def device_auto(self) -> str:
@@ -44,6 +46,7 @@ class ServerConfig:
         if self.device == "auto":
             try:
                 import torch
+
                 return "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
                 return "cpu"
