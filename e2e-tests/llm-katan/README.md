@@ -1,8 +1,10 @@
 # LLM Katan - Lightweight LLM Server for Testing
 
-A lightweight LLM serving package using FastAPI and HuggingFace transformers, designed for testing and development with real tiny models.
+A lightweight LLM serving package using FastAPI and HuggingFace transformers,
+designed for testing and development with real tiny models.
 
-> **🎬 [See Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - Interactive terminal showing multi-instance setup in action!
+> **🎬 [See Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)**
+> Interactive terminal showing multi-instance setup in action!
 
 ## Features
 
@@ -26,32 +28,34 @@ pip install llm-katan
 
 #### HuggingFace Token (Required)
 
-LLM Katan uses HuggingFace transformers to download models. You'll need a HuggingFace token for:
+LLM Katan uses HuggingFace transformers to download models.
+You'll need a HuggingFace token for:
 
 - Private models
 - Avoiding rate limits
 - Reliable model downloads
 
-**Option 1: Environment Variable**
+#### Option 1: Environment Variable
 
 ```bash
 export HUGGINGFACE_HUB_TOKEN="your_token_here"
 ```
 
-**Option 2: Login via CLI**
+#### Option 2: Login via CLI
 
 ```bash
 huggingface-cli login
 ```
 
-**Option 3: Token file in home directory**
+#### Option 3: Token file in home directory
 
 ```bash
 # Create ~/.cache/huggingface/token file with your token
 echo "your_token_here" > ~/.cache/huggingface/token
 ```
 
-**Get your token:** Visit [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+**Get your token:**
+Visit [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
 
 ### Basic Usage
 
@@ -68,12 +72,16 @@ llm-katan --model Qwen/Qwen3-0.6B --port 8000 --backend vllm
 
 ### Multi-Instance Testing
 
-**🎬 [Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - See this in action with animated terminals!
+**🎬 [Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)**
+See this in action with animated terminals!
 
-> *Note: If GitHub Pages isn't enabled, you can also [download and open the demo locally](./terminal-demo.html)*
+> *Note: If GitHub Pages isn't enabled, you can also
+> [download and open the demo locally](./terminal-demo.html)*
 
+<!-- markdownlint-disable MD033 -->
 <details>
 <summary>📺 Preview (click to expand)</summary>
+<!-- markdownlint-enable MD033 -->
 
 ```bash
 # Terminal 1: Installing and starting GPT-3.5-Turbo mock
@@ -160,6 +168,7 @@ curl http://127.0.0.1:8000/health
 ## Use Cases
 
 ### Strengths
+
 - **Fastest time-to-test**: 30 seconds from install to running
 - **Minimal resource footprint**: Designed for tiny models and efficient testing
 - **No GPU required**: Runs on laptops, Macs, and any CPU-only environment
@@ -167,12 +176,14 @@ curl http://127.0.0.1:8000/health
 - **Multiple instances**: Run same model with different names on different ports
 
 ### Ideal For
+
 - **Automated testing pipelines**: Quick LLM endpoint setup for test suites
 - **Development environment mocking**: Real inference without production overhead
 - **Quick prototyping**: Fast iteration with actual model behavior
 - **Educational/learning scenarios**: Easy setup for AI development learning
 
 ### Not Ideal For
+
 - **Production workloads**: Use Ollama or vLLM for production deployments
 - **Large model serving**: Designed for tiny models (< 1B parameters)
 - **Complex multi-agent workflows**: Use Semantic Kernel or similar frameworks
@@ -190,7 +201,8 @@ Required:
   -m, --model TEXT              Model name to load (e.g., 'Qwen/Qwen3-0.6B') [required]
 
 Optional:
-  -n, --name, --served-model-name TEXT    Model name to serve via API (defaults to model name)
+  -n, --name, --served-model-name TEXT
+                                Model name to serve via API (defaults to model name)
   -p, --port INTEGER            Port to serve on (default: 8000)
   -h, --host TEXT               Host to bind to (default: 0.0.0.0)
   -b, --backend [transformers|vllm]      Backend to use (default: transformers)
@@ -216,7 +228,8 @@ llm-katan --model Qwen/Qwen3-0.6B --host 127.0.0.1 --port 9000
 
 # Multiple servers with different settings
 llm-katan --model Qwen/Qwen3-0.6B --port 8000 --max-tokens 512 --temperature 0.1
-llm-katan --model Qwen/Qwen3-0.6B --port 8001 --name "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --max-tokens 256 --temperature 0.9
+llm-katan --model Qwen/Qwen3-0.6B --port 8001 \
+  --name "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --max-tokens 256 --temperature 0.9
 ```
 
 ### Environment Variables
