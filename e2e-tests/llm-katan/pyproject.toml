@@ -54,10 +54,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yossiovadia/semantic-router"
-Documentation = "https://github.com/yossiovadia/semantic-router/tree/main/e2e-tests/llm-katan"
-Repository = "https://github.com/yossiovadia/semantic-router.git"
-Issues = "https://github.com/yossiovadia/semantic-router/issues"
+Homepage = "https://github.com/vllm-project/semantic-router"
+Documentation = "https://github.com/vllm-project/semantic-router/tree/main/e2e-tests/llm-katan"
+Repository = "https://github.com/vllm-project/semantic-router.git"
+Issues = "https://github.com/vllm-project/semantic-router/issues"
 
 [project.scripts]
 llm-katan = "llm_katan.cli:main"
