@@ -2,7 +2,9 @@
 
 A lightweight LLM serving package using FastAPI and HuggingFace transformers, designed for testing and development with real tiny models.
 
-> **🎬 [See Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - Interactive terminal showing multi-instance setup in action!
+> **🎬 [See Live Demo](https://yossiovadia.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - Interactive terminal showing multi-instance setup in action!
+>
+> *Preview link using fork - will be updated to main project URL after merge*
 
 ## Features
 
@@ -68,7 +70,7 @@ llm-katan --model Qwen/Qwen3-0.6B --port 8000 --backend vllm
 
 ### Multi-Instance Testing
 
-**🎬 [Live Demo](https://vllm-project.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - See this in action with animated terminals!
+**🎬 [Live Demo](https://yossiovadia.github.io/semantic-router/e2e-tests/llm-katan/terminal-demo.html)** - See this in action with animated terminals!
 
 > *Note: If GitHub Pages isn't enabled, you can also [download and open the demo locally](./terminal-demo.html)*
 
