@@ -1,0 +1,391 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: semantic-router-fixed
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: semantic-router-fixed
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: semantic-router-fixed:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/yossiovadia/semantic-router.git
+      ref: 01-envoy-extproc-test
+    contextDir: .
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.extproc
+  triggers:
+  - type: ConfigChange
+  - type: ImageChange
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: semantic-router-config
+  namespace: vllm-semantic-router-system
+data:
+  config.yaml: |
+    # vLLM Semantic Router Configuration
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      grpc_port: 9000
+      timeout: 30
+      max_concurrent_requests: 100
+      cors:
+        enabled: true
+        origins: ["*"]
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        headers: ["*"]
+
+    # Classification Models Configuration
+    classifier:
+      # Intent/Category Classification Model (ModernBERT-based)
+      category_model:
+        model_id: "microsoft/ModernBERT-base"
+        category_mapping_path: "models/mappings/category_mapping.json"
+        threshold: 0.7
+        max_sequence_length: 512
+        use_cpu: false
+
+      # PII Detection Model (ModernBERT Token Classification)
+      pii_model:
+        model_id: "microsoft/ModernBERT-base"
+        pii_mapping_path: "models/mappings/pii_mapping.json"
+        threshold: 0.7
+        max_sequence_length: 512
+        use_cpu: false
+
+    # Jailbreak/Security Detection
+    prompt_guard:
+      enabled: true
+      jailbreak_mapping_path: "models/mappings/jailbreak_mapping.json"
+      threshold: 0.7
+
+    # BERT Similarity Model for Intent Matching
+    bert_model:
+      model_id: "sentence-transformers/all-MiniLM-L6-v2"
+      threshold: 0.7
+      use_cpu: true
+
+    # Categories for Intent Classification
+    categories:
+      - name: "math"
+        description: "Mathematical questions, calculations, algebra, calculus, geometry"
+        model_scores:
+          - model: "math-specialist"
+            score: 1.0
+            use_reasoning: false
+          - model: "auto"
+            score: 0.5
+            use_reasoning: false
+        examples:
+          - "What is the integral of x squared?"
+          - "Solve for x: 2x + 5 = 15"
+          - "Calculate the derivative of sin(x)"
+          - "What is 15 + 27?"
+          - "Find the area of a circle with radius 5"
+
+      - name: "computer science"
+        description: "Programming, algorithms, data structures, software development"
+        model_scores:
+          - model: "coding-specialist"
+            score: 1.0
+            use_reasoning: false
+          - model: "auto"
+            score: 0.5
+            use_reasoning: false
+        examples:
+          - "Show me a for loop in Java"
+          - "How do I implement a binary search algorithm?"
+          - "Write a Python function to reverse a string"
+          - "Explain object-oriented programming"
+          - "What is a hash table?"
+
+      - name: "physics"
+        description: "Physics concepts, formulas, mechanics, thermodynamics"
+        model_scores:
+          - model: "math-specialist"
+            score: 1.0
+            use_reasoning: false
+          - model: "auto"
+            score: 0.5
+            use_reasoning: false
+        examples:
+          - "What is Newton's second law of motion?"
+          - "Calculate the force needed to accelerate a 10kg object at 5m/s²"
+          - "Explain the photoelectric effect"
+          - "What is the speed of light?"
+          - "How does a capacitor work?"
+
+      - name: "general"
+        description: "General questions that don't fit other categories"
+        model_scores:
+          - model: "auto"
+            score: 1.0
+            use_reasoning: false
+        examples:
+          - "What is the weather like?"
+          - "Tell me a joke"
+          - "What is the capital of France?"
+
+    # Model Routing Configuration
+    routing:
+      # Default model for unclassified requests
+      default_model: "auto"
+
+      # Category to model mapping
+      category_models:
+        math: "math-specialist"
+        "computer science": "coding-specialist"
+        physics: "math-specialist"  # Physics uses math specialist due to mathematical nature
+        general: "auto"
+
+      # Model endpoints configuration
+      models:
+        auto:
+          type: "auto"
+          description: "Automatic model selection"
+
+        math-specialist:
+          type: "vllm"
+          endpoint: "https://math-specialist-vllm-semantic-router-system.apps-crc.testing/v1"
+          model_name: "Qwen/Qwen2.5-Math-1.5B-Instruct"
+          description: "Specialized model for mathematical computations and problem solving"
+
+        coding-specialist:
+          type: "vllm"
+          endpoint: "https://coding-specialist-vllm-semantic-router-system.apps-crc.testing/v1"
+          model_name: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+          description: "Specialized model for coding and programming tasks"
+
+    # API Configuration
+    api:
+      classification:
+        batch_size: 32
+        return_probabilities: true
+        include_explanation: false
+
+      batch_classification:
+        max_batch_size: 100
+        timeout_ms: 30000
+        metrics:
+          enabled: true
+          detailed_goroutine_tracking: false
+          duration_buckets: [0.001, 0.01, 0.1, 1.0, 10.0]
+          size_buckets: [1, 10, 50, 100, 500]
+          batch_size_ranges:
+            - name: "small"
+              min: 1
+              max: 10
+            - name: "medium"
+              min: 11
+              max: 50
+            - name: "large"
+              min: 51
+              max: 100
+          high_resolution_timing: true
+          sample_rate: 1.0
+
+    # Observability
+    observability:
+      logging:
+        level: "info"
+        format: "json"
+        enable_request_logging: true
+
+      metrics:
+        enabled: true
+        endpoint: "/metrics"
+        detailed_metrics: true
+
+      tracing:
+        enabled: false
+        endpoint: ""
+        sample_rate: 0.1
+
+    # Performance Configuration
+    performance:
+      worker_pool_size: 10
+      max_queue_size: 1000
+      request_timeout: "30s"
+      model_cache_size: 3
+
+    # Model Loading Configuration
+    model_loading:
+      parallel_loading: true
+      max_retries: 3
+      retry_delay: "5s"
+      warmup_requests: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: semantic-router
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: semantic-router
+  template:
+    metadata:
+      labels:
+        app: semantic-router
+    spec:
+      containers:
+      - name: semantic-router
+        image: image-registry.openshift-image-registry.svc:5000/vllm-semantic-router-system/semantic-router-fixed:latest
+        ports:
+        - containerPort: 8080
+          name: api
+        - containerPort: 9000
+          name: grpc
+        env:
+        - name: CONFIG_PATH
+          value: /app/config/config.yaml
+        - name: LD_LIBRARY_PATH
+          value: "/app:/app/lib"
+        - name: RUST_LOG
+          value: "info"
+        - name: HF_HOME
+          value: "/app/cache/hf"
+        - name: TRANSFORMERS_CACHE
+          value: "/app/cache/transformers"
+        - name: SENTENCE_TRANSFORMERS_HOME
+          value: "/app/cache/sentence_transformers"
+        - name: XDG_CACHE_HOME
+          value: "/app/cache/xdg"
+        - name: HOME
+          value: "/tmp/home"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: cache-volume
+          mountPath: /app/cache
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: semantic-router-config
+      - name: cache-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: semantic-router
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  selector:
+    app: semantic-router
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 8080
+  - name: grpc
+    port: 9000
+    targetPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: semantic-router-metrics
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  selector:
+    app: semantic-router
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: semantic-router-api
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  to:
+    kind: Service
+    name: semantic-router
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: semantic-router-grpc
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  to:
+    kind: Service
+    name: semantic-router
+  port:
+    targetPort: 9000
+  tls:
+    termination: passthrough
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: semantic-router-metrics
+  namespace: vllm-semantic-router-system
+  labels:
+    app: semantic-router
+spec:
+  to:
+    kind: Service
+    name: semantic-router-metrics
+  port:
+    targetPort: 8080
+  path: /metrics
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

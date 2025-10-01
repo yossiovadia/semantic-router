@@ -1,0 +1,15 @@
+{
+  "labels": ["math", "computer science", "physics", "general"],
+  "id2label": {
+    "0": "math",
+    "1": "computer science",
+    "2": "physics",
+    "3": "general"
+  },
+  "label2id": {
+    "math": 0,
+    "computer science": 1,
+    "physics": 2,
+    "general": 3
+  }
+}

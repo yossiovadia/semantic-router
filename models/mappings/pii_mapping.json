@@ -1,0 +1,21 @@
+{
+  "labels": ["O", "B-PERSON", "I-PERSON", "B-EMAIL", "I-EMAIL", "B-PHONE", "I-PHONE"],
+  "id2label": {
+    "0": "O",
+    "1": "B-PERSON",
+    "2": "I-PERSON",
+    "3": "B-EMAIL",
+    "4": "I-EMAIL",
+    "5": "B-PHONE",
+    "6": "I-PHONE"
+  },
+  "label2id": {
+    "O": 0,
+    "B-PERSON": 1,
+    "I-PERSON": 2,
+    "B-EMAIL": 3,
+    "I-EMAIL": 4,
+    "B-PHONE": 5,
+    "I-PHONE": 6
+  }
+}

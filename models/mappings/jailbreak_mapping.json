@@ -1,0 +1,11 @@
+{
+  "labels": ["safe", "jailbreak"],
+  "id2label": {
+    "0": "safe",
+    "1": "jailbreak"
+  },
+  "label2id": {
+    "safe": 0,
+    "jailbreak": 1
+  }
+}
