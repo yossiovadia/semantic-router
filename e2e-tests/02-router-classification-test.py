@@ -236,7 +236,7 @@ class RouterClassificationTest(SemanticRouterTestBase):
                 400,
                 f"{test_case['name']} request failed with status {response.status_code}",
             )
-            
+
             self.assertEqual(
                 actual_model,
                 expected_model,
@@ -294,8 +294,8 @@ class RouterClassificationTest(SemanticRouterTestBase):
         )
 
         self.assertGreater(
-            metrics_found, 
-            0, 
+            metrics_found,
+            0,
             f"No router metrics found. Expected at least one of: {', '.join(classification_metrics)}"
         )
 
