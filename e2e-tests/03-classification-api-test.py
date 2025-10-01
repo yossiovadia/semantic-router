@@ -132,9 +132,7 @@ class ClassificationAPITest(SemanticRouterTestBase):
 
             if not category_correct:
                 if is_placeholder:
-                    failure_message = (
-                        f"Classification failed: returned placeholder 'general' instead of '{test_case['expected_category']}'"
-                    )
+                    failure_message = f"Classification failed: returned placeholder 'general' instead of '{test_case['expected_category']}'"
                 else:
                     failure_message = (
                         f"Classification incorrect: expected '{test_case['expected_category']}', "
@@ -217,4 +215,3 @@ class ClassificationAPITest(SemanticRouterTestBase):
 
 if __name__ == "__main__":
     unittest.main()
-
