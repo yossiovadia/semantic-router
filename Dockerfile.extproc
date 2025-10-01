@@ -50,6 +50,7 @@ WORKDIR /app
 COPY --from=go-builder /app/bin/router /app/extproc-server
 COPY --from=go-builder /app/candle-binding/target/release/libcandle_semantic_router.so /app/lib/
 COPY config/config.yaml /app/config/
+COPY models/ /app/models/
 
 ENV LD_LIBRARY_PATH=/app/lib
 
