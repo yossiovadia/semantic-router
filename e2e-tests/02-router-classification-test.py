@@ -296,7 +296,7 @@ class RouterClassificationTest(SemanticRouterTestBase):
         self.assertGreater(
             metrics_found,
             0,
-            f"No router metrics found. Expected at least one of: {', '.join(classification_metrics)}"
+            f"No router metrics found. Expected at least one of: {', '.join(classification_metrics)}",
         )
 
 
