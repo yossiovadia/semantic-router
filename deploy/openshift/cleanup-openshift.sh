@@ -152,15 +152,33 @@ validate_prerequisites() {
         exit 1
     fi
 
-    # Check required parameters
+    # Check required parameters - server is only required if not already logged in
     if [[ -z "$OPENSHIFT_SERVER" ]]; then
-        log "ERROR" "OpenShift server URL is required. Use -s option or OPENSHIFT_SERVER env var"
-        exit 1
+        if oc whoami >/dev/null 2>&1; then
+            OPENSHIFT_SERVER=$(oc whoami --show-server 2>/dev/null || echo "")
+            log "INFO" "Auto-detected OpenShift server: $OPENSHIFT_SERVER"
+        else
+            log "ERROR" "Not logged in to OpenShift. Please login first using:"
+            log "INFO" "  oc login <your-openshift-server-url>"
+            log "INFO" ""
+            log "INFO" "Example:"
+            log "INFO" "  oc login https://api.cluster.example.com:6443"
+            log "INFO" ""
+            log "INFO" "After logging in, simply run this script again without any arguments:"
+            log "INFO" "  $0"
+            exit 1
+        fi
     fi
 
+    # Password is only required if we need to login (not already logged in)
     if [[ -z "$OPENSHIFT_PASSWORD" ]]; then
-        log "ERROR" "OpenShift password is required. Use -p option or OPENSHIFT_PASSWORD env var"
-        exit 1
+        if oc whoami >/dev/null 2>&1; then
+            log "INFO" "No password specified, but already logged in as $(oc whoami)"
+        else
+            log "ERROR" "OpenShift password is required when not logged in. Use -p option or OPENSHIFT_PASSWORD env var"
+            log "ERROR" "Or login manually first with: oc login"
+            exit 1
+        fi
     fi
 
     # Validate cleanup level
