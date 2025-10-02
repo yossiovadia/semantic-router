@@ -182,47 +182,32 @@ spec:
           limits:
             memory: "6Gi"
             cpu: "2"
-      # Specialist model containers - simplified approach
+      # Real LLM specialist containers using llm-katan
       - name: math-specialist
-        image: python:3.11-slim
+        image: llm-katan:latest
         ports:
         - containerPort: 8000
           name: http
           protocol: TCP
-        command: ["/bin/bash", "-c"]
+        command: ["llm-katan"]
         args:
-        - |
-          set -e
-          echo "Installing FastAPI for math specialist..."
-          pip install --no-cache-dir --target /tmp/python_packages fastapi uvicorn pydantic
-          export PYTHONPATH="/tmp/python_packages:$PYTHONPATH"
-
-          echo "Starting math specialist on port 8000..."
-          cat > /tmp/math_server.py << 'EOF'
-          import uvicorn
-          from fastapi import FastAPI
-          from pydantic import BaseModel
-
-          app = FastAPI()
-
-          class GenerateRequest(BaseModel):
-              prompt: str
-              max_tokens: int = 100
-
-          @app.post('/v1/completions')
-          async def generate(request: GenerateRequest):
-              response = f'Math specialist response to: {request.prompt}'
-              return {'choices': [{'text': response}], 'model': 'math-specialist'}
-
-          @app.get('/health')
-          async def health():
-              return {'status': 'healthy', 'model': 'math-specialist'}
-
-          if __name__ == '__main__':
-              uvicorn.run(app, host='0.0.0.0', port=8000)
-          EOF
-
-          python /tmp/math_server.py
+        - "--model"
+        - "Qwen/Qwen2.5-0.5B"
+        - "--port"
+        - "8000"
+        - "--name"
+        - "math-specialist"
+        - "--device"
+        - "cpu"
+        - "--max-tokens"
+        - "256"
+        env:
+        - name: HF_HUB_CACHE
+          value: "/tmp/hf_cache"
+        - name: TRANSFORMERS_CACHE
+          value: "/tmp/transformers_cache"
+        - name: HF_HOME
+          value: "/tmp/hf_cache"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -230,53 +215,54 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
             memory: "1Gi"
             cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
       - name: coding-specialist
-        image: python:3.11-slim
+        image: llm-katan:latest
         ports:
         - containerPort: 8001
           name: http
           protocol: TCP
-        command: ["/bin/bash", "-c"]
+        command: ["llm-katan"]
         args:
-        - |
-          set -e
-          echo "Installing FastAPI for coding specialist..."
-          pip install --no-cache-dir --target /tmp/python_packages fastapi uvicorn pydantic
-          export PYTHONPATH="/tmp/python_packages:$PYTHONPATH"
-
-          echo "Starting coding specialist on port 8001..."
-          cat > /tmp/coding_server.py << 'EOF'
-          import uvicorn
-          from fastapi import FastAPI
-          from pydantic import BaseModel
-
-          app = FastAPI()
-
-          class GenerateRequest(BaseModel):
-              prompt: str
-              max_tokens: int = 100
-
-          @app.post('/v1/completions')
-          async def generate(request: GenerateRequest):
-              response = f'Coding specialist response to: {request.prompt}'
-              return {'choices': [{'text': response}], 'model': 'coding-specialist'}
-
-          @app.get('/health')
-          async def health():
-              return {'status': 'healthy', 'model': 'coding-specialist'}
-
-          if __name__ == '__main__':
-              uvicorn.run(app, host='0.0.0.0', port=8001)
-          EOF
-
-          python /tmp/coding_server.py
+        - "--model"
+        - "Qwen/Qwen2.5-Coder-0.5B"
+        - "--port"
+        - "8001"
+        - "--name"
+        - "coding-specialist"
+        - "--device"
+        - "cpu"
+        - "--max-tokens"
+        - "512"
+        env:
+        - name: HF_HUB_CACHE
+          value: "/tmp/hf_cache"
+        - name: TRANSFORMERS_CACHE
+          value: "/tmp/transformers_cache"
+        - name: HF_HOME
+          value: "/tmp/hf_cache"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -284,13 +270,29 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
             memory: "1Gi"
             cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
       volumes:
       - name: config-volume
         configMap:
