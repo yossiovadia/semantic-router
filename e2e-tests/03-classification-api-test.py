@@ -201,11 +201,18 @@ class ClassificationAPITest(SemanticRouterTestBase):
 
             actual_categories.append(actual_category)
 
-            if i < len(expected_categories) and actual_category == expected_categories[i]:
+            if (
+                i < len(expected_categories)
+                and actual_category == expected_categories[i]
+            ):
                 correct_classifications += 1
 
         # Calculate accuracy
-        accuracy = (correct_classifications / len(expected_categories)) * 100 if expected_categories else 0
+        accuracy = (
+            (correct_classifications / len(expected_categories)) * 100
+            if expected_categories
+            else 0
+        )
 
         self.print_response_info(
             response,
@@ -219,7 +226,9 @@ class ClassificationAPITest(SemanticRouterTestBase):
 
         # Print detailed classification results
         print("\n📊 Detailed Classification Results:")
-        for i, (text, expected, actual) in enumerate(zip(texts, expected_categories, actual_categories)):
+        for i, (text, expected, actual) in enumerate(
+            zip(texts, expected_categories, actual_categories)
+        ):
             status = "✅" if expected == actual else "❌"
             print(f"  {i+1}. {status} Expected: {expected:<15} | Actual: {actual:<15}")
             print(f"     Text: {text[:60]}...")
@@ -251,7 +260,7 @@ class ClassificationAPITest(SemanticRouterTestBase):
             accuracy,
             accuracy_threshold,
             f"Classification accuracy too low: {accuracy:.1f}% < {accuracy_threshold}%. "
-            f"Expected: {expected_categories}, Actual: {actual_categories}"
+            f"Expected: {expected_categories}, Actual: {actual_categories}",
         )
 
 
