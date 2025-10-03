@@ -498,14 +498,14 @@ class PIIDetectionTest(SemanticRouterTestBase):
                 "name": "High-Value PII Content",
                 "content": high_value_pii,
                 "expected_pii": True,
-                "expected_action": "May block or route to PII-safe model"
+                "expected_action": "May block or route to PII-safe model",
             },
             {
                 "name": "Safe Content",
                 "content": safe_content,
                 "expected_pii": False,
-                "expected_action": "Should route normally"
-            }
+                "expected_action": "Should route normally",
+            },
         ]
 
         results = []
@@ -546,20 +546,26 @@ class PIIDetectionTest(SemanticRouterTestBase):
                 try:
                     response_json = response.json()
                     if "choices" in response_json:
-                        response_content = response_json["choices"][0]["message"]["content"]
+                        response_content = response_json["choices"][0]["message"][
+                            "content"
+                        ]
                     model_used = response_json.get("model", "unknown")
                 except:
                     response_content = "Could not parse response"
 
             # Check for PII-related routing decisions
             # ExtProc may route PII content to specific models or add safety measures
-            pii_safe_routing = model_used in ["Model-A", "safe-model", "pii-compliant-model"]
+            pii_safe_routing = model_used in [
+                "Model-A",
+                "safe-model",
+                "pii-compliant-model",
+            ]
 
             # Check response quality/safety indicators
             response_looks_safe = (
-                len(response_content) > 50 and
-                "sorry" not in response_content.lower() and
-                "can't help" not in response_content.lower()
+                len(response_content) > 50
+                and "sorry" not in response_content.lower()
+                and "can't help" not in response_content.lower()
             )
 
             # Analyze processing time (PII detection may add latency)
@@ -576,7 +582,9 @@ class PIIDetectionTest(SemanticRouterTestBase):
                 "processing_time_ms": processing_time,
                 "has_extra_processing": has_extra_processing,
                 "response_safe": response_looks_safe,
-                "response_preview": response_content[:100] + "..." if response_content else "No content"
+                "response_preview": (
+                    response_content[:100] + "..." if response_content else "No content"
+                ),
             }
 
             results.append(result)
@@ -595,7 +603,9 @@ class PIIDetectionTest(SemanticRouterTestBase):
 
         # Check for differential behavior between PII and safe content
         differential_routing = pii_test["model_used"] != safe_test["model_used"]
-        differential_processing = abs(pii_test["processing_time_ms"] - safe_test["processing_time_ms"]) > 200
+        differential_processing = (
+            abs(pii_test["processing_time_ms"] - safe_test["processing_time_ms"]) > 200
+        )
         differential_blocking = pii_test["is_blocked"] != safe_test["is_blocked"]
 
         # Overall PII detection indicators
@@ -616,39 +626,54 @@ class PIIDetectionTest(SemanticRouterTestBase):
             response,  # Use last response for HTTP details
             {
                 "Test Cases": len(test_cases),
-                "PII Detection Evidence": "✅ YES" if pii_detection_evidence else "❌ NO",
-                "Detection Indicators": ", ".join(pii_detection_indicators) if pii_detection_indicators else "None found",
+                "PII Detection Evidence": (
+                    "✅ YES" if pii_detection_evidence else "❌ NO"
+                ),
+                "Detection Indicators": (
+                    ", ".join(pii_detection_indicators)
+                    if pii_detection_indicators
+                    else "None found"
+                ),
                 "PII Content Model": pii_test["model_used"],
                 "Safe Content Model": safe_test["model_used"],
                 "Differential Routing": "✅ YES" if differential_routing else "❌ NO",
                 "PII Request Blocked": "✅ YES" if pii_test["is_blocked"] else "❌ NO",
                 "Overall Assessment": (
-                    "✅ PII DETECTION ACTIVE" if pii_detection_evidence
+                    "✅ PII DETECTION ACTIVE"
+                    if pii_detection_evidence
                     else "⚠️ NO CLEAR PII DETECTION"
-                )
-            }
+                ),
+            },
         )
 
         # Print detailed analysis
         print(f"\n📋 Detailed ExtProc PII Analysis:")
         for result in results:
-            status = "🔒" if result["is_blocked"] else "✅" if result["request_allowed"] else "❌"
+            status = (
+                "🔒"
+                if result["is_blocked"]
+                else "✅" if result["request_allowed"] else "❌"
+            )
             print(f"  {status} {result['test_case']}")
             print(f"      Content: {result['content']}")
-            print(f"      Model: {result['model_used']}, Time: {result['processing_time_ms']:.1f}ms")
+            print(
+                f"      Model: {result['model_used']}, Time: {result['processing_time_ms']:.1f}ms"
+            )
             print(f"      Status: {'Blocked' if result['is_blocked'] else 'Allowed'}")
 
         if pii_detection_evidence:
             self.print_test_result(
                 passed=True,
-                message=f"✅ ExtProc PII detection evidence found: {', '.join(pii_detection_indicators)}"
+                message=f"✅ ExtProc PII detection evidence found: {', '.join(pii_detection_indicators)}",
             )
         else:
             self.print_test_result(
                 passed=False,
-                message="⚠️ No clear evidence of ExtProc PII detection in production pipeline"
+                message="⚠️ No clear evidence of ExtProc PII detection in production pipeline",
             )
-            print("📝 NOTE: This may indicate PII detection is not active in ExtProc or")
+            print(
+                "📝 NOTE: This may indicate PII detection is not active in ExtProc or"
+            )
             print("         PII policies are configured to allow all content through")
 
     def test_multiple_pii_types_analysis(self):
