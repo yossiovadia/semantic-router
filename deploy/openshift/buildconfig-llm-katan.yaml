@@ -11,7 +11,7 @@ spec:
     type: Git
     git:
       uri: https://github.com/vllm-project/semantic-router.git
-      ref: openshift-deploy
+      ref: main
     contextDir: .
   strategy:
     type: Docker

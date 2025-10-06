@@ -282,7 +282,7 @@ confirm_cleanup() {
 
     echo ""
     read -p "Are you sure you want to proceed? (yes/no): " confirm
-    if [[ "$confirm" != "yes" ]]; then
+    if [[ "$confirm" != "yes" && "$confirm" != "y" ]]; then
         log "INFO" "Cleanup cancelled by user"
         exit 0
     fi
@@ -377,6 +377,47 @@ cleanup_cluster_wide() {
     log "INFO" "No cluster-wide resources to clean up for semantic router"
 }
 
+# Function to cleanup port forwarding
+cleanup_port_forwarding() {
+    log "INFO" "Cleaning up port forwarding processes..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "INFO" "[DRY RUN] Would kill port forwarding processes for namespace: $NAMESPACE"
+        return 0
+    fi
+
+    # Kill any port forwarding processes for this namespace
+    local pf_pids=$(pgrep -f "oc port-forward.*$NAMESPACE" 2>/dev/null || true)
+    if [[ -n "$pf_pids" ]]; then
+        log "INFO" "Found port forwarding processes: $pf_pids"
+        pkill -f "oc port-forward.*$NAMESPACE" || true
+        sleep 2
+
+        # Verify they're gone
+        local remaining_pids=$(pgrep -f "oc port-forward.*$NAMESPACE" 2>/dev/null || true)
+        if [[ -z "$remaining_pids" ]]; then
+            log "SUCCESS" "Port forwarding processes terminated"
+        else
+            log "WARN" "Some port forwarding processes may still be running: $remaining_pids"
+        fi
+    else
+        log "INFO" "No port forwarding processes found for namespace $NAMESPACE"
+    fi
+
+    # Clean up PID file if it exists
+    if [[ -f "/tmp/semantic-router-port-forward.pid" ]]; then
+        local saved_pid=$(cat /tmp/semantic-router-port-forward.pid 2>/dev/null | grep -o '^[0-9]*' || true)
+        if [[ -n "$saved_pid" ]]; then
+            log "INFO" "Cleaning up saved PID file (PID: $saved_pid)"
+            kill "$saved_pid" 2>/dev/null || true
+        fi
+        rm -f /tmp/semantic-router-port-forward.pid
+        log "INFO" "Removed PID file"
+    fi
+
+    log "SUCCESS" "Port forwarding cleanup completed"
+}
+
 # Function to verify cleanup completion
 verify_cleanup() {
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -421,6 +462,9 @@ main() {
     show_current_resources
     confirm_cleanup
 
+    # Clean up port forwarding first (before deleting resources)
+    cleanup_port_forwarding
+
     case "$CLEANUP_LEVEL" in
         "deployment")
             cleanup_deployment
@@ -439,10 +483,10 @@ main() {
 
     if [[ "$CLEANUP_LEVEL" == "namespace" || "$CLEANUP_LEVEL" == "all" ]]; then
         echo ""
-        log "INFO" "To redeploy the semantic router, you can use:"
-        log "INFO" "  ./deploy-to-openshift.sh -s $OPENSHIFT_SERVER -p [password]"
-        log "INFO" "  or"
-        log "INFO" "  make openshift-deploy-auto OPENSHIFT_SERVER=$OPENSHIFT_SERVER OPENSHIFT_PASSWORD=[password]"
+        log "INFO" "To redeploy the semantic router, simply run:"
+        log "INFO" "  ./deploy-to-openshift.sh"
+        log "INFO" ""
+        log "INFO" "The deploy script will auto-detect your OpenShift server and use your existing login."
     fi
 }
 

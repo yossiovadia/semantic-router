@@ -37,7 +37,7 @@ WAIT_FOR_READY="true"
 CLEANUP_FIRST="false"
 DRY_RUN="false"
 PORT_FORWARD="true"
-PORT_FORWARD_PORTS="8080:8080 8000:8000 8001:8001"
+PORT_FORWARD_PORTS="8080:8080 8000:8000 8001:8001 50051:50051 8801:8801 19000:19000"
 
 # Function to print colored output
 log() {
@@ -348,10 +348,11 @@ deploy_enhanced() {
     log "INFO" "Deploying using Enhanced OpenShift method (with llm-katan specialists)"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "INFO" "[DRY RUN] Would deploy enhanced deployment with 3-container pod:"
-        log "INFO" "[DRY RUN]   - semantic-router (main service)"
+        log "INFO" "[DRY RUN] Would deploy enhanced deployment with 4-container pod:"
+        log "INFO" "[DRY RUN]   - semantic-router (main ExtProc service on port 50051)"
         log "INFO" "[DRY RUN]   - math-specialist (llm-katan on port 8000)"
         log "INFO" "[DRY RUN]   - coding-specialist (llm-katan on port 8001)"
+        log "INFO" "[DRY RUN]   - envoy-proxy (gateway on port 8801)"
         return 0
     fi
 
@@ -360,6 +361,36 @@ deploy_enhanced() {
     # Create namespace first
     oc create namespace "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
     log "SUCCESS" "Namespace $NAMESPACE created/verified"
+
+    # Build llm-katan image if it doesn't exist
+    log "INFO" "Checking for llm-katan image..."
+    if ! oc get imagestream llm-katan -n "$NAMESPACE" &> /dev/null; then
+        log "INFO" "Building llm-katan image from Dockerfile..."
+
+        # Create build config and start build
+        if [[ -f "$script_dir/../../Dockerfile.llm-katan" ]]; then
+            oc new-build --dockerfile - --name llm-katan -n "$NAMESPACE" < "$script_dir/../../Dockerfile.llm-katan"
+        else
+            log "ERROR" "Dockerfile.llm-katan not found. Expected at: $script_dir/../../Dockerfile.llm-katan"
+            exit 1
+        fi
+
+        # Start the build and wait for completion
+        log "INFO" "Starting llm-katan build..."
+        oc start-build llm-katan -n "$NAMESPACE"
+
+        # Wait for build to complete
+        log "INFO" "Waiting for llm-katan build to complete..."
+        if ! oc wait --for=condition=Complete build/llm-katan-1 -n "$NAMESPACE" --timeout=600s; then
+            log "ERROR" "llm-katan build failed or timed out"
+            oc logs build/llm-katan-1 -n "$NAMESPACE" --tail=50
+            exit 1
+        fi
+
+        log "SUCCESS" "llm-katan image built successfully"
+    else
+        log "INFO" "llm-katan image already exists, skipping build"
+    fi
 
     # Create PVC
     log "INFO" "Creating PVC..."
@@ -391,6 +422,12 @@ EOF
         oc create configmap semantic-router-config -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
     fi
 
+    # Create Envoy ConfigMap using OpenShift-specific configuration
+    log "INFO" "Creating Envoy ConfigMap with OpenShift-specific configuration..."
+    oc create configmap envoy-config \
+        --from-file=envoy.yaml="$script_dir/envoy-openshift.yaml" \
+        -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+
     # Apply the enhanced deployment
     log "INFO" "Applying enhanced deployment with llm-katan specialists..."
     oc apply -f "$script_dir/deployment.yaml" -n "$NAMESPACE"
@@ -412,6 +449,12 @@ spec:
   - name: api
     port: 8080
     targetPort: 8080
+  - name: envoy-http
+    port: 8801
+    targetPort: 8801
+  - name: envoy-admin
+    port: 19000
+    targetPort: 19000
   - name: math-specialist
     port: 8000
     targetPort: 8000
@@ -477,6 +520,32 @@ spec:
     name: semantic-router-metrics
   port:
     targetPort: metrics
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: envoy-http
+  labels:
+    app: semantic-router
+spec:
+  to:
+    kind: Service
+    name: semantic-router
+  port:
+    targetPort: envoy-http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: envoy-admin
+  labels:
+    app: semantic-router
+spec:
+  to:
+    kind: Service
+    name: semantic-router
+  port:
+    targetPort: envoy-admin
 EOF
 
     log "SUCCESS" "Enhanced deployment applied successfully"

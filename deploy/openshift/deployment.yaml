@@ -184,30 +184,25 @@ spec:
             cpu: "2"
       # Real LLM specialist containers using llm-katan
       - name: math-specialist
-        image: llm-katan:latest
+        image: image-registry.openshift-image-registry.svc:5000/vllm-semantic-router-system/llm-katan:latest
         ports:
         - containerPort: 8000
           name: http
           protocol: TCP
         command: ["llm-katan"]
-        args:
-        - "--model"
-        - "Qwen/Qwen2.5-0.5B"
-        - "--port"
-        - "8000"
-        - "--served-model-name"
-        - "math-specialist"
-        - "--device"
-        - "cpu"
-        - "--max-tokens"
-        - "256"
+        args: ["--model", "Qwen/Qwen2.5-0.5B", "--port", "8000", "--served-model-name", "math-specialist", "--device", "cpu", "--max-tokens", "256"]
         env:
         - name: HF_HUB_CACHE
-          value: "/tmp/hf_cache"
+          value: "/app/cache/hf"
         - name: TRANSFORMERS_CACHE
-          value: "/tmp/transformers_cache"
+          value: "/app/cache/transformers"
         - name: HF_HOME
-          value: "/tmp/hf_cache"
+          value: "/app/cache/hf"
+        - name: HOME
+          value: "/tmp/home"
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /app/cache
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -219,50 +214,45 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 120
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
-          failureThreshold: 3
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 5
         resources:
           requests:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "500m"
           limits:
-            memory: "2Gi"
+            memory: "4Gi"
             cpu: "1"
       - name: coding-specialist
-        image: llm-katan:latest
+        image: image-registry.openshift-image-registry.svc:5000/vllm-semantic-router-system/llm-katan:latest
         ports:
         - containerPort: 8001
           name: http
           protocol: TCP
         command: ["llm-katan"]
-        args:
-        - "--model"
-        - "Qwen/Qwen2.5-0.5B"
-        - "--port"
-        - "8001"
-        - "--served-model-name"
-        - "coding-specialist"
-        - "--device"
-        - "cpu"
-        - "--max-tokens"
-        - "512"
+        args: ["--model", "Qwen/Qwen2.5-0.5B", "--port", "8001", "--served-model-name", "coding-specialist", "--device", "cpu", "--max-tokens", "512"]
         env:
         - name: HF_HUB_CACHE
-          value: "/tmp/hf_cache"
+          value: "/app/cache/hf"
         - name: TRANSFORMERS_CACHE
-          value: "/tmp/transformers_cache"
+          value: "/app/cache/transformers"
         - name: HF_HOME
-          value: "/tmp/hf_cache"
+          value: "/app/cache/hf"
+        - name: HOME
+          value: "/tmp/home"
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /app/cache
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -274,29 +264,79 @@ spec:
           httpGet:
             path: /health
             port: 8001
-          initialDelaySeconds: 120
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
-          failureThreshold: 3
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /health
             port: 8001
           initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1"
+      # Envoy proxy container
+      - name: envoy-proxy
+        image: envoyproxy/envoy:v1.35.3
+        ports:
+        - containerPort: 8801
+          name: envoy-http
+          protocol: TCP
+        - containerPort: 19000
+          name: envoy-admin
+          protocol: TCP
+        command: ["/usr/local/bin/envoy"]
+        args: ["-c", "/etc/envoy/envoy.yaml", "--component-log-level", "ext_proc:trace,router:trace,http:trace"]
+        env:
+        - name: loglevel
+          value: "trace"
+        volumeMounts:
+        - name: envoy-config-volume
+          mountPath: /etc/envoy
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          tcpSocket:
+            port: 8801
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8801
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 10
           failureThreshold: 3
         resources:
           requests:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "256Mi"
+            cpu: "250m"
           limits:
-            memory: "2Gi"
-            cpu: "1"
+            memory: "512Mi"
+            cpu: "500m"
       volumes:
       - name: config-volume
         configMap:
           name: semantic-router-config
+      - name: envoy-config-volume
+        configMap:
+          name: envoy-config
       - name: models-volume
         persistentVolumeClaim:
           claimName: semantic-router-models
