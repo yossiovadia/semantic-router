@@ -103,9 +103,7 @@ class TransformersBackend(ModelBackend):
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
         max_tokens = max_tokens or self.config.max_tokens
-        temperature = (
-            temperature if temperature is not None else self.config.temperature
-        )
+        temperature = temperature if temperature is not None else self.config.temperature
 
         # Convert messages to prompt
         prompt = self._messages_to_prompt(messages)
@@ -136,10 +134,12 @@ class TransformersBackend(ModelBackend):
             "object": "chat.completion",
             "created": int(time.time()),
             "model": self.config.served_model_name,
+            "system_fingerprint": "llm-katan-transformers",
             "choices": [
                 {
                     "index": 0,
                     "message": {"role": "assistant", "content": generated_text},
+                    "logprobs": None,
                     "finish_reason": "stop",
                 }
             ],
@@ -147,8 +147,13 @@ class TransformersBackend(ModelBackend):
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
+                "prompt_tokens_details": {"cached_tokens": 0},
+                "completion_tokens_details": {"reasoning_tokens": 0},
             },
         }
+
+        # Add token_usage as alias for better SDK compatibility
+        response_data["token_usage"] = response_data["usage"]
 
         if stream:
             # For streaming, yield chunks
@@ -159,12 +164,12 @@ class TransformersBackend(ModelBackend):
                     "object": "chat.completion.chunk",
                     "created": response_data["created"],
                     "model": self.config.served_model_name,
+                    "system_fingerprint": "llm-katan-transformers",
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {
-                                "content": word + " " if i < len(words) - 1 else word
-                            },
+                            "delta": {"content": word + " " if i < len(words) - 1 else word},
+                            "logprobs": None,
                             "finish_reason": None,
                         }
                     ],
@@ -178,7 +183,15 @@ class TransformersBackend(ModelBackend):
                 "object": "chat.completion.chunk",
                 "created": response_data["created"],
                 "model": self.config.served_model_name,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "system_fingerprint": "llm-katan-transformers",
+                "choices": [{"index": 0, "delta": {}, "logprobs": None, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                    "prompt_tokens_details": {"cached_tokens": 0},
+                    "completion_tokens_details": {"reasoning_tokens": 0},
+                },
             }
             yield final_chunk
         else:
@@ -268,9 +281,7 @@ class VLLMBackend(ModelBackend):
         from vllm.sampling_params import SamplingParams
 
         max_tokens = max_tokens or self.config.max_tokens
-        temperature = (
-            temperature if temperature is not None else self.config.temperature
-        )
+        temperature = temperature if temperature is not None else self.config.temperature
 
         # Convert messages to prompt
         prompt = self._messages_to_prompt(messages)
@@ -282,9 +293,7 @@ class VLLMBackend(ModelBackend):
 
         # Generate
         loop = asyncio.get_event_loop()
-        outputs = await loop.run_in_executor(
-            None, self.engine.generate, [prompt], sampling_params
-        )
+        outputs = await loop.run_in_executor(None, self.engine.generate, [prompt], sampling_params)
 
         output = outputs[0]
         generated_text = output.outputs[0].text.strip()
@@ -295,20 +304,26 @@ class VLLMBackend(ModelBackend):
             "object": "chat.completion",
             "created": int(time.time()),
             "model": self.config.served_model_name,
+            "system_fingerprint": "llm-katan-vllm",
             "choices": [
                 {
                     "index": 0,
                     "message": {"role": "assistant", "content": generated_text},
+                    "logprobs": None,
                     "finish_reason": "stop",
                 }
             ],
             "usage": {
                 "prompt_tokens": len(output.prompt_token_ids),
                 "completion_tokens": len(output.outputs[0].token_ids),
-                "total_tokens": len(output.prompt_token_ids)
-                + len(output.outputs[0].token_ids),
+                "total_tokens": len(output.prompt_token_ids) + len(output.outputs[0].token_ids),
+                "prompt_tokens_details": {"cached_tokens": 0},
+                "completion_tokens_details": {"reasoning_tokens": 0},
             },
         }
+
+        # Add token_usage as alias for better SDK compatibility
+        response_data["token_usage"] = response_data["usage"]
 
         if stream:
             # For streaming, yield chunks (simplified for now)
@@ -319,12 +334,12 @@ class VLLMBackend(ModelBackend):
                     "object": "chat.completion.chunk",
                     "created": response_data["created"],
                     "model": self.config.served_model_name,
+                    "system_fingerprint": "llm-katan-vllm",
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {
-                                "content": word + " " if i < len(words) - 1 else word
-                            },
+                            "delta": {"content": word + " " if i < len(words) - 1 else word},
+                            "logprobs": None,
                             "finish_reason": None,
                         }
                     ],
@@ -338,7 +353,15 @@ class VLLMBackend(ModelBackend):
                 "object": "chat.completion.chunk",
                 "created": response_data["created"],
                 "model": self.config.served_model_name,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "system_fingerprint": "llm-katan-vllm",
+                "choices": [{"index": 0, "delta": {}, "logprobs": None, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": len(output.prompt_token_ids),
+                    "completion_tokens": len(output.outputs[0].token_ids),
+                    "total_tokens": len(output.prompt_token_ids) + len(output.outputs[0].token_ids),
+                    "prompt_tokens_details": {"cached_tokens": 0},
+                    "completion_tokens_details": {"reasoning_tokens": 0},
+                },
             }
             yield final_chunk
         else:
