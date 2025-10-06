@@ -19,11 +19,13 @@ oc apply -k deploy/openshift/
 ### Step-by-Step Deployment
 
 1. **Create namespace:**
+
    ```bash
    oc apply -f deploy/openshift/namespace.yaml
    ```
 
 2. **Deploy core resources:**
+
    ```bash
    oc apply -f deploy/openshift/pvc.yaml
    oc apply -f deploy/openshift/deployment.yaml
@@ -31,6 +33,7 @@ oc apply -k deploy/openshift/
    ```
 
 3. **Create external routes:**
+
    ```bash
    oc apply -f deploy/openshift/routes.yaml
    ```
@@ -70,16 +73,19 @@ curl -X POST https://$API_ROUTE/api/v1/classify/intent \
 ## Architecture Differences from Kubernetes
 
 ### Security Context
+
 - Removed `runAsNonRoot: false` for OpenShift compatibility
 - Enhanced security context with `capabilities.drop: ALL` and `seccompProfile`
 - OpenShift automatically enforces non-root containers
 
 ### Networking
+
 - Uses OpenShift Routes instead of port-forwarding for external access
 - TLS termination handled by OpenShift router
 - Automatic HTTPS certificates via OpenShift
 
 ### Storage
+
 - Uses OpenShift's default storage class
 - PVC automatically bound to available storage
 
@@ -133,17 +139,20 @@ oc delete -f deploy/openshift/namespace.yaml
 ### Common Issues
 
 **1. Pod fails to start due to security context:**
+
 ```bash
 oc describe pod -l app=semantic-router -n vllm-semantic-router-system
 ```
 
 **2. Storage issues:**
+
 ```bash
 oc get pvc -n vllm-semantic-router-system
 oc describe pvc semantic-router-models -n vllm-semantic-router-system
 ```
 
 **3. Route not accessible:**
+
 ```bash
 oc get routes -n vllm-semantic-router-system
 oc describe route semantic-router-api -n vllm-semantic-router-system
@@ -152,6 +161,7 @@ oc describe route semantic-router-api -n vllm-semantic-router-system
 ### Resource Requirements
 
 The deployment requires:
+
 - **Memory**: 3Gi request, 6Gi limit
 - **CPU**: 1 core request, 2 cores limit
 - **Storage**: 10Gi for model storage
