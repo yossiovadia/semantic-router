@@ -160,7 +160,9 @@ def create_app(config: ServerConfig) -> FastAPI:
 
         try:
             # Convert messages to dict format
-            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+            messages = [
+                {"role": msg.role, "content": msg.content} for msg in request.messages
+            ]
 
             # Update metrics
             metrics["total_requests"] += 1
@@ -201,7 +203,9 @@ def create_app(config: ServerConfig) -> FastAPI:
                 response_time = time.time() - start_time
                 metrics["response_times"].append(response_time)
                 if "choices" in response and response["choices"]:
-                    generated_text = response["choices"][0].get("message", {}).get("content", "")
+                    generated_text = (
+                        response["choices"][0].get("message", {}).get("content", "")
+                    )
                     token_count = len(generated_text.split())  # Rough token estimate
                     metrics["total_tokens_generated"] += token_count
 
