@@ -773,21 +773,21 @@ show_deployment_info() {
     fi
 
     if [[ -n "$api_route" ]]; then
-        echo "Classification API: https://$api_route"
-        echo "Health Check: https://$api_route/health"
+        echo "Classification API: http://$api_route"
+        echo "Health Check: http://$api_route/health"
     fi
     if [[ -n "$grpc_route" ]]; then
-        echo "gRPC API: https://$grpc_route"
+        echo "gRPC API: http://$grpc_route"
     fi
     if [[ -n "$metrics_route" ]]; then
-        echo "Metrics: https://$metrics_route/metrics"
+        echo "Metrics: http://$metrics_route/metrics"
     fi
 
     echo ""
     echo "=== Quick Test Commands ==="
     if [[ -n "$api_route" ]]; then
-        echo "curl -k https://$api_route/health"
-        echo "curl -k -X POST https://$api_route/api/v1/classify/intent -H 'Content-Type: application/json' -d '{\"text\": \"Hello world\"}'"
+        echo "curl http://$api_route/health"
+        echo "curl -X POST http://$api_route/api/v1/classify/intent -H 'Content-Type: application/json' -d '{\"text\": \"What is 2+2?\"}'"
     fi
 }
 
