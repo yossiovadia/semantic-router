@@ -178,6 +178,7 @@ oc get all -n vllm-semantic-router-system -l app.kubernetes.io/component=observa
 **Symptom**: Prometheus targets show "DOWN" for semantic-router
 
 **Checks**:
+
 ```bash
 # Verify semantic-router-metrics service exists
 oc get service semantic-router-metrics -n vllm-semantic-router-system
@@ -196,6 +197,7 @@ oc logs deployment/prometheus -n vllm-semantic-router-system | grep semantic-rou
 **Symptom**: Dashboard loads but shows no data
 
 **Checks**:
+
 ```bash
 # Test Prometheus datasource from within Grafana pod
 oc exec deployment/grafana -n vllm-semantic-router-system -- \
@@ -212,6 +214,7 @@ oc logs deployment/grafana -n vllm-semantic-router-system
 **Symptom**: Prometheus or Grafana pods stuck in Pending state
 
 **Checks**:
+
 ```bash
 # Check PVC status
 oc get pvc -n vllm-semantic-router-system
@@ -228,6 +231,7 @@ oc describe pvc grafana-storage -n vllm-semantic-router-system
 **Symptom**: Cannot login with admin/admin
 
 **Checks**:
+
 ```bash
 # Verify secret exists
 oc get secret grafana-admin -n vllm-semantic-router-system
@@ -237,6 +241,7 @@ oc get secret grafana-admin -o yaml -n vllm-semantic-router-system
 ```
 
 **Fix**: Update the secret with correct credentials:
+
 ```bash
 oc create secret generic grafana-admin \
   --namespace vllm-semantic-router-system \
@@ -261,12 +266,14 @@ oc rollout restart deployment/grafana -n vllm-semantic-router-system
 1. **Change Default Password**: Update Grafana admin password immediately after deployment
 2. **Network Policies**: Consider adding network policies to restrict access
 3. **Route Security**: Enable TLS for Routes in production:
+
    ```yaml
    spec:
      tls:
        termination: edge
        insecureEdgeTerminationPolicy: Redirect
    ```
+
 4. **RBAC**: Prometheus uses minimal RBAC (read-only access to endpoints/services)
 
 ## Advanced Configuration
@@ -332,6 +339,7 @@ sum(rate(llm_model_requests_total[5m]))) * 100
 ## Support
 
 For issues or questions:
+
 1. Check logs: `oc logs deployment/prometheus` or `oc logs deployment/grafana`
 2. Review events: `oc get events -n vllm-semantic-router-system --sort-by='.lastTimestamp'`
 3. File an issue at https://github.com/vllm-project/semantic-router/issues
@@ -339,6 +347,7 @@ For issues or questions:
 ## Next Steps
 
 After deploying observability:
+
 1. Generate traffic via OpenWebUI
 2. Monitor model selection in real-time
 3. Verify PII and jailbreak protection is working
