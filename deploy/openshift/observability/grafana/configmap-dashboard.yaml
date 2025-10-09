@@ -920,10 +920,12 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"pii_policy_denied\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
+              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"pii_policy_denied\"}[5m])) by (model) or vector(0), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "PII Policy Denied: {{model}}",
               "range": true,
-              "refId": "A"
+              "refId": "A",
+              "interval": "",
+              "intervalFactor": 1
             },
             {
               "datasource": {
@@ -931,10 +933,12 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"jailbreak_block\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
+              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"jailbreak_block\"}[5m])) by (model) or vector(0), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Jailbreak Block: {{model}}",
               "range": true,
-              "refId": "B"
+              "refId": "B",
+              "interval": "",
+              "intervalFactor": 1
             }
           ],
           "title": "Refusal Rates by Model",
@@ -1011,10 +1015,12 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=~\"pii_policy_denied|jailbreak_block\"}[5m])) by (model) / sum(rate(llm_model_requests_total[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
+              "expr": "label_replace((sum(rate(llm_request_errors_total{reason=~\"pii_policy_denied|jailbreak_block\"}[5m])) by (model) or vector(0)) / (sum(rate(llm_model_requests_total[5m])) by (model) or vector(1)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "{{model}}",
               "range": true,
-              "refId": "A"
+              "refId": "A",
+              "interval": "",
+              "intervalFactor": 1
             }
           ],
           "title": "Refusal Rate Percentage by Model",
