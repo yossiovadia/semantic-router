@@ -210,7 +210,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_model_completion_tokens_total[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_model_completion_tokens_total[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Completion Tokens {{model}}",
               "range": true,
               "refId": "A"
@@ -308,7 +308,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_model_routing_modifications_total[5m])) by (source_model, target_model)",
+              "expr": "label_replace(label_replace(sum(rate(llm_model_routing_modifications_total[5m])) by (source_model, target_model), \"source_model\", \"semantic-router\", \"source_model\", \"auto\"), \"target_model\", \"semantic-router\", \"target_model\", \"auto\")",
               "format": "time_series",
               "legendFormat": "{{source_model}} -> {{target_model}}",
               "range": true,
@@ -411,7 +411,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "p95 {{model}}",
               "range": true,
               "refId": "A"
@@ -513,7 +513,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(llm_model_ttft_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(llm_model_ttft_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "TTFT p95 {{model}}",
               "range": true,
               "refId": "A"
@@ -611,7 +611,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.95, sum(rate(llm_model_tpot_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(llm_model_tpot_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "TPOT p95 {{model}}",
               "range": true,
               "refId": "A"
@@ -709,7 +709,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_reasoning_decisions_total{enabled=\"true\"}[5m])) by (model, effort)",
+              "expr": "label_replace(sum(rate(llm_reasoning_decisions_total{enabled=\"true\"}[5m])) by (model, effort), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Reasoning Enabled: {{model}} ({{effort}})",
               "range": true,
               "refId": "A"
@@ -720,7 +720,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_reasoning_decisions_total{enabled=\"false\"}[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_reasoning_decisions_total{enabled=\"false\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Reasoning Disabled: {{model}}",
               "range": true,
               "refId": "B"
@@ -818,7 +818,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_model_cost_total{currency=\"USD\"}[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_model_cost_total{currency=\"USD\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Cost/sec: {{model}}",
               "range": true,
               "refId": "A"
@@ -920,7 +920,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_request_errors_total{reason=\"pii_policy_denied\"}[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"pii_policy_denied\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "PII Policy Denied: {{model}}",
               "range": true,
               "refId": "A"
@@ -931,7 +931,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_request_errors_total{reason=\"jailbreak_block\"}[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=\"jailbreak_block\"}[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "Jailbreak Block: {{model}}",
               "range": true,
               "refId": "B"
@@ -1011,7 +1011,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(llm_request_errors_total{reason=~\"pii_policy_denied|jailbreak_block\"}[5m])) by (model) / sum(rate(llm_model_requests_total[5m])) by (model)",
+              "expr": "label_replace(sum(rate(llm_request_errors_total{reason=~\"pii_policy_denied|jailbreak_block\"}[5m])) by (model) / sum(rate(llm_model_requests_total[5m])) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "{{model}}",
               "range": true,
               "refId": "A"
@@ -1083,7 +1083,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(llm_model_cost_total{currency=\"USD\"}) by (model)",
+              "expr": "label_replace(sum(llm_model_cost_total{currency=\"USD\"}) by (model), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "{{model}}",
               "range": true,
               "refId": "A"
@@ -1181,7 +1181,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.50, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "p50 {{model}}",
               "range": true,
               "refId": "A"
@@ -1192,7 +1192,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.90, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.90, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "p90 {{model}}",
               "range": true,
               "refId": "B"
@@ -1203,7 +1203,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile(0.99, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model))",
+              "expr": "label_replace(histogram_quantile(0.99, sum(rate(llm_model_completion_latency_seconds_bucket[5m])) by (le, model)), \"model\", \"semantic-router\", \"model\", \"auto\")",
               "legendFormat": "p99 {{model}}",
               "range": true,
               "refId": "C"
@@ -1242,7 +1242,7 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "LLM Router Metrics",
+      "title": "Semantic Router - LLM Metrics (coding-model & general-model)",
       "uid": "llm-router-metrics",
       "version": 14,
       "weekStart": ""
