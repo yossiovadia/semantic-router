@@ -38,7 +38,7 @@ CLEANUP_FIRST="false"
 DRY_RUN="false"
 PORT_FORWARD="false"
 PORT_FORWARD_PORTS="8080:8080 8000:8000 8001:8001 50051:50051 8801:8801 19000:19000"
-WITH_OBSERVABILITY="false"
+WITH_OBSERVABILITY="true"
 OBSERVABILITY_ONLY="false"
 CLEANUP_OBSERVABILITY="false"
 
@@ -85,7 +85,7 @@ OPTIONS:
     --port-forward           Set up port forwarding after successful deployment (default: enabled)
     --no-port-forward        Disable automatic port forwarding
     --port-forward-ports PORTS   Custom port mappings (default: "8080:8080 8000:8000 8001:8001")
-    --with-observability     Deploy Prometheus + Grafana observability stack with semantic-router
+    --no-observability       Skip observability stack deployment (observability enabled by default)
     --observability-only     Deploy ONLY observability stack (requires existing semantic-router deployment)
     --cleanup-observability  Remove ONLY observability components (keeps semantic-router intact)
     -h, --help               Show this help message
@@ -109,8 +109,8 @@ EXAMPLES:
     # Deploy without automatic port forwarding
     $0 --no-port-forward
 
-    # Deploy with observability stack (Prometheus + Grafana)
-    $0 --with-observability
+    # Deploy without observability stack
+    $0 --no-observability
 
     # Deploy only observability (if semantic-router already exists)
     $0 --observability-only
