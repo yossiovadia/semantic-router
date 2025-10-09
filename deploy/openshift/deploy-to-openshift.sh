@@ -836,12 +836,12 @@ show_observability_info() {
     echo ""
     log "SUCCESS" "Access URLs:"
     if [[ -n "$grafana_route" ]]; then
-        echo "  Grafana:    http://$grafana_route (Login: admin/admin)"
-        echo "  Dashboard:  http://$grafana_route/d/llm-router-metrics"
+        echo "  Grafana:    https://$grafana_route (Login: admin/admin)"
+        echo "  Dashboard:  https://$grafana_route/d/llm-router-metrics"
     fi
     if [[ -n "$prometheus_route" ]]; then
-        echo "  Prometheus: http://$prometheus_route"
-        echo "  Targets:    http://$prometheus_route/targets"
+        echo "  Prometheus: https://$prometheus_route"
+        echo "  Targets:    https://$prometheus_route/targets"
     fi
 
     echo ""

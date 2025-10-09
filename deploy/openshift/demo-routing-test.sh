@@ -459,7 +459,7 @@ main() {
     log "INFO" "4. Check model labels show: semantic-router, coding-model, general-model"
     log "INFO" ""
     log "INFO" "To re-run this test:"
-    log "INFO" "  ./scripts/demo-routing-test.sh"
+    log "INFO" "  ./deploy/openshift/demo-routing-test.sh"
     log "INFO" ""
 }
 
