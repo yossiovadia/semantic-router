@@ -1242,7 +1242,7 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "Semantic Router - LLM Metrics (coding-model & general-model)",
+      "title": "Semantic Router - LLM Metrics (Model-A & Model-B)",
       "uid": "llm-router-metrics",
       "version": 14,
       "weekStart": ""
