@@ -217,6 +217,25 @@ func (r *OpenAIRouter) handleResponseBody(v *ext_proc.ProcessingRequest_Response
 		observability.Errorf("Error parsing tokens from response: %v", err)
 		metrics.RecordRequestError(ctx.RequestModel, "parse_error")
 	}
+
+	// Update the model field in the response to match the routing decision
+	// This ensures the API response reflects which model was selected by the semantic router
+	modelFieldUpdated := false
+	if ctx.RequestModel != "" && parsed.Model != ctx.RequestModel {
+		observability.Infof("Updating response model field from '%s' to '%s' (routing decision)", parsed.Model, ctx.RequestModel)
+		parsed.Model = ctx.RequestModel
+
+		// Re-marshal the response with the updated model field
+		modifiedBody, err := json.Marshal(parsed)
+		if err != nil {
+			observability.Errorf("Error re-marshaling response with updated model field: %v", err)
+			// Fall back to original response body on error
+		} else {
+			responseBody = modifiedBody
+			modelFieldUpdated = true
+		}
+	}
+
 	promptTokens := int(parsed.Usage.PromptTokens)
 	completionTokens := int(parsed.Usage.CompletionTokens)
 
@@ -281,7 +300,7 @@ func (r *OpenAIRouter) handleResponseBody(v *ext_proc.ProcessingRequest_Response
 		}
 	}
 
-	// Allow the response to continue without modification
+	// Return the response (with modified model field if updated)
 	response := &ext_proc.ProcessingResponse{
 		Response: &ext_proc.ProcessingResponse_ResponseBody{
 			ResponseBody: &ext_proc.BodyResponse{
@@ -290,6 +309,15 @@ func (r *OpenAIRouter) handleResponseBody(v *ext_proc.ProcessingRequest_Response
 				},
 			},
 		},
+	}
+
+	// If we updated the model field, include the modified body in the response
+	if modelFieldUpdated {
+		response.GetResponseBody().Response.BodyMutation = &ext_proc.BodyMutation{
+			Mutation: &ext_proc.BodyMutation_Body{
+				Body: responseBody,
+			},
+		}
 	}
 
 	return response, nil
