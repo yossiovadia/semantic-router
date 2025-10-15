@@ -34,7 +34,7 @@ The screenshot below shows the LLM Router dashboard in Grafana.
 
 ![LLM Router Dashboard](./website/static/img/grafana_screenshot.png)
 
-The router is implemented in two ways: 
+The router is implemented in two ways:
 
 - Golang (with Rust FFI based on the [candle](https://github.com/huggingface/candle) rust ML framework)
 - Python
@@ -74,11 +74,52 @@ To view the ***Chain-Of-Thought*** of the vLLM-SR's decision-making process, we 
 
 ## Quick Start 🚀
 
+Get up and running in seconds with our interactive setup script:
+
 ```bash
-make docker-compose-up
+bash ./scripts/quickstart.sh
 ```
 
+This command will:
+
+- 🔍 Check all prerequisites automatically
+- 📦 Install HuggingFace CLI if needed
+- 📥 Download all required AI models (~1.5GB)
+- 🐳 Start all Docker services
+- ⏳ Wait for services to become healthy
+- 🌐 Show you all the endpoints and next steps
+
 For detailed installation and configuration instructions, see the [Complete Documentation](https://vllm-semantic-router.com/docs/installation/).
+
+### What This Starts By Default
+
+`make docker-compose-up` now launches the full stack including a lightweight local OpenAI-compatible model server powered by **llm-katan** (serving the small model `Qwen/Qwen3-0.6B` under the alias `qwen3`). The semantic router is configured to route classification & default generations to this local endpoint out-of-the-box. This gives you an entirely self-contained experience (no external API keys required) while still letting you add remote / larger models later.
+
+### Core Mode (Without Local Model)
+
+If you only want the core semantic-router + Envoy + observability stack (and will point to external OpenAI-compatible endpoints yourself):
+
+```bash
+make docker-compose-up-core
+```
+
+### Prerequisite Model Download (Speeds Up First Run)
+
+The existing model bootstrap targets now also pre-download the small llm-katan model so the first `docker-compose-up` avoids an on-demand Hugging Face fetch.
+
+Minimal set (fast):
+
+```bash
+make models-download-minimal
+```
+
+Full set:
+
+```bash
+make models-download
+```
+
+Both create a stamp file once `Qwen/Qwen3-0.6B` is present to keep subsequent runs idempotent.
 
 ## Documentation 📖
 
@@ -97,6 +138,19 @@ The documentation includes:
 ## Community 👋
 
 For questions, feedback, or to contribute, please join `#semantic-router` channel in vLLM Slack.
+
+### Community Meetings 📅
+
+We host bi-weekly community meetings to sync up with contributors across different time zones:
+
+- **First Tuesday of the month**: 9:00-10:00 AM EST (accommodates US EST and Asia Pacific contributors)
+  - **Zoom Link**: [https://nyu.zoom.us/j/95065349917](https://nyu.zoom.us/j/95065349917)
+  - **Calendar Invite**: [https://calendar.app.google/EeP6xDgCpxte6d1eA](https://calendar.app.google/EeP6xDgCpxte6d1eA)
+- **Third Tuesday of the month**: 1:00-2:00 PM EST (accommodates US EST and California contributors)
+  - **Zoom Link**: [https://nyu.zoom.us/j/98861585086](https://nyu.zoom.us/j/98861585086)
+  - **Calendar Invite**: [https://calendar.app.google/oYsmt1Pu46o4gFuP8](https://calendar.app.google/oYsmt1Pu46o4gFuP8)
+
+Join us to discuss the latest developments, share ideas, and collaborate on the project!
 
 ## Citation
 
