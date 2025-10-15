@@ -13,6 +13,7 @@ Shows real-time classification, routing, and security decisions:
 ```
 
 **What it shows:**
+
 - 📨 **Incoming requests** with user prompts
 - 🛡️ **Security checks** (jailbreak detection)
 - 🔍 **Classification** (category detection with confidence)
@@ -33,6 +34,7 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 ```
 
 **Features:**
+
 1. **Single Classification** - Tests random prompt from golden set
 2. **All Classifications** - Tests all 10 golden prompts
 3. **PII Detection Test** - Tests personal information filtering
@@ -40,10 +42,12 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 5. **Run All Tests** - Executes all tests sequentially
 
 **Requirements:**
+
 - ✅ Must be logged into OpenShift (`oc login`)
 - URLs are discovered automatically from routes
 
 **What it does:**
+
 - Goes through Envoy (same path as OpenWebUI)
 - Shows routing decisions and response previews
 - **Appears in Grafana dashboard!**
@@ -76,9 +80,11 @@ python3 deploy/openshift/demo/demo-semantic-router.py
    - Show the architecture diagram
 
 2. **Run interactive demo** (Terminal 2)
+
    ```bash
    python3 deploy/openshift/demo/demo-semantic-router.py
    ```
+
    Choose option 2 (All Classifications)
 
 3. **Point to live logs** (Terminal 1)
@@ -102,26 +108,31 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 ## Key Talking Points
 
 ### Classification Accuracy
+
 - **10 golden prompts** with 100% accuracy
 - Categories: Chemistry, History, Psychology, Health, Math
 - Shows consistent classification behavior
 
 ### Security Features
+
 - **Jailbreak detection** on every request
 - Shows "BENIGN" for safe requests
 - Confidence scores displayed
 
 ### Smart Routing
+
 - Automatic model selection based on content
 - Load balancing across Model-A and Model-B
 - Routing decisions visible in logs
 
 ### Performance
+
 - **Semantic caching** reduces latency
 - Cache hits shown in logs with similarity scores
 - Sub-second response times
 
 ### Observability
+
 - Real-time logs with structured JSON
 - Grafana metrics and dashboards
 - Request tracing and debugging
@@ -131,6 +142,7 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 ## Troubleshooting
 
 ### Log viewer shows no output
+
 ```bash
 # Check if semantic-router pod is running
 oc get pods -n vllm-semantic-router-system | grep semantic-router
@@ -140,6 +152,7 @@ oc logs -n vllm-semantic-router-system deployment/semantic-router --tail=20
 ```
 
 ### Classification test fails
+
 ```bash
 # Verify Envoy route is accessible
 curl http://envoy-http-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com/v1/models
@@ -149,6 +162,7 @@ oc get pods -n vllm-semantic-router-system
 ```
 
 ### Grafana doesn't show metrics
+
 - Wait 15-30 seconds for metrics to appear
 - Refresh the dashboard
 - Check the time range (last 5 minutes)
@@ -158,6 +172,7 @@ oc get pods -n vllm-semantic-router-system
 ## Cache Management
 
 ### Check Cache Status
+
 ```bash
 ./deploy/openshift/demo/cache-management.sh status
 ```
@@ -165,6 +180,7 @@ oc get pods -n vllm-semantic-router-system
 Shows recent cache activity and cached queries.
 
 ### Clear Cache (for demo)
+
 ```bash
 ./deploy/openshift/demo/cache-management.sh clear
 ```
@@ -176,22 +192,27 @@ Restarts semantic-router deployment to clear in-memory cache (~30 seconds).
 **Workflow to show caching in action:**
 
 1. Clear the cache:
+
    ```bash
    ./deploy/openshift/demo/cache-management.sh clear
    ```
 
 2. Run classification test (first time - no cache):
+
    ```bash
    python3 deploy/openshift/demo/demo-semantic-router.py
    ```
+
    Choose option 2 (All Classifications)
    - Processing time: ~3-4 seconds per query
    - Logs show queries going to model
 
 3. Run classification test again (second time - with cache):
+
    ```bash
    python3 deploy/openshift/demo/demo-semantic-router.py
    ```
+
    Choose option 2 (All Classifications) again
    - Processing time: ~400ms per query (10x faster!)
    - Logs show "💾 CACHE HIT" for all queries

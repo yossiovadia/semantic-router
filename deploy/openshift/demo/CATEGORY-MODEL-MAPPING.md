@@ -51,7 +51,6 @@ These prompts have **100% classification accuracy** and route as follows:
 | **Health** | "How to maintain a healthy lifestyle?" | Model-B | ~0.221 |
 | **Health** | "What is a balanced diet?" | Model-B | ~0.268 |
 
-
 ---
 
 ## Reasoning Mode (Chain-of-Thought)
@@ -70,7 +69,6 @@ Categories with **reasoning enabled** use extended thinking for complex problems
 - **Fallback Category:** "other" (score: 0.7)
 - **Unmatched queries** route to Model-A with the "other" category system prompt
 
-
 ### Key Parameters:
 
 - **name:** Category identifier
@@ -80,7 +78,6 @@ Categories with **reasoning enabled** use extended thinking for complex problems
 - **use_reasoning:** Enable extended thinking mode
 
 ---
-
 
 ## Confidence Scores Explained
 
@@ -92,6 +89,7 @@ Categories with **reasoning enabled** use extended thinking for complex problems
 4. **Highest score wins** - 0.326 for "math" means it beat all other 13 categories
 
 **What's important:**
+
 - ✅ Classification is **consistent** across multiple runs
 - ✅ Same prompt → same category every time
 - ✅ Confidence is **relative** to other categories, not absolute certainty
