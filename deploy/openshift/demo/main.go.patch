@@ -184,6 +184,26 @@ func newReverseProxy(targetBase, stripPrefix string, forwardAuth bool) (*httputi
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		// Remove frame-busting headers
 		resp.Header.Del("X-Frame-Options")
+
+		// Rewrite Set-Cookie headers to work in iframe context
+		// Change SameSite=lax to SameSite=none; Secure for cross-origin iframe support
+		cookies := resp.Header["Set-Cookie"]
+		if len(cookies) > 0 {
+			newCookies := make([]string, len(cookies))
+			for i, cookie := range cookies {
+				// Replace SameSite=lax with SameSite=none
+				cookie = strings.Replace(cookie, "SameSite=lax", "SameSite=none", 1)
+				cookie = strings.Replace(cookie, "SameSite=Lax", "SameSite=none", 1)
+				// Add Secure attribute if not present (required for SameSite=none)
+				if !strings.Contains(cookie, "Secure") {
+					cookie = cookie + "; Secure"
+				}
+				newCookies[i] = cookie
+			}
+			resp.Header["Set-Cookie"] = newCookies
+			log.Printf("Rewrote %d cookies for iframe compatibility", len(newCookies))
+		}
+
 		// Allow iframe from self (dashboard origin)
 		// If CSP exists, adjust frame-ancestors; otherwise set a permissive one for self
 		csp := resp.Header.Get("Content-Security-Policy")
