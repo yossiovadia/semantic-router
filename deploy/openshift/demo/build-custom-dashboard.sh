@@ -84,9 +84,9 @@ DOCKERFILE_EOF
 
 # Build image
 echo ""
-echo "Building docker image..."
+echo "Building docker image for linux/amd64..."
 cd $BUILD_DIR/dashboard
-docker build -f Dockerfile.custom -t $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest .
+docker buildx build --platform linux/amd64 -f Dockerfile.custom -t $REGISTRY/$NAMESPACE/$IMAGE_NAME:latest --load .
 
 echo ""
 echo "Pushing image to registry..."
