@@ -35,11 +35,12 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 
 **Features:**
 
-1. **Single Classification** - Tests random prompt from golden set
+1. **Single Classification** - Tests cache with same prompt (fast repeated runs)
 2. **All Classifications** - Tests all 10 golden prompts
-3. **PII Detection Test** - Tests personal information filtering
-4. **Jailbreak Detection Test** - Tests security filtering
-5. **Run All Tests** - Executes all tests sequentially
+3. **Reasoning Showcase** - Chain-of-Thought vs Standard routing
+4. **PII Detection Test** - Tests personal information filtering
+5. **Jailbreak Detection Test** - Tests security filtering
+6. **Run All Tests** - Executes all tests sequentially
 
 **Requirements:**
 
@@ -55,6 +56,55 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 
 ---
 
+### 3. Distributed Tracing with Jaeger
+
+Visualize the complete request flow with distributed tracing:
+
+#### Deploy Jaeger
+
+```bash
+./deploy/openshift/demo/deploy-jaeger.sh
+```
+
+This deploys Jaeger all-in-one with:
+
+- 📊 **Jaeger UI** for visualizing traces
+- 🔗 **OTLP collector** (gRPC and HTTP)
+- 💾 **In-memory storage** (demo-friendly)
+
+#### Enable/Disable Tracing
+
+```bash
+# Enable tracing
+./deploy/openshift/demo/toggle-tracing.sh enable
+
+# Disable tracing
+./deploy/openshift/demo/toggle-tracing.sh disable
+
+# Check status
+./deploy/openshift/demo/toggle-tracing.sh status
+```
+
+#### What You'll See in Jaeger
+
+After enabling tracing and running some requests:
+
+1. Open Jaeger UI (URL shown by toggle-tracing.sh status)
+2. Select service: **vllm-semantic-router**
+3. Click **Find Traces**
+4. Click on a trace to see:
+   - 📥 Request ingress through Envoy
+   - 🔄 ExtProc classification pipeline
+   - 🛡️ Security checks (jailbreak, PII)
+   - 🎯 Category classification
+   - 🧭 Model routing decisions
+   - 💾 Cache hits/misses
+   - ⏱️ End-to-end latency breakdown
+
+**Tip:** Run some requests with `./deploy/openshift/demo/curl-examples.sh all` to generate multiple traces!
+
+---
+
 ## Demo Flow Suggestion
 
 ### Setup (Before Demo)
@@ -67,17 +117,24 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 # (don't run yet)
 
 # Browser Tab 1: Open Grafana
-# http://grafana-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com
+# http://grafana-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com
 
-# Browser Tab 2: Open OpenWebUI
-# http://openwebui-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com
+# Browser Tab 2: Open Jaeger (if tracing enabled)
+# http://jaeger-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com
+
+# Browser Tab 3: Open Flow Visualization
+# http://flow-visualization-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com
+
+# Browser Tab 4: Open OpenWebUI
+# http://openwebui-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com
 ```
 
 ### During Demo
 
 1. **Show the system overview**
+   - Open Flow Visualization (Browser Tab 3)
+   - Click "Start Animation" to show request flow
    - Explain semantic routing concept
-   - Show the architecture diagram
 
 2. **Run interactive demo** (Terminal 2)
 
@@ -85,23 +142,32 @@ python3 deploy/openshift/demo/demo-semantic-router.py
    python3 deploy/openshift/demo/demo-semantic-router.py
    ```
 
-   Choose option 2 (All Classifications)
+   - Choose option 3 (Reasoning Showcase) to demonstrate CoT
+   - Then option 2 (All Classifications)
 
 3. **Point to live logs** (Terminal 1)
    - Show real-time classification
    - Highlight security checks (jailbreak: BENIGN)
    - Show routing decisions (Model-A vs Model-B)
-   - Point out cache hits
+   - Point out cache hits and reasoning mode activation
 
 4. **Switch to Grafana** (Browser Tab 1)
    - Show request metrics appearing
    - Show classification category distribution
    - Show model usage breakdown
 
-5. **Show OpenWebUI integration** (Browser Tab 2)
+5. **Show Jaeger traces** (Browser Tab 2) - *Optional but impressive!*
+   - Select service: vllm-semantic-router
+   - Click "Find Traces"
+   - Click on a trace to show:
+     - Full request flow timeline
+     - Security checks, classification, routing
+     - Latency breakdown per step
+
+6. **Show OpenWebUI integration** (Browser Tab 4)
    - Type one of the golden prompts
    - Watch it appear in logs (Terminal 1)
-   - Show the same routing happening
+   - Check the trace in Jaeger (Browser Tab 2)
 
 ---
 
@@ -135,7 +201,16 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 
 - Real-time logs with structured JSON
 - Grafana metrics and dashboards
-- Request tracing and debugging
+- **Distributed tracing** with Jaeger (OpenTelemetry)
+- End-to-end request flow visualization
+- Per-span latency breakdown
+
+### Reasoning Capabilities
+
+- **Chain-of-Thought (CoT)** for complex problems
+- Enabled for math, chemistry, physics
+- Standard routing for factual queries
+- Automatic reasoning mode detection
 
 ---
 
@@ -231,6 +306,8 @@ Restarts semantic-router deployment to clear in-memory cache (~30 seconds).
 - `cache-management.sh` - Cache management helper
 - `flow-visualization.html` - **Interactive flow visualization** (open in browser)
 - `deploy-flow-viz.sh` - Deploy flow visualization to OpenShift
+- `deploy-jaeger.sh` - Deploy Jaeger distributed tracing
+- `toggle-tracing.sh` - Enable/disable tracing in semantic-router
 - `CATEGORY-MODEL-MAPPING.md` - Category to model routing reference
 - `demo-classification-results.json` - Test results (auto-generated)
 
