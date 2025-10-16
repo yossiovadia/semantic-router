@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import styles from './PlaygroundPage.module.css'
 
 const PlaygroundPage: React.FC = () => {
-  const [openWebUIUrl] = useState('/embedded/openwebui/')
+  // Load /chat directly to ensure we land on the chat page after login
+  const [openWebUIUrl] = useState('/chat')
   const [currentUrl, setCurrentUrl] = useState('')
 
   // Auto-load on mount
