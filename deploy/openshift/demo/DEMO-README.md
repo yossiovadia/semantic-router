@@ -229,8 +229,25 @@ Restarts semantic-router deployment to clear in-memory cache (~30 seconds).
 - `demo-semantic-router.py` - Interactive demo with multiple test options
 - `curl-examples.sh` - Quick classification examples (direct API)
 - `cache-management.sh` - Cache management helper
+- `flow-visualization.html` - **Interactive flow visualization** (open in browser)
 - `CATEGORY-MODEL-MAPPING.md` - Category to model routing reference
 - `demo-classification-results.json` - Test results (auto-generated)
+
+### Flow Visualization
+
+Open `flow-visualization.html` in your browser for an **interactive visual guide** showing:
+
+- Step-by-step request flow from user to model
+- Security checks, classification, and routing decisions
+- Performance metrics and key features
+- Animated walkthrough of the entire pipeline
+
+```bash
+# Open in browser (macOS)
+open deploy/openshift/demo/flow-visualization.html
+
+# Or just double-click the file
+```
 
 ---
 

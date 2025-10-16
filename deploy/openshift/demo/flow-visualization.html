@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Router - Request Flow Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 25px;
+            font-size: 0.95em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.secondary {
+            background: rgba(240, 147, 251, 0.3);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .btn.secondary:hover {
+            background: white;
+            color: #f5576c;
+        }
+
+        .info-text {
+            color: white;
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .flow-container {
+            padding: 25px 30px 30px 30px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .step {
+            position: relative;
+            opacity: 0.3;
+            transition: all 0.5s ease;
+            padding: 15px;
+            border-radius: 12px;
+            background: #f8f9fa;
+            min-height: 130px;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .step:hover {
+            opacity: 0.6;
+        }
+
+        .step.active {
+            opacity: 1;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .step-number {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .step.active .step-number {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.15);
+            }
+        }
+
+        .step-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-title {
+            font-size: 0.95em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .step-description {
+            color: #666;
+            font-size: 0.8em;
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        /* Arrow connectors - right arrows for first row */
+        .step[data-step="0"]::after,
+        .step[data-step="1"]::after,
+        .step[data-step="2"]::after {
+            content: '→';
+            position: absolute;
+            right: -22px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5em;
+            color: #667eea;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 5;
+        }
+
+        .step[data-step="0"].active::after,
+        .step[data-step="1"].active::after,
+        .step[data-step="2"].active::after {
+            opacity: 0.5;
+        }
+
+        /* Down arrow at end of first row */
+        .step[data-step="3"]::after {
+            content: '↓';
+            position: absolute;
+            right: 50%;
+            transform: translateX(50%);
+            top: auto;
+            bottom: -25px;
+            font-size: 1.5em;
+            color: #667eea;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .step[data-step="3"].active::after {
+            opacity: 0.5;
+        }
+
+        /* Left arrows for second row */
+        .step[data-step="5"]::after,
+        .step[data-step="6"]::after,
+        .step[data-step="7"]::after {
+            content: '←';
+            position: absolute;
+            left: -22px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5em;
+            color: #667eea;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 5;
+        }
+
+        .step[data-step="5"].active::after,
+        .step[data-step="6"].active::after,
+        .step[data-step="7"].active::after {
+            opacity: 0.5;
+        }
+
+        /* Down arrow at end of second row (step 4, which appears leftmost) */
+        .step[data-step="4"]::after {
+            content: '↓';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: auto;
+            bottom: -25px;
+            font-size: 1.5em;
+            color: #667eea;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .step[data-step="4"].active::after {
+            opacity: 0.5;
+        }
+
+        /* Right arrows for third row */
+        .step[data-step="8"]::after,
+        .step[data-step="9"]::after,
+        .step[data-step="10"]::after {
+            content: '→';
+            position: absolute;
+            right: -22px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5em;
+            color: #667eea;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 5;
+        }
+
+        .step[data-step="8"].active::after,
+        .step[data-step="9"].active::after,
+        .step[data-step="10"].active::after {
+            opacity: 0.5;
+        }
+
+        .details-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 3px solid #667eea;
+            padding: 18px 40px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 100;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .details-panel.active {
+            transform: translateY(0);
+        }
+
+        .details-close {
+            position: absolute;
+            top: 8px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.2s;
+        }
+
+        .details-close:hover {
+            color: #333;
+        }
+
+        .details-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            color: #333;
+        }
+
+        .details-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .metrics-panel {
+            margin: 20px 40px 30px 40px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .metric {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.85em;
+        }
+
+        .footer {
+            padding: 15px;
+            text-align: center;
+            background: #f8f9fa;
+            color: #666;
+            border-top: 2px solid #e9ecef;
+            font-size: 0.85em;
+        }
+
+        @media (max-width: 900px) {
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .header-controls {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <h1>🚀 Semantic Router Request Flow</h1>
+                <p>Behind the Scenes: From User Request to Model Response</p>
+            </div>
+            <div class="header-controls">
+                <span class="info-text">💡 Click any step</span>
+                <button class="btn" onclick="startAnimation()">▶️ Start</button>
+                <button class="btn secondary" onclick="resetAnimation()">🔄 Reset</button>
+            </div>
+        </div>
+
+        <div class="flow-container" id="flowContainer">
+            <!-- Steps will be generated by JavaScript -->
+        </div>
+
+        <div class="details-panel" id="detailsPanel">
+            <button class="details-close" onclick="hideDetails()">×</button>
+            <div class="details-title" id="detailsTitle">Step Details</div>
+            <div class="details-content" id="detailsContent">Click on any step to see details...</div>
+        </div>
+
+        <div class="metrics-panel">
+            <div class="metric">
+                <div class="metric-value">~50ms</div>
+                <div class="metric-label">Classification Time</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">~10ms</div>
+                <div class="metric-label">Cache Hit Time</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">10x</div>
+                <div class="metric-label">Faster with Cache</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">14</div>
+                <div class="metric-label">Categories</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>vLLM Semantic Router - OpenShift Demo | Open-source intelligent routing for LLMs</p>
+        </div>
+    </div>
+
+    <script>
+        const steps = [
+            {
+                title: "User Request",
+                description: "User sends a request from OpenWebUI or API client",
+                details: 'Prompt: "What is photosynthesis?"\nSource: OpenWebUI / API Client\nMethod: POST /v1/chat/completions'
+            },
+            {
+                title: "Envoy Proxy",
+                description: "Envoy receives HTTP request and triggers ExtProc",
+                details: 'Envoy Filter: ext_proc\nAction: Forward to semantic-router:50051\nProtocol: gRPC'
+            },
+            {
+                title: "ExtProc Service",
+                description: "Extract prompt from request body",
+                details: 'Extract: message.content from JSON\nValidate: Request structure\nPrepare: For classification pipeline'
+            },
+            {
+                title: "🛡️ Security Check",
+                description: "Jailbreak detection and threat analysis",
+                details: 'Model: ModernBERT Jailbreak Classifier\nCheck: Malicious patterns\nResult: BENIGN ✅ (confidence: 0.95)\nAction: Continue (logged)'
+            },
+            {
+                title: "💾 Cache Lookup",
+                description: "Check for similar cached queries",
+                details: 'Hash: Prompt embedding\nThreshold: Similarity > 0.8\nResult: MISS → Continue\nBenefit: 10x faster on hits'
+            },
+            {
+                title: "🔍 Classification",
+                description: "Identify category using ModernBERT",
+                details: 'Input: "What is photosynthesis?"\nModel: ModernBERT (14 categories)\nOutput: biology (confidence: 0.7)\nTime: ~50ms'
+            },
+            {
+                title: "🎯 Route Selection",
+                description: "Choose model based on category config",
+                details: 'Category: biology\nModel: Model-A (score: 0.9)\nReasoning: false\nEndpoint: localhost:8000'
+            },
+            {
+                title: "✏️ Header Injection",
+                description: "Add routing metadata to headers",
+                details: 'x-vllm-sr-category: biology\nx-vllm-sr-model: Model-A\nx-vllm-sr-confidence: 0.7\nx-vllm-sr-reasoning: false'
+            },
+            {
+                title: "↩️ Return to Envoy",
+                description: "Send modified request back to Envoy",
+                details: 'Action: CONTINUE\nHeaders: Added to request\nBody: Unchanged\nNext: Cluster routing'
+            },
+            {
+                title: "🚦 Cluster Routing",
+                description: "Envoy routes to selected model",
+                details: 'Read: x-vllm-sr-model = Model-A\nCluster: model-a-endpoint\nBalance: Round-robin\nTarget: localhost:8000'
+            },
+            {
+                title: "🤖 Model Inference",
+                description: "vLLM generates the response",
+                details: 'Model: Qwen 2.5 (32B)\nPrompt: Biology expert system\nGenerate: Photosynthesis answer\nTime: ~2-3 seconds'
+            },
+            {
+                title: "✅ Response",
+                description: "Return answer to user",
+                details: 'Path: Model → Envoy → User\nHeaders: SR metadata included\nStatus: 200 OK\nContent: Biology answer'
+            }
+        ];
+
+        let currentStep = -1;
+        let animationTimeout;
+
+        function createSteps() {
+            const container = document.getElementById('flowContainer');
+            container.innerHTML = '';
+
+            // Snake pattern grid display order:
+            // Row 1: 1,2,3,4 (steps 0,1,2,3)
+            // Row 2: 8,7,6,5 (steps 7,6,5,4) - REVERSED
+            // Row 3: 9,10,11,12 (steps 8,9,10,11)
+            const gridOrder = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11];
+
+            gridOrder.forEach((stepIndex) => {
+                const step = steps[stepIndex];
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'step';
+                stepDiv.id = `step-${stepIndex}`;
+                stepDiv.setAttribute('data-step', stepIndex);
+                stepDiv.innerHTML = `
+                    <div class="step-number">${stepIndex + 1}</div>
+                    <div class="step-content">
+                        <div class="step-title">${step.title}</div>
+                        <div class="step-description">${step.description}</div>
+                    </div>
+                `;
+                stepDiv.onclick = () => showDetails(stepIndex);
+                container.appendChild(stepDiv);
+            });
+        }
+
+        function showDetails(index) {
+            const step = steps[index];
+            const detailsPanel = document.getElementById('detailsPanel');
+            const detailsTitle = document.getElementById('detailsTitle');
+            const detailsContent = document.getElementById('detailsContent');
+
+            detailsTitle.textContent = `Step ${index + 1}: ${step.title}`;
+            detailsContent.textContent = step.details;
+            detailsPanel.classList.add('active');
+        }
+
+        function hideDetails() {
+            const detailsPanel = document.getElementById('detailsPanel');
+            detailsPanel.classList.remove('active');
+        }
+
+        function activateStep(index) {
+            if (index < 0 || index >= steps.length) return;
+
+            const step = document.getElementById(`step-${index}`);
+            if (step) {
+                step.classList.add('active');
+                showDetails(index);
+            }
+        }
+
+        function startAnimation() {
+            resetAnimation();
+            currentStep = -1;
+            animateNextStep();
+        }
+
+        function animateNextStep() {
+            currentStep++;
+            if (currentStep >= steps.length) {
+                return;
+            }
+
+            activateStep(currentStep);
+            animationTimeout = setTimeout(animateNextStep, 2000);
+        }
+
+        function resetAnimation() {
+            clearTimeout(animationTimeout);
+            currentStep = -1;
+
+            const allSteps = document.querySelectorAll('.step');
+            allSteps.forEach(step => step.classList.remove('active'));
+
+            hideDetails();
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            createSteps();
+        });
+    </script>
+</body>
+</html>
