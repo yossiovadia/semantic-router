@@ -25,6 +25,23 @@ Copy and paste these URLs to access all demo components:
 - **Envoy Admin:**
   `https://envoy-admin-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com`
 
+### Unified Dashboard
+
+- **Semantic Router Dashboard (ALL-IN-ONE):**
+  `https://dashboard-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com`
+
+  *This dashboard provides a single interface for everything:*
+  - 🎮 Playground (OpenWebUI)
+  - 🤖 Models Configuration
+  - 🛡️ Prompt Guard (Jailbreak Detection)
+  - ⚡ Similarity Cache
+  - 🧠 Intelligent Routing
+  - 🗺️ Topology Visualization
+  - 🔧 Tools Selection
+  - 👁️ Observability Settings
+  - 🔌 Classification API
+  - 📊 Monitoring (Grafana)
+
 ### Demo Visualizations
 
 - **Flow Visualization (Interactive):**
@@ -47,12 +64,6 @@ oc get routes -n vllm-semantic-router-system
 oc get route jaeger -n vllm-semantic-router-system -o jsonpath='{.spec.host}'
 ```
 
-### Check Tracing Status
-
-```bash
-./deploy/openshift/demo/toggle-tracing.sh status
-```
-
 ### Run Quick Test
 
 ```bash
@@ -68,7 +79,6 @@ python3 deploy/openshift/demo/demo-semantic-router.py
 ## Pre-Demo Checklist
 
 - [ ] All pods running: `oc get pods -n vllm-semantic-router-system`
-- [ ] Tracing enabled: `./deploy/openshift/demo/toggle-tracing.sh status`
 - [ ] Grafana accessible and showing data
 - [ ] Jaeger UI accessible (if tracing enabled)
 - [ ] Flow visualization deployed and accessible

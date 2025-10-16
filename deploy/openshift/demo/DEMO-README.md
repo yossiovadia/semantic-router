@@ -2,7 +2,35 @@
 
 This directory contains demo scripts to showcase the semantic router capabilities.
 
-## Quick Demo Guide
+## 🌟 Unified Dashboard (Recommended)
+
+**The easiest way to demo is through the unified dashboard:**
+
+```bash
+# One-command setup for everything (dashboard, Jaeger, flow viz, tracing enabled)
+./deploy/openshift/demo/setup-demo.sh
+```
+
+Access at: `https://dashboard-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com`
+
+The dashboard provides a single interface with the **same sidebar you saw in the screenshot**, including:
+
+- 🎮 **Playground** - Interactive testing (OpenWebUI)
+- 🤖 **Models** - View model configuration
+- 🛡️ **Prompt Guard** - Jailbreak detection settings
+- ⚡ **Similarity Cache** - Cache management
+- 🧠 **Intelligent Routing** - Routing rules and reasoning
+- 🗺️ **Topology** - Visual request flow diagram
+- 🔧 **Tools Selection** - Tools database
+- 👁️ **Observability** - System configuration
+- 🔌 **Classification API** - API documentation
+- 📊 **Monitoring** - Grafana dashboards (embedded)
+
+All services (Grafana, OpenWebUI, Jaeger) are embedded via iframes and proxied through the dashboard backend for seamless access.
+
+---
+
+## Quick Demo Guide (Command Line)
 
 ### 1. Live Log Viewer (Run in Terminal 1)
 
@@ -72,24 +100,10 @@ This deploys Jaeger all-in-one with:
 - 🔗 **OTLP collector** (gRPC and HTTP)
 - 💾 **In-memory storage** (demo-friendly)
 
-#### Enable/Disable Tracing
-
-```bash
-# Enable tracing
-./deploy/openshift/demo/toggle-tracing.sh enable
-
-# Disable tracing
-./deploy/openshift/demo/toggle-tracing.sh disable
-
-# Check status
-./deploy/openshift/demo/toggle-tracing.sh status
-```
-
 #### What You'll See in Jaeger
 
 After enabling tracing and running some requests:
 
-1. Open Jaeger UI (URL shown by toggle-tracing.sh status)
 2. Select service: **vllm-semantic-router**
 3. Click **Find Traces**
 4. Click on a trace to see:
@@ -305,9 +319,7 @@ Restarts semantic-router deployment to clear in-memory cache (~30 seconds).
 - `curl-examples.sh` - Quick classification examples (direct API)
 - `cache-management.sh` - Cache management helper
 - `flow-visualization.html` - **Interactive flow visualization** (open in browser)
-- `deploy-flow-viz.sh` - Deploy flow visualization to OpenShift
-- `deploy-jaeger.sh` - Deploy Jaeger distributed tracing
-- `toggle-tracing.sh` - Enable/disable tracing in semantic-router
+- `setup-demo.sh` - All-in-one demo setup (Jaeger, dashboard, flow viz, tracing)
 - `CATEGORY-MODEL-MAPPING.md` - Category to model routing reference
 - `demo-classification-results.json` - Test results (auto-generated)
 
