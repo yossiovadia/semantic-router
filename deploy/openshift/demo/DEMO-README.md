@@ -230,17 +230,27 @@ Restarts semantic-router deployment to clear in-memory cache (~30 seconds).
 - `curl-examples.sh` - Quick classification examples (direct API)
 - `cache-management.sh` - Cache management helper
 - `flow-visualization.html` - **Interactive flow visualization** (open in browser)
+- `deploy-flow-viz.sh` - Deploy flow visualization to OpenShift
 - `CATEGORY-MODEL-MAPPING.md` - Category to model routing reference
 - `demo-classification-results.json` - Test results (auto-generated)
 
 ### Flow Visualization
 
-Open `flow-visualization.html` in your browser for an **interactive visual guide** showing:
+**Interactive visual guide** showing step-by-step request flow, security checks, classification, and routing decisions.
 
-- Step-by-step request flow from user to model
-- Security checks, classification, and routing decisions
-- Performance metrics and key features
-- Animated walkthrough of the entire pipeline
+#### Option 1: Deploy to OpenShift (Recommended for Demos)
+
+```bash
+# Deploy as a web service with public URL
+./deploy/openshift/demo/deploy-flow-viz.sh
+```
+
+This creates a lightweight nginx pod and gives you a URL like:
+`http://flow-visualization-vllm-semantic-router-system.apps.cluster-xxx.opentlc.com`
+
+Perfect for presentations - just open the URL and click "Start Animation"!
+
+#### Option 2: Open Locally
 
 ```bash
 # Open in browser (macOS)
