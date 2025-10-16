@@ -8,6 +8,47 @@ data:
   index.html: |
     <!-- Content will be added via: kubectl create configmap flow-visualization-html --from-file=index.html=flow-visualization.html -->
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flow-visualization-nginx-config
+  namespace: vllm-semantic-router-system
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /dev/stderr info;
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        access_log /dev/stdout;
+        sendfile on;
+        keepalive_timeout 65;
+
+        # Use /tmp for cache directories (writable in OpenShift)
+        client_body_temp_path /tmp/client_temp;
+        proxy_temp_path /tmp/proxy_temp;
+        fastcgi_temp_path /tmp/fastcgi_temp;
+        uwsgi_temp_path /tmp/uwsgi_temp;
+        scgi_temp_path /tmp/scgi_temp;
+
+        server {
+            listen 8080;
+            server_name _;
+
+            location / {
+                root /usr/share/nginx/html;
+                index index.html;
+            }
+        }
+    }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,10 +70,15 @@ spec:
       - name: nginx
         image: nginx:alpine
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          protocol: TCP
+        command: ["nginx", "-c", "/etc/nginx/custom/nginx.conf", "-g", "daemon off;"]
         volumeMounts:
         - name: html
           mountPath: /usr/share/nginx/html
+          readOnly: true
+        - name: nginx-config
+          mountPath: /etc/nginx/custom
           readOnly: true
         resources:
           requests:
@@ -41,10 +87,19 @@ spec:
           limits:
             memory: "64Mi"
             cpu: "50m"
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       volumes:
       - name: html
         configMap:
           name: flow-visualization-html
+      - name: nginx-config
+        configMap:
+          name: flow-visualization-nginx-config
 ---
 apiVersion: v1
 kind: Service
@@ -55,8 +110,8 @@ spec:
   selector:
     app: flow-visualization
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 8080
+    targetPort: 8080
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -68,4 +123,4 @@ spec:
     kind: Service
     name: flow-visualization
   port:
-    targetPort: 80
+    targetPort: 8080
