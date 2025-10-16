@@ -449,26 +449,20 @@ func main() {
 		})
 
 		// Proxy OpenWebUI SPA routes (for iframe navigation after login)
-		// These are routes that OpenWebUI's client-side router uses
-		openwebuiSPARoutes := []string{"/", "/chat", "/models", "/workspace", "/settings"}
+		// Note: We can't register "/" explicitly because the static file server uses it as catch-all
+		// These routes will be handled by the smartStaticFileServer instead
+		openwebuiSPARoutes := []string{"/chat", "/models", "/workspace", "/settings"}
 		for _, route := range openwebuiSPARoutes {
 			r := route // capture for closure
 			mux.HandleFunc(r, func(w http.ResponseWriter, req *http.Request) {
-				// Only proxy if the request is for HTML (from iframe navigation)
-				// Check Accept header for text/html
-				accept := req.Header.Get("Accept")
-				if strings.Contains(accept, "text/html") || req.URL.Path == r {
-					openwebuiStaticProxy.ServeHTTP(w, req)
-					return
-				}
-				// Otherwise, let the static file server handle it
-				http.NotFound(w, req)
+				// Proxy these OpenWebUI routes
+				openwebuiStaticProxy.ServeHTTP(w, req)
 			})
 		}
 
 		log.Printf("Open WebUI proxy configured: %s", *openwebuiURL)
 		log.Printf("Open WebUI static assets proxied: /_app/, /static/, /manifest.json")
-		log.Printf("Open WebUI SPA routes proxied: /, /chat, /models, /workspace, /settings")
+		log.Printf("Open WebUI SPA routes proxied: /chat, /models, /workspace, /settings")
 	} else {
 		mux.HandleFunc("/embedded/openwebui/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
