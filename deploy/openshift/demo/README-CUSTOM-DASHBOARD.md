@@ -46,6 +46,25 @@ The `setup-demo.sh` script can optionally call this build script if you need the
 ./deploy/openshift/demo/setup-demo.sh
 ```
 
+## Known Limitations
+
+**OpenWebUI Iframe Embedding:**
+OpenWebUI cannot fully function when embedded in an iframe from a different domain due to browser security restrictions:
+
+- **Third-party Cookie Blocking**: Modern browsers block cookies with `SameSite=lax` in cross-origin iframes
+- **Authentication Failure**: After signin, session cookies are not accessible to the iframe, causing 500 errors on `/api/v1/auths/`
+- **Workaround**: Access OpenWebUI directly via its own route instead of through the dashboard
+
+To access OpenWebUI for the demo:
+```bash
+# Get the direct OpenWebUI URL
+oc get route openwebui -n vllm-semantic-router-system -o jsonpath='https://{.spec.host}'
+
+# Example: https://openwebui-vllm-semantic-router-system.apps.cluster-pbd96.pbd96.sandbox5333.opentlc.com
+```
+
+This is a fundamental browser security limitation, not a bug in our implementation. The Playground page will display OpenWebUI's signin page, but authentication will fail in the iframe context.
+
 ## Notes
 
 - Patches are maintained separately and not committed to dashboard/
