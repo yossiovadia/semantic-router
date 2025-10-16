@@ -188,9 +188,11 @@ func newReverseProxy(targetBase, stripPrefix string, forwardAuth bool) (*httputi
 		// Rewrite Set-Cookie headers to work in iframe context
 		// Change SameSite=lax to SameSite=none; Secure for cross-origin iframe support
 		cookies := resp.Header["Set-Cookie"]
+		log.Printf("ModifyResponse: Found %d Set-Cookie headers", len(cookies))
 		if len(cookies) > 0 {
 			newCookies := make([]string, len(cookies))
 			for i, cookie := range cookies {
+				log.Printf("Original cookie %d: %s", i, cookie)
 				// Replace SameSite=lax with SameSite=none
 				cookie = strings.Replace(cookie, "SameSite=lax", "SameSite=none", 1)
 				cookie = strings.Replace(cookie, "SameSite=Lax", "SameSite=none", 1)
@@ -199,6 +201,7 @@ func newReverseProxy(targetBase, stripPrefix string, forwardAuth bool) (*httputi
 					cookie = cookie + "; Secure"
 				}
 				newCookies[i] = cookie
+				log.Printf("Rewritten cookie %d: %s", i, cookie)
 			}
 			resp.Header["Set-Cookie"] = newCookies
 			log.Printf("Rewrote %d cookies for iframe compatibility", len(newCookies))
