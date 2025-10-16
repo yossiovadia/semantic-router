@@ -34,16 +34,20 @@ if [ ! -f "$HTML_FILE" ]; then
     exit 1
 fi
 
-# Create or update ConfigMap with the HTML content
-echo -e "${CYAN}📄 Creating ConfigMap with HTML content...${NC}"
+# Deploy the nginx service FIRST (creates empty configmap)
+echo -e "${CYAN}🚀 Deploying nginx service...${NC}"
+oc apply -f "${SCRIPT_DIR}/flow-viz-deployment.yaml" -n "$NAMESPACE"
+
+# Create or update ConfigMap with the actual HTML content
+echo -e "${CYAN}📄 Updating ConfigMap with HTML content...${NC}"
 oc create configmap flow-visualization-html \
     --from-file=index.html="$HTML_FILE" \
     -n "$NAMESPACE" \
-    --dry-run=client -o yaml | oc apply -f -
+    --dry-run=client -o yaml | oc replace -f -
 
-# Deploy the nginx service
-echo -e "${CYAN}🚀 Deploying nginx service...${NC}"
-oc apply -f "${SCRIPT_DIR}/flow-viz-deployment.yaml" -n "$NAMESPACE"
+# Restart deployment to pick up new HTML content
+echo -e "${CYAN}🔄 Restarting deployment to load new content...${NC}"
+oc rollout restart deployment/flow-visualization -n "$NAMESPACE"
 
 # Wait for deployment to be ready
 echo -e "${CYAN}⏳ Waiting for deployment to be ready...${NC}"
