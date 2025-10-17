@@ -82,6 +82,15 @@ EXPOSE 8700
 CMD ["./dashboard-server"]
 DOCKERFILE_EOF
 
+# Ensure imagestream exists
+echo ""
+if ! oc get imagestream $IMAGE_NAME -n $NAMESPACE &>/dev/null; then
+    echo "Creating imagestream $IMAGE_NAME..."
+    oc create imagestream $IMAGE_NAME -n $NAMESPACE
+else
+    echo "Imagestream $IMAGE_NAME already exists"
+fi
+
 # Build image
 echo ""
 echo "Building docker image for linux/amd64 with no cache..."
@@ -97,10 +106,15 @@ echo ""
 echo "Cleaning up build directory..."
 rm -rf $BUILD_DIR
 
-# Update deployment
+# Apply deployment configuration if it doesn't exist
 echo ""
-echo "Updating deployment to use custom image..."
-oc set image deployment/dashboard dashboard=image-registry.openshift-image-registry.svc:5000/$NAMESPACE/$IMAGE_NAME:latest -n $NAMESPACE
+if ! oc get deployment dashboard -n $NAMESPACE &>/dev/null; then
+    echo "Dashboard deployment not found. Applying configuration..."
+    oc apply -f "$SCRIPT_DIR/dashboard-deployment.yaml"
+else
+    echo "Dashboard deployment already exists. Updating image..."
+    oc set image deployment/dashboard dashboard=image-registry.openshift-image-registry.svc:5000/$NAMESPACE/$IMAGE_NAME:latest -n $NAMESPACE
+fi
 
 echo ""
 echo "Waiting for deployment to roll out..."

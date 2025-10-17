@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: dashboard
-          image: ghcr.io/vllm-project/semantic-router/dashboard:latest
+          image: image-registry.openshift-image-registry.svc:5000/vllm-semantic-router-system/dashboard-custom:latest
           imagePullPolicy: Always
           ports:
             - name: http
