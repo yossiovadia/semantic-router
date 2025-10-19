@@ -277,7 +277,9 @@ def test_classification_examples():
     print_header("CLASSIFICATION EXAMPLES (Direct API)")
 
     print(f"{Colors.CYAN}Running classification API examples...{Colors.END}")
-    print(f"{Colors.YELLOW}This shows the classification category detection directly{Colors.END}\n")
+    print(
+        f"{Colors.YELLOW}This shows the classification category detection directly{Colors.END}\n"
+    )
 
     try:
         # Get the script path relative to this file
@@ -475,8 +477,12 @@ def show_menu():
     print(
         f"  {Colors.CYAN}1{Colors.END}. Single Classification (cache demo - same prompt)"
     )
-    print(f"  {Colors.CYAN}2{Colors.END}. Model Selection (4 categories: 2×Model-A, 2×Model-B)")
-    print(f"  {Colors.CYAN}3{Colors.END}. Classification Examples (direct API - shows categories)")
+    print(
+        f"  {Colors.CYAN}2{Colors.END}. Model Selection (4 categories: 2×Model-A, 2×Model-B)"
+    )
+    print(
+        f"  {Colors.CYAN}3{Colors.END}. Classification Examples (direct API - shows categories)"
+    )
     print(f"  {Colors.CYAN}4{Colors.END}. Reasoning Showcase (CoT vs Standard)")
     print(f"  {Colors.CYAN}5{Colors.END}. PII Detection Test")
     print(f"  {Colors.CYAN}6{Colors.END}. Jailbreak Detection Test")
