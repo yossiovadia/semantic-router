@@ -10,12 +10,12 @@ The dashboard has been updated to work with the refactored backend (PR #477). Th
 
 **New features available:**
 - OpenWebUI playground at `/playground`
-- HuggingChat UI at `/huggingchat` (requires ChatUI deployment)
+- **HuggingChat UI at `/huggingchat`** - Now included in deployment!
 - Improved backend architecture with modular code organization
 
 ## Files
 
-- `dashboard-deployment.yaml` - Kubernetes resources (Deployment, Service, Route, ConfigMap)
+- `dashboard-deployment.yaml` - Kubernetes resources for Dashboard and ChatUI (Deployments, Services, Routes, ConfigMaps)
 - `build-custom-dashboard.sh` - Builds custom dashboard image with OpenShift-specific patches
 - `PlaygroundPage.tsx.patch` - Frontend patch for OpenShift hostname-aware OpenWebUI URL construction
 - `README.md` - This file
@@ -53,7 +53,7 @@ oc get route dashboard -n vllm-semantic-router-system -o jsonpath='https://{.spe
 
 Navigate to:
 - `/playground` - OpenWebUI playground
-- `/huggingchat` - HuggingChat UI (if ChatUI is deployed)
+- `/huggingchat` - HuggingChat UI (powered by HuggingFace Chat-UI)
 
 ## How It Works
 

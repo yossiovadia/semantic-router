@@ -11,6 +11,7 @@ data:
   TARGET_ROUTER_API_URL: "http://semantic-router:8080"
   TARGET_ROUTER_METRICS_URL: "http://semantic-router:9190/metrics"
   TARGET_OPENWEBUI_URL: "http://openwebui:3000"
+  TARGET_CHATUI_URL: "http://chatui:3000"
   TARGET_JAEGER_URL: "http://jaeger:16686"
   ROUTER_CONFIG_PATH: "/app/config/config.yaml"
 
@@ -101,6 +102,122 @@ spec:
   to:
     kind: Service
     name: dashboard
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# Note: ChatUI-DB image includes embedded MongoDB, so we don't need a separate MongoDB deployment
+
+# ChatUI Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatui
+  namespace: vllm-semantic-router-system
+  labels:
+    app: chatui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatui
+  template:
+    metadata:
+      labels:
+        app: chatui
+    spec:
+      # OpenShift will assign a UID automatically - no custom securityContext needed
+      containers:
+        - name: chatui
+          image: ghcr.io/huggingface/chat-ui-db:latest
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            # Point Chat UI to semantic-router service (which includes Envoy on port 8801)
+            - name: OPENAI_BASE_URL
+              value: "http://semantic-router:8801/v1"
+            - name: OPENAI_API_KEY
+              value: "changeme"
+            # MongoDB configuration (embedded MongoDB in chat-ui-db image)
+            - name: MONGODB_URL
+              value: "mongodb://localhost:27017"
+            - name: MONGODB_DB_NAME
+              value: "chat-ui"
+            # Theming
+            - name: PUBLIC_APP_NAME
+              value: "HuggingChat"
+            - name: PUBLIC_APP_ASSETS
+              value: "chatui"
+            - name: LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 45
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        - name: mongo-data
+          emptyDir: {}  # Using emptyDir for demo; use PVC for production
+
+---
+# ChatUI Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatui
+  namespace: vllm-semantic-router-system
+  labels:
+    app: chatui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: chatui
+
+---
+# ChatUI Route (optional - for direct access)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: chatui
+  namespace: vllm-semantic-router-system
+  labels:
+    app: chatui
+spec:
+  to:
+    kind: Service
+    name: chatui
     weight: 100
   port:
     targetPort: http
