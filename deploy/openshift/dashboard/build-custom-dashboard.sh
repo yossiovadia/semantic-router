@@ -40,15 +40,15 @@ mkdir -p $BUILD_DIR
 cp -r dashboard $BUILD_DIR/
 
 # Apply patches
-echo "Applying OpenWebUI integration patches..."
-if [ -f "$SCRIPT_DIR/main.go.patch" ]; then
-    cp "$SCRIPT_DIR/main.go.patch" "$BUILD_DIR/dashboard/backend/main.go"
-    echo "  ✓ Applied main.go patch (OpenWebUI proxy + auth)"
-fi
+echo "Applying OpenShift-specific patches..."
+# Note: Backend OpenWebUI proxy is now natively supported in dashboard/backend/router/router.go
+# We only need to patch the frontend for OpenShift hostname detection
 
 if [ -f "$SCRIPT_DIR/PlaygroundPage.tsx.patch" ]; then
     cp "$SCRIPT_DIR/PlaygroundPage.tsx.patch" "$BUILD_DIR/dashboard/frontend/src/pages/PlaygroundPage.tsx"
-    echo "  ✓ Applied PlaygroundPage.tsx patch (proxy path fix)"
+    echo "  ✓ Applied PlaygroundPage.tsx patch (OpenShift hostname-aware URL detection)"
+else
+    echo "  ⚠ Warning: PlaygroundPage.tsx.patch not found, OpenShift URL detection may not work"
 fi
 
 # Create Dockerfile
@@ -130,8 +130,10 @@ oc get route dashboard -n $NAMESPACE -o jsonpath='https://{.spec.host}'
 echo ""
 echo ""
 echo "Patches applied:"
-echo "  - OpenWebUI proxy path fix (PlaygroundPage.tsx)"
-echo "  - OpenWebUI static assets proxying (main.go)"
-echo "  - Smart API routing for OpenWebUI (main.go)"
-echo "  - Authorization header forwarding (main.go)"
+echo "  - OpenShift hostname-aware URL detection (PlaygroundPage.tsx)"
+echo ""
+echo "Native features (no patching needed):"
+echo "  ✓ OpenWebUI proxy with authorization forwarding"
+echo "  ✓ CORS handling for iframe embedding"
+echo "  ✓ HuggingChat support (PR #477)"
 echo ""

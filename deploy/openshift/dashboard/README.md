@@ -2,10 +2,21 @@
 
 This directory contains the OpenShift deployment configuration and custom build for the dashboard with OpenWebUI playground integration.
 
+## What's New
+
+**✅ Compatible with PR #477 (HuggingChat support)**
+
+The dashboard has been updated to work with the refactored backend (PR #477). The OpenWebUI proxy is now natively supported in the upstream codebase, so we only need to patch the frontend for OpenShift-specific hostname detection.
+
+**New features available:**
+- OpenWebUI playground at `/playground`
+- HuggingChat UI at `/huggingchat` (requires ChatUI deployment)
+- Improved backend architecture with modular code organization
+
 ## Files
 
 - `dashboard-deployment.yaml` - Kubernetes resources (Deployment, Service, Route, ConfigMap)
-- `build-custom-dashboard.sh` - Builds custom dashboard image with OpenWebUI integration patches
+- `build-custom-dashboard.sh` - Builds custom dashboard image with OpenShift-specific patches
 - `PlaygroundPage.tsx.patch` - Frontend patch for OpenShift hostname-aware OpenWebUI URL construction
 - `README.md` - This file
 
@@ -40,17 +51,29 @@ This script automatically:
 oc get route dashboard -n vllm-semantic-router-system -o jsonpath='https://{.spec.host}'
 ```
 
-Navigate to `/playground` to access the OpenWebUI playground.
+Navigate to:
+- `/playground` - OpenWebUI playground
+- `/huggingchat` - HuggingChat UI (if ChatUI is deployed)
 
 ## How It Works
 
-### The PlaygroundPage.tsx Patch
+### Backend (No Patching Needed!)
 
-OpenShift uses route-based URLs for services. The patch enables the frontend to:
+As of PR #477, the dashboard backend includes native support for:
+- **OpenWebUI proxy** at `/embedded/openwebui/` with authorization forwarding
+- **HuggingChat proxy** at `/embedded/chatui/`
+- **CORS handling** for iframe embedding
+- **Modular architecture** with separate packages for routing, handlers, and middleware
+
+The backend automatically configures these proxies based on environment variables in the ConfigMap.
+
+### Frontend Patch (OpenShift-Specific)
+
+The `PlaygroundPage.tsx.patch` is the **only patch** needed for OpenShift. It enables the frontend to:
 
 1. Detect when running in OpenShift (by checking the hostname)
 2. Dynamically construct the correct OpenWebUI route URL
-3. Load OpenWebUI in the iframe using the direct route instead of an embedded proxy path
+3. Load OpenWebUI in the iframe using the direct route instead of the embedded proxy path
 
 **Before (doesn't work in OpenShift):**
 
@@ -70,16 +93,27 @@ const getOpenWebUIUrl = () => {
 }
 ```
 
-### Why a Custom Build?
+### Why Only One Patch?
 
-The upstream dashboard uses `localhost:3001` for local OpenWebUI development. In OpenShift:
+**Before PR #477:** We needed to patch both backend and frontend
+- Backend patch: Add OpenWebUI proxy support
+- Frontend patch: OpenShift hostname detection
 
+**After PR #477:** Only frontend patch needed!
+- ✅ Backend: Native OpenWebUI/HuggingChat proxy support
+- ✅ Frontend: Only needs OpenShift hostname detection
+
+In OpenShift:
 - Services are accessed via routes with unique hostnames
 - The OpenWebUI URL must be dynamically constructed based on the deployment environment
-- The patch is applied during build time to inject this logic
+- The frontend patch is applied during build time to inject this logic
 
-## Notes
+## Compatibility Notes
 
-- Patches are maintained separately and not committed to dashboard/
+- **✅ Compatible with PR #469** (OpenShift dashboard - your original PR)
+- **✅ Compatible with PR #477** (HuggingChat support - refactored backend)
+- **Build script updated** to remove obsolete `main.go.patch` reference
+- **Only `PlaygroundPage.tsx.patch`** is applied during build
+- Patches are maintained separately and not committed to `dashboard/`
 - Only used for OpenShift demo deployment
 - Original dashboard code remains untouched for upstream compatibility
