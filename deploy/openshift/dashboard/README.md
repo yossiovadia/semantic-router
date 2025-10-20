@@ -120,14 +120,23 @@ In OpenShift:
 
 The ChatUI deployment is pre-configured with `max_tokens=128` for both Model-A and Model-B via the `MODELS` environment variable. This ensures shorter responses optimized for chat interactions.
 
-To change the token limit for HuggingChat, modify the `MODELS` value in the ChatUI deployment section of `dashboard-deployment.yaml`:
+**To change the token limit for HuggingChat:**
+
+1. Edit `dashboard-deployment.yaml` and modify the `MODELS` environment variable (around line 160):
 
 ```yaml
 - name: MODELS
-  value: '[{"name":"Model-A","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}},{"name":"Model-B","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}}]'
+  value: '[{"name":"Model-A","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":256}},{"name":"Model-B","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":256}}]'
 ```
 
-OpenWebUI token limits are configured separately through the OpenWebUI settings interface.
+2. Apply the changes and restart ChatUI:
+
+```bash
+oc apply -f deploy/openshift/dashboard/dashboard-deployment.yaml
+oc rollout status deployment/chatui -n vllm-semantic-router-system
+```
+
+**Note:** OpenWebUI token limits are configured separately through the OpenWebUI settings interface.
 
 ## Compatibility Notes
 
