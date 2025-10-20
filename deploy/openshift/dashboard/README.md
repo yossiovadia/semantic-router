@@ -9,6 +9,7 @@ This directory contains the OpenShift deployment configuration and custom build 
 The dashboard has been updated to work with the refactored backend (PR #477). The OpenWebUI proxy is now natively supported in the upstream codebase, so we only need to patch the frontend for OpenShift-specific hostname detection.
 
 **New features available:**
+
 - OpenWebUI playground at `/playground`
 - **HuggingChat UI at `/huggingchat`** - Now included in deployment!
 - Improved backend architecture with modular code organization
@@ -52,6 +53,7 @@ oc get route dashboard -n vllm-semantic-router-system -o jsonpath='https://{.spe
 ```
 
 Navigate to:
+
 - `/playground` - OpenWebUI playground
 - `/huggingchat` - HuggingChat UI (powered by HuggingFace Chat-UI, pre-configured with 128 max_tokens)
 
@@ -60,6 +62,7 @@ Navigate to:
 ### Backend (No Patching Needed!)
 
 As of PR #477, the dashboard backend includes native support for:
+
 - **OpenWebUI proxy** at `/embedded/openwebui/` with authorization forwarding
 - **HuggingChat proxy** at `/embedded/chatui/`
 - **CORS handling** for iframe embedding
@@ -96,14 +99,17 @@ const getOpenWebUIUrl = () => {
 ### Why Only One Patch?
 
 **Before PR #477:** We needed to patch both backend and frontend
+
 - Backend patch: Add OpenWebUI proxy support
 - Frontend patch: OpenShift hostname detection
 
 **After PR #477:** Only frontend patch needed!
+
 - ✅ Backend: Native OpenWebUI/HuggingChat proxy support
 - ✅ Frontend: Only needs OpenShift hostname detection
 
 In OpenShift:
+
 - Services are accessed via routes with unique hostnames
 - The OpenWebUI URL must be dynamically constructed based on the deployment environment
 - The frontend patch is applied during build time to inject this logic
