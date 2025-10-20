@@ -53,7 +53,7 @@ oc get route dashboard -n vllm-semantic-router-system -o jsonpath='https://{.spe
 
 Navigate to:
 - `/playground` - OpenWebUI playground
-- `/huggingchat` - HuggingChat UI (powered by HuggingFace Chat-UI)
+- `/huggingchat` - HuggingChat UI (powered by HuggingFace Chat-UI, pre-configured with 128 max_tokens)
 
 ## How It Works
 
@@ -107,6 +107,21 @@ In OpenShift:
 - Services are accessed via routes with unique hostnames
 - The OpenWebUI URL must be dynamically constructed based on the deployment environment
 - The frontend patch is applied during build time to inject this logic
+
+## Configuration Notes
+
+### HuggingChat Token Limits
+
+The ChatUI deployment is pre-configured with `max_tokens=128` for both Model-A and Model-B via the `MODELS` environment variable. This ensures shorter responses optimized for chat interactions.
+
+To change the token limit for HuggingChat, modify the `MODELS` value in the ChatUI deployment section of `dashboard-deployment.yaml`:
+
+```yaml
+- name: MODELS
+  value: '[{"name":"Model-A","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}},{"name":"Model-B","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}}]'
+```
+
+OpenWebUI token limits are configured separately through the OpenWebUI settings interface.
 
 ## Compatibility Notes
 

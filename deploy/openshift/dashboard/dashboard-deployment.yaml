@@ -156,6 +156,9 @@ spec:
               value: "chatui"
             - name: LOG_LEVEL
               value: "info"
+            # Model configuration - set default max_tokens for HuggingChat
+            - name: MODELS
+              value: '[{"name":"Model-A","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}},{"name":"Model-B","endpoints":[{"type":"openai"}],"parameters":{"max_tokens":128}}]'
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
