@@ -178,44 +178,71 @@ def print_header(title: str):
 
 
 def test_single_random(envoy_url: str):
-    """Test single classification - always uses the same prompt for cache testing"""
-    print_header("SINGLE CLASSIFICATION TEST (Cache Demo)")
+    """Test single classification - uses semantically similar prompts for cache testing"""
+    print_header("SEMANTIC CACHE DEMO - Similar Prompts")
 
-    # Use a fixed prompt for cache testing
+    # Use proven semantically similar prompts (from testing)
     category = "math"
-    prompt = "Is 17 a prime number?"
+    prompt1 = "Is 17 a prime number?"
+    prompt2 = "Is seventeen a prime number?"
 
-    print(f"{Colors.YELLOW}Using fixed prompt for cache demo:{Colors.END}")
+    print(f"{Colors.YELLOW}Demonstrating semantic cache with similar prompts:{Colors.END}")
     print(f"  {Colors.BOLD}Category:{Colors.END} {category}")
-    print(f'  {Colors.BOLD}Prompt:{Colors.END} "{prompt}"')
+    print(f'  {Colors.BOLD}Prompt 1:{Colors.END} "{prompt1}"')
+    print(f'  {Colors.BOLD}Prompt 2:{Colors.END} "{prompt2}"')
     print(
-        f"  {Colors.CYAN}💡 Tip:{Colors.END} Run this multiple times to see cache hits!"
+        f"  {Colors.CYAN}💡 These prompts are semantically identical (similarity ≥ 0.8){Colors.END}"
     )
     print()
 
-    # Measure total execution time
-    start_time = time.time()
-    model, proc_time, response = send_chat_request(envoy_url, prompt)
-    total_time = int((time.time() - start_time) * 1000)
+    # Send first prompt (cold - no cache)
+    print(f"{Colors.MAGENTA}Sending Prompt 1 (cold cache)...{Colors.END}")
+    start_time1 = time.time()
+    model1, proc_time1, response1 = send_chat_request(envoy_url, prompt1)
+    total_time1 = int((time.time() - start_time1) * 1000)
 
-    if model != "error":
-        print(f"{Colors.GREEN}✅ Success!{Colors.END}")
-        print(f"  {Colors.BLUE}Routed to:{Colors.END} {model}")
-        print(f"  {Colors.YELLOW}Processing time:{Colors.END} {proc_time}ms")
+    if model1 != "error":
+        print(f"  {Colors.GREEN}✅ Success!{Colors.END}")
+        print(f"  {Colors.BLUE}Routed to:{Colors.END} {model1}")
+        print(f"  {Colors.YELLOW}Processing time:{Colors.END} {proc_time1}ms")
+        print(f"  {Colors.BOLD}{Colors.YELLOW}⚡ TOTAL TIME: {total_time1}ms{Colors.END}")
+        print(f"  {Colors.CYAN}Response:{Colors.END} {response1[:80]}...")
+    else:
+        print(f"  {Colors.RED}❌ Failed:{Colors.END} {response1}")
+        return
 
-        # Highlight total execution time
-        if total_time < 1000:
+    # Wait a moment
+    print(f"\n{Colors.YELLOW}Waiting 0.5s...{Colors.END}\n")
+    time.sleep(0.5)
+
+    # Send second prompt (should hit cache)
+    print(f"{Colors.MAGENTA}Sending Prompt 2 (should hit cache)...{Colors.END}")
+    start_time2 = time.time()
+    model2, proc_time2, response2 = send_chat_request(envoy_url, prompt2)
+    total_time2 = int((time.time() - start_time2) * 1000)
+
+    if model2 != "error":
+        print(f"  {Colors.GREEN}✅ Success!{Colors.END}")
+        print(f"  {Colors.BLUE}Routed to:{Colors.END} {model2}")
+        print(f"  {Colors.YELLOW}Processing time:{Colors.END} {proc_time2}ms")
+
+        # Highlight cache hit
+        if total_time2 < 1000:
+            speedup = total_time1 / total_time2 if total_time2 > 0 else 0
             print(
-                f"  {Colors.BOLD}{Colors.GREEN}⚡ TOTAL EXECUTION TIME: {total_time}ms{Colors.END} {Colors.CYAN}(CACHE HIT!){Colors.END}"
+                f"  {Colors.BOLD}{Colors.GREEN}⚡ TOTAL TIME: {total_time2}ms (CACHE HIT!){Colors.END}"
+            )
+            print(
+                f"  {Colors.BOLD}{Colors.GREEN}🚀 SPEEDUP: {speedup:.1f}x faster! ({total_time1}ms → {total_time2}ms){Colors.END}"
             )
         else:
             print(
-                f"  {Colors.BOLD}{Colors.YELLOW}⚡ TOTAL EXECUTION TIME: {total_time}ms{Colors.END}"
+                f"  {Colors.BOLD}{Colors.YELLOW}⚡ TOTAL TIME: {total_time2}ms{Colors.END}"
             )
 
-        print(f"  {Colors.CYAN}Response:{Colors.END} {response}...")
+        print(f"  {Colors.CYAN}Response:{Colors.END} {response2[:80]}...")
     else:
-        print(f"{Colors.RED}❌ Failed:{Colors.END} {response}")
+        print(f"  {Colors.RED}❌ Failed:{Colors.END} {response2}")
 
 
 def test_model_selection(envoy_url: str):
@@ -475,7 +502,7 @@ def show_menu():
 
     print(f"{Colors.BOLD}Choose an option:{Colors.END}\n")
     print(
-        f"  {Colors.CYAN}1{Colors.END}. Single Classification (cache demo - same prompt)"
+        f"  {Colors.CYAN}1{Colors.END}. Semantic Cache Demo (similar prompts)"
     )
     print(
         f"  {Colors.CYAN}2{Colors.END}. Model Selection (4 categories: 2×Model-A, 2×Model-B)"
