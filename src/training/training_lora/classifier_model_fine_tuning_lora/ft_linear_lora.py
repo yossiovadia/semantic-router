@@ -370,7 +370,7 @@ class EnhancedLoRATrainer(Trainer):
         return (total_loss, outputs) if return_outputs else total_loss
 
 
-def create_lora_model(model_name: str, num_labels: int, lora_config: dict):
+def create_lora_model(model_name: str, num_labels: int, lora_config: dict, label2id: dict = None, id2label: dict = None):
     """Create LoRA-enhanced model."""
     logger.info(f"Creating LoRA model with base: {model_name}")
 
@@ -379,10 +379,12 @@ def create_lora_model(model_name: str, num_labels: int, lora_config: dict):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Load base model
+    # Load base model with label mappings (CRITICAL for correct classification)
     base_model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
         num_labels=num_labels,
+        label2id=label2id,
+        id2label=id2label,
         dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
     )
 
@@ -506,8 +508,8 @@ def main(
     logger.info(f"Validation samples: {len(val_data)}")
     logger.info(f"Categories: {len(category_to_idx)}")
 
-    # Create LoRA model
-    model, tokenizer = create_lora_model(model_path, len(category_to_idx), lora_config)
+    # Create LoRA model with label mappings
+    model, tokenizer = create_lora_model(model_path, len(category_to_idx), lora_config, category_to_idx, idx_to_category)
 
     # Prepare datasets
     train_dataset = tokenize_data(train_data, tokenizer)
