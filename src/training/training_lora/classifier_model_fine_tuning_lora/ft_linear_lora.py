@@ -389,6 +389,8 @@ def create_lora_model(model_name: str, num_labels: int, lora_config: dict, label
     )
 
     # Create LoRA configuration
+    # CRITICAL: modules_to_save=["classifier"] ensures the classification head is fully trained
+    # The classifier is randomly initialized and must be trained, not frozen!
     peft_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
         inference_mode=False,
@@ -396,6 +398,7 @@ def create_lora_model(model_name: str, num_labels: int, lora_config: dict, label
         lora_alpha=lora_config["alpha"],
         lora_dropout=lora_config["dropout"],
         target_modules=lora_config["target_modules"],
+        modules_to_save=["classifier"],  # Fully train the classification head
         bias="none",
     )
 
