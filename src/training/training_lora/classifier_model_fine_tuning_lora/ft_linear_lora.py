@@ -404,6 +404,14 @@ def create_lora_model(model_name: str, num_labels: int, lora_config: dict, label
 
     # Apply LoRA to the model
     lora_model = get_peft_model(base_model, peft_config)
+
+    # CRITICAL: Manually unfreeze classifier if modules_to_save didn't work
+    # The classifier head MUST be trainable since it's randomly initialized
+    for name, param in lora_model.named_parameters():
+        if "classifier" in name:
+            param.requires_grad = True
+            logger.info(f"Unfroze classifier parameter: {name}")
+
     lora_model.print_trainable_parameters()
 
     return lora_model, tokenizer
