@@ -486,9 +486,21 @@ def main(
         logger.error(f"Failed to create LoRA config: {e}")
         raise
 
-    # Load real MMLU-Pro dataset
-    all_data, category_to_idx, idx_to_category = create_mmlu_dataset(max_samples)
-    train_data, val_data = train_test_split(all_data, test_size=0.2, random_state=42)
+    # Load real MMLU-Pro dataset - use splits directly from prepare_datasets
+    # FIX: Previously used create_mmlu_dataset() which combined train+val then re-split,
+    # causing data leakage and destroying stratification. Now using prepare_datasets() directly.
+    dataset_loader = MMLU_Dataset()
+    datasets = dataset_loader.prepare_datasets(max_samples)
+
+    train_texts, train_labels = datasets["train"]
+    val_texts, val_labels = datasets["validation"]
+
+    # Convert to format expected by tokenize_data
+    train_data = [{"text": text, "label": label} for text, label in zip(train_texts, train_labels)]
+    val_data = [{"text": text, "label": label} for text, label in zip(val_texts, val_labels)]
+
+    category_to_idx = dataset_loader.label2id
+    idx_to_category = dataset_loader.id2label
 
     logger.info(f"Training samples: {len(train_data)}")
     logger.info(f"Validation samples: {len(val_data)}")
