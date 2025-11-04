@@ -370,8 +370,98 @@ impl ConfigLoader for ModelConfigLoader {
     }
 }
 
+/// Detect number of classes from LoRA adapter safetensors file
+///
+/// For PEFT LoRA adapters with modules_to_save, the classifier head is saved as:
+/// base_model.model.classifier.weight with shape (num_classes, hidden_size)
+pub fn detect_num_classes_from_adapter(model_path: &str) -> Result<usize, UnifiedError> {
+    use std::path::Path;
+
+    let adapter_path = Path::new(model_path).join("adapter_model.safetensors");
+
+    if !adapter_path.exists() {
+        return Err(config_errors::file_not_found(&adapter_path.to_string_lossy()));
+    }
+
+    // Load the safetensors file
+    use safetensors::SafeTensors;
+    let buffer = std::fs::read(&adapter_path)
+        .map_err(|e| config_errors::invalid_json(&adapter_path.to_string_lossy(), &e.to_string()))?;
+
+    let tensors = SafeTensors::deserialize(&buffer)
+        .map_err(|e| config_errors::invalid_json(&adapter_path.to_string_lossy(), &e.to_string()))?;
+
+    // Look for the classifier weight in PEFT format
+    let classifier_key = "base_model.model.classifier.weight";
+
+    if let Ok(tensor_view) = tensors.tensor(classifier_key) {
+        // Shape should be (num_classes, hidden_size)
+        let shape = tensor_view.shape();
+        if shape.len() >= 2 {
+            return Ok(shape[0]);
+        }
+    }
+
+    Err(config_errors::missing_field(
+        "base_model.model.classifier.weight",
+        "adapter_model.safetensors"
+    ))
+}
+
 /// Load config for intent classification (replaces intent_lora.rs logic)
+///
+/// This function now checks for LoRA adapters first and loads the actual number of classes
+/// from the adapter file, then generates appropriate labels if needed.
 pub fn load_intent_labels(model_path: &str) -> Result<Vec<String>, UnifiedError> {
+    use std::path::Path;
+
+    let adapter_path = Path::new(model_path).join("adapter_model.safetensors");
+    let is_lora_adapter = adapter_path.exists();
+
+    if is_lora_adapter {
+        // Try to detect actual number of classes from adapter file
+        if let Ok(actual_num_classes) = detect_num_classes_from_adapter(model_path) {
+            // Load config to see if it matches
+            let config_json = UnifiedConfigLoader::load_json_config(model_path)?;
+            let config_labels = UnifiedConfigLoader::extract_sorted_labels(&config_json)?;
+
+            if config_labels.len() != actual_num_classes {
+                eprintln!("⚠️  WARNING: config.json has {} labels but adapter has {} classes!",
+                         config_labels.len(), actual_num_classes);
+                eprintln!("⚠️  Using actual number from adapter: {}", actual_num_classes);
+
+                // Try to load from label_mapping.json as fallback
+                let label_mapping_path = Path::new(model_path).join("label_mapping.json");
+                if label_mapping_path.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&label_mapping_path) {
+                        if let Ok(mapping) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
+                            let mut labels: Vec<(usize, String)> = mapping
+                                .iter()
+                                .filter_map(|(k, v)| k.parse::<usize>().ok().map(|id| (id, v.clone())))
+                                .collect();
+
+                            if labels.len() == actual_num_classes {
+                                labels.sort_by_key(|(id, _)| *id);
+                                let sorted_labels: Vec<String> = labels.into_iter().map(|(_, label)| label).collect();
+                                eprintln!("✅ Loaded {} labels from label_mapping.json", sorted_labels.len());
+                                return Ok(sorted_labels);
+                            }
+                        }
+                    }
+                }
+
+                // Generate placeholder labels if we can't find the right mapping
+                eprintln!("⚠️  Generating placeholder labels for {} classes", actual_num_classes);
+                return Ok((0..actual_num_classes)
+                    .map(|i| format!("class_{}", i))
+                    .collect());
+            }
+
+            return Ok(config_labels);
+        }
+    }
+
+    // Fallback to loading from config.json for non-LoRA models
     let config_json = UnifiedConfigLoader::load_json_config(model_path)?;
     UnifiedConfigLoader::extract_sorted_labels(&config_json)
 }

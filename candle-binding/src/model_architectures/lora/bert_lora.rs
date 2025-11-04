@@ -502,7 +502,11 @@ impl HighPerformanceBertClassifier {
         let tokenizer = Tokenizer::from_file(&tokenizer_path)
             .map_err(|e| E::msg(format!("Failed to load tokenizer: {}", e)))?;
 
-        // Load model weights
+        // Check if this is a LoRA adapter directory (has adapter_model.safetensors)
+        let adapter_path = Path::new(model_path).join("adapter_model.safetensors");
+        let is_lora_adapter = adapter_path.exists();
+
+        // Load base model weights
         let weights_path = if Path::new(model_path).join("model.safetensors").exists() {
             Path::new(model_path).join("model.safetensors")
         } else if Path::new(model_path).join("pytorch_model.bin").exists() {
@@ -513,7 +517,7 @@ impl HighPerformanceBertClassifier {
 
         let use_pth = weights_path.extension().and_then(|s| s.to_str()) == Some("bin");
 
-        // Create VarBuilder following old architecture pattern
+        // Create VarBuilder for base model following old architecture pattern
         let vb = if use_pth {
             VarBuilder::from_pth(&weights_path, DType::F32, &device)?
         } else {
@@ -530,8 +534,40 @@ impl HighPerformanceBertClassifier {
             vb.pp("bert").pp("pooler").pp("dense"),
         )?;
 
-        // Create classifier (following old architecture pattern exactly)
-        let classifier = candle_nn::linear(config.hidden_size, num_classes, vb.pp("classifier"))?;
+        // Create classifier - check LoRA adapter first for modules_to_save
+        let classifier = if is_lora_adapter {
+            // Load classifier from LoRA adapter (PEFT saves it as base_model.model.classifier)
+            println!("ℹ️  Detected LoRA adapter, loading classifier from adapter_model.safetensors");
+
+            let adapter_vb = unsafe {
+                VarBuilder::from_mmaped_safetensors(&[adapter_path], DType::F32, &device)?
+            };
+
+            // PEFT LoRA adapters save the classifier head as base_model.model.classifier
+            let classifier_weight = adapter_vb
+                .get((num_classes, config.hidden_size), "base_model.model.classifier.weight")
+                .map_err(|e| {
+                    E::msg(format!(
+                        "Failed to load classifier from LoRA adapter. Expected 'base_model.model.classifier.weight' with shape ({}, {}). Error: {}",
+                        num_classes, config.hidden_size, e
+                    ))
+                })?;
+
+            let classifier_bias = adapter_vb
+                .get(num_classes, "base_model.model.classifier.bias")
+                .map_err(|e| {
+                    E::msg(format!(
+                        "Failed to load classifier bias from LoRA adapter. Expected 'base_model.model.classifier.bias' with {} classes. Error: {}",
+                        num_classes, e
+                    ))
+                })?;
+
+            println!("✅ Loaded {}-class classifier from LoRA adapter", num_classes);
+            candle_nn::Linear::new(classifier_weight, Some(classifier_bias))
+        } else {
+            // Load classifier from base model (merged LoRA or regular fine-tuned model)
+            candle_nn::linear(config.hidden_size, num_classes, vb.pp("classifier"))?
+        };
 
         Ok(Self {
             bert,
