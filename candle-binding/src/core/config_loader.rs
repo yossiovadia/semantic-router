@@ -465,8 +465,34 @@ pub fn load_intent_labels(model_path: &str) -> Result<Vec<String>, UnifiedError>
                     }
                 }
 
-                // Generate placeholder labels if we can't find the right mapping
-                eprintln!("⚠️  Generating placeholder labels for {} classes", actual_num_classes);
+                // Generate MMLU-Pro labels if we can't find the right mapping
+                eprintln!("⚠️  label_mapping.json not found or invalid, using MMLU-Pro default labels for {} classes", actual_num_classes);
+
+                // Hardcoded MMLU-Pro 14-category mapping (alphabetical order as used in training)
+                let mmlu_pro_labels = vec![
+                    "biology",
+                    "business",
+                    "chemistry",
+                    "computer science",
+                    "economics",
+                    "engineering",
+                    "health",
+                    "history",
+                    "law",
+                    "math",
+                    "other",
+                    "philosophy",
+                    "physics",
+                    "psychology",
+                ];
+
+                if actual_num_classes == 14 {
+                    eprintln!("✅ Using MMLU-Pro 14-category labels: {:?}", mmlu_pro_labels);
+                    return Ok(mmlu_pro_labels.into_iter().map(|s| s.to_string()).collect());
+                }
+
+                // Fallback to generic labels for other class counts
+                eprintln!("⚠️  Generating generic placeholder labels for {} classes", actual_num_classes);
                 return Ok((0..actual_num_classes)
                     .map(|i| format!("class_{}", i))
                     .collect());
