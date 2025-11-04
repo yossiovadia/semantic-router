@@ -380,12 +380,13 @@ def create_lora_model(model_name: str, num_labels: int, lora_config: dict, label
         tokenizer.pad_token = tokenizer.eos_token
 
     # Load base model with label mappings (CRITICAL for correct classification)
+    # IMPORTANT: Use FP32 not FP16 - LoRA training is numerically unstable with half precision
     base_model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
         num_labels=num_labels,
         label2id=label2id,
         id2label=id2label,
-        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        torch_dtype=torch.float32,  # Force FP32 for numerical stability
     )
 
     # Create LoRA configuration
