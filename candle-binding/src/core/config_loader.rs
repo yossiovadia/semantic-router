@@ -433,18 +433,33 @@ pub fn load_intent_labels(model_path: &str) -> Result<Vec<String>, UnifiedError>
                 // Try to load from label_mapping.json as fallback
                 let label_mapping_path = Path::new(model_path).join("label_mapping.json");
                 if label_mapping_path.exists() {
+                    eprintln!("🔍 Found label_mapping.json, attempting to load...");
                     if let Ok(content) = std::fs::read_to_string(&label_mapping_path) {
-                        if let Ok(mapping) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
-                            let mut labels: Vec<(usize, String)> = mapping
-                                .iter()
-                                .filter_map(|(k, v)| k.parse::<usize>().ok().map(|id| (id, v.clone())))
-                                .collect();
+                        // Parse the JSON structure: {"idx_to_category": {"0": "biology", ...}, "category_to_idx": {...}}
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            // Try to extract idx_to_category mapping
+                            if let Some(idx_to_category) = json.get("idx_to_category") {
+                                if let Some(mapping_obj) = idx_to_category.as_object() {
+                                    let mut labels: Vec<(usize, String)> = mapping_obj
+                                        .iter()
+                                        .filter_map(|(k, v)| {
+                                            let id = k.parse::<usize>().ok()?;
+                                            let label = v.as_str()?.to_string();
+                                            Some((id, label))
+                                        })
+                                        .collect();
 
-                            if labels.len() == actual_num_classes {
-                                labels.sort_by_key(|(id, _)| *id);
-                                let sorted_labels: Vec<String> = labels.into_iter().map(|(_, label)| label).collect();
-                                eprintln!("✅ Loaded {} labels from label_mapping.json", sorted_labels.len());
-                                return Ok(sorted_labels);
+                                    if labels.len() == actual_num_classes {
+                                        labels.sort_by_key(|(id, _)| *id);
+                                        let sorted_labels: Vec<String> = labels.into_iter().map(|(_, label)| label).collect();
+                                        eprintln!("✅ Loaded {} labels from label_mapping.json: {:?}", sorted_labels.len(), sorted_labels);
+                                        return Ok(sorted_labels);
+                                    } else {
+                                        eprintln!("⚠️  label_mapping.json has {} entries but adapter has {} classes", labels.len(), actual_num_classes);
+                                    }
+                                }
+                            } else {
+                                eprintln!("⚠️  label_mapping.json missing 'idx_to_category' field");
                             }
                         }
                     }
