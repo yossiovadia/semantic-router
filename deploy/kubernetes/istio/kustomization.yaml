@@ -24,7 +24,7 @@ patches:
 configMapGenerator:
   - name: semantic-router-config
     files:
-      - config.yaml 
+      - config.yaml
       - tools_db.json
 
 namespace: vllm-semantic-router-system
