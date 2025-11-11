@@ -5,6 +5,9 @@
 This test validates that the Unified Classifier correctly selects between
 LoRA and Traditional inference paths based on request characteristics.
 
+TESTS: Direct Classification API (port 8080)
+Tests the Unified Classifier's internal path selection logic.
+
 ROUTING DECISION LOGIC (from unified.rs:536-568):
 1. Multi-task (tasks > 1) → LoRA path
 2. Large batch (texts ≥ 4) → LoRA path
@@ -15,7 +18,9 @@ ROUTING DECISION LOGIC (from unified.rs:536-568):
 PREREQUISITES:
 - LoRA models must have lora_config.json files (from PR #629)
 - Auto-discovery must find complete LoRA model set (intent+PII+security)
-- Services running: router-e2e, envoy, llm-katan
+- Services running: router-e2e
+
+NOTE: For full Envoy/ExtProc routing stack tests, see 08-envoy-routing-test.py
 """
 
 import json
@@ -29,7 +34,7 @@ import requests
 from test_base import SemanticRouterTestBase
 
 # Constants
-CLASSIFICATION_API_URL = "http://localhost:8080"
+CLASSIFICATION_API_URL = "http://localhost:8080"  # Direct classifier API
 INTENT_ENDPOINT = "/api/v1/classify/intent"
 BATCH_ENDPOINT = "/api/v1/classify/batch"
 ROUTER_METRICS_URL = "http://localhost:9190/metrics"
