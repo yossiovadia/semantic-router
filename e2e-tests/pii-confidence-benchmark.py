@@ -20,6 +20,7 @@ import statistics
 CLASSIFICATION_API_URL = "http://localhost:8080/api/v1"
 PII_ENDPOINT = "/classify/pii"
 
+
 @dataclass
 class BenchmarkResult:
     prompt: str
@@ -31,6 +32,7 @@ class BenchmarkResult:
     processing_time_ms: float
     error: str = None
 
+
 # Comprehensive test prompts covering various PII types and formats
 BENCHMARK_PROMPTS = [
     # === EMAIL ADDRESSES ===
@@ -41,20 +43,34 @@ BENCHMARK_PROMPTS = [
     {"text": "user123@test.com", "category": "Email", "has_pii": True},
     {"text": "support@example.org", "category": "Email", "has_pii": True},
     {"text": "admin@domain.net", "category": "Email", "has_pii": True},
-    {"text": "Contact me at support@example.org for help", "category": "Email", "has_pii": True},
-    {"text": "Send to john@example.com and jane@example.com", "category": "Email", "has_pii": True},
-    {"text": "Email us at info@company.com for more details", "category": "Email", "has_pii": True},
-
+    {
+        "text": "Contact me at support@example.org for help",
+        "category": "Email",
+        "has_pii": True,
+    },
+    {
+        "text": "Send to john@example.com and jane@example.com",
+        "category": "Email",
+        "has_pii": True,
+    },
+    {
+        "text": "Email us at info@company.com for more details",
+        "category": "Email",
+        "has_pii": True,
+    },
     # === SSN (Social Security Numbers) ===
     {"text": "123-45-6789", "category": "SSN", "has_pii": True},
     {"text": "987-65-4321", "category": "SSN", "has_pii": True},
     {"text": "456-78-9012", "category": "SSN", "has_pii": True},
     {"text": "123456789", "category": "SSN", "has_pii": True},
     {"text": "My SSN is 123-45-6789", "category": "SSN", "has_pii": True},
-    {"text": "My social security number is 987-65-4321", "category": "SSN", "has_pii": True},
+    {
+        "text": "My social security number is 987-65-4321",
+        "category": "SSN",
+        "has_pii": True,
+    },
     {"text": "SSN: 456-78-9012", "category": "SSN", "has_pii": True},
     {"text": "Please verify SSN 111-22-3333", "category": "SSN", "has_pii": True},
-
     # === CREDIT CARDS ===
     {"text": "4111-1111-1111-1111", "category": "Credit Card", "has_pii": True},
     {"text": "4532-1234-5678-9012", "category": "Credit Card", "has_pii": True},
@@ -64,10 +80,21 @@ BENCHMARK_PROMPTS = [
     {"text": "4111111111111111", "category": "Credit Card", "has_pii": True},
     {"text": "4532123456789012", "category": "Credit Card", "has_pii": True},
     {"text": "5500000000000004", "category": "Credit Card", "has_pii": True},
-    {"text": "Card number 4111-1111-1111-1111", "category": "Credit Card", "has_pii": True},
-    {"text": "My card number is 4532-1234-5678-9012 and expires 12/25", "category": "Credit Card", "has_pii": True},
-    {"text": "Payment card: 4111111111111111 exp 03/26", "category": "Credit Card", "has_pii": True},
-
+    {
+        "text": "Card number 4111-1111-1111-1111",
+        "category": "Credit Card",
+        "has_pii": True,
+    },
+    {
+        "text": "My card number is 4532-1234-5678-9012 and expires 12/25",
+        "category": "Credit Card",
+        "has_pii": True,
+    },
+    {
+        "text": "Payment card: 4111111111111111 exp 03/26",
+        "category": "Credit Card",
+        "has_pii": True,
+    },
     # === PHONE NUMBERS ===
     {"text": "(555) 123-4567", "category": "Phone", "has_pii": True},
     {"text": "555-123-4567", "category": "Phone", "has_pii": True},
@@ -77,70 +104,115 @@ BENCHMARK_PROMPTS = [
     {"text": "+1 (555) 123-4567", "category": "Phone", "has_pii": True},
     {"text": "5551234567", "category": "Phone", "has_pii": True},
     {"text": "1-800-555-1234", "category": "Phone", "has_pii": True},
-    {"text": "Call me at (555) 123-4567 for more info", "category": "Phone", "has_pii": True},
-    {"text": "Phone: 555-123-4567 or 555-765-4321", "category": "Phone", "has_pii": True},
-
+    {
+        "text": "Call me at (555) 123-4567 for more info",
+        "category": "Phone",
+        "has_pii": True,
+    },
+    {
+        "text": "Phone: 555-123-4567 or 555-765-4321",
+        "category": "Phone",
+        "has_pii": True,
+    },
     # === PERSON NAMES ===
     {"text": "John Smith", "category": "Person", "has_pii": True},
     {"text": "Jane Doe", "category": "Person", "has_pii": True},
     {"text": "John Q. Smith", "category": "Person", "has_pii": True},
     {"text": "Dr. Jane Doe", "category": "Person", "has_pii": True},
     {"text": "Mr. Robert Johnson", "category": "Person", "has_pii": True},
-    {"text": "Meeting with John Smith and Jane Doe", "category": "Person", "has_pii": True},
-    {"text": "Contact Sarah Williams for details", "category": "Person", "has_pii": True},
-
+    {
+        "text": "Meeting with John Smith and Jane Doe",
+        "category": "Person",
+        "has_pii": True,
+    },
+    {
+        "text": "Contact Sarah Williams for details",
+        "category": "Person",
+        "has_pii": True,
+    },
     # === ADDRESSES ===
     {"text": "123 Main Street", "category": "Address", "has_pii": True},
     {"text": "456 Oak Ave", "category": "Address", "has_pii": True},
     {"text": "789 Elm Road, Apt 5B", "category": "Address", "has_pii": True},
-    {"text": "123 Main Street, New York, NY 10001", "category": "Address", "has_pii": True},
-    {"text": "456 Oak Ave, Los Angeles, CA 90001", "category": "Address", "has_pii": True},
-    {"text": "1600 Pennsylvania Avenue NW, Washington, DC 20500", "category": "Address", "has_pii": True},
-
+    {
+        "text": "123 Main Street, New York, NY 10001",
+        "category": "Address",
+        "has_pii": True,
+    },
+    {
+        "text": "456 Oak Ave, Los Angeles, CA 90001",
+        "category": "Address",
+        "has_pii": True,
+    },
+    {
+        "text": "1600 Pennsylvania Avenue NW, Washington, DC 20500",
+        "category": "Address",
+        "has_pii": True,
+    },
     # === LOCATIONS (GPE - Geo-Political Entities) ===
     {"text": "New York", "category": "Location", "has_pii": True},
     {"text": "Los Angeles", "category": "Location", "has_pii": True},
     {"text": "United States", "category": "Location", "has_pii": True},
     {"text": "London", "category": "Location", "has_pii": True},
     {"text": "Tokyo", "category": "Location", "has_pii": True},
-
     # === ORGANIZATIONS ===
     {"text": "Apple Inc.", "category": "Organization", "has_pii": True},
     {"text": "Microsoft Corporation", "category": "Organization", "has_pii": True},
     {"text": "Google LLC", "category": "Organization", "has_pii": True},
     {"text": "Amazon.com", "category": "Organization", "has_pii": True},
-
     # === DATES ===
     {"text": "12/31/2023", "category": "Date", "has_pii": True},
     {"text": "01/15/2024", "category": "Date", "has_pii": True},
     {"text": "January 1, 2024", "category": "Date", "has_pii": True},
     {"text": "March 15th, 2023", "category": "Date", "has_pii": True},
     {"text": "Born on 05/20/1990", "category": "Date", "has_pii": True},
-
     # === MIXED PII (Multiple types in one prompt) ===
-    {"text": "Call 555-1234 or email test@example.com", "category": "Mixed", "has_pii": True},
-    {"text": "John Smith, SSN 123-45-6789, lives at 123 Main St", "category": "Mixed", "has_pii": True},
-    {"text": "Contact: jane.doe@example.com, Phone: (555) 123-4567", "category": "Mixed", "has_pii": True},
-    {"text": "Card 4111-1111-1111-1111 belongs to John Doe at 456 Oak Ave", "category": "Mixed", "has_pii": True},
-
+    {
+        "text": "Call 555-1234 or email test@example.com",
+        "category": "Mixed",
+        "has_pii": True,
+    },
+    {
+        "text": "John Smith, SSN 123-45-6789, lives at 123 Main St",
+        "category": "Mixed",
+        "has_pii": True,
+    },
+    {
+        "text": "Contact: jane.doe@example.com, Phone: (555) 123-4567",
+        "category": "Mixed",
+        "has_pii": True,
+    },
+    {
+        "text": "Card 4111-1111-1111-1111 belongs to John Doe at 456 Oak Ave",
+        "category": "Mixed",
+        "has_pii": True,
+    },
     # === NON-PII (Should NOT detect PII) ===
-    {"text": "The quick brown fox jumps over the lazy dog", "category": "Non-PII", "has_pii": False},
+    {
+        "text": "The quick brown fox jumps over the lazy dog",
+        "category": "Non-PII",
+        "has_pii": False,
+    },
     {"text": "Hello world", "category": "Non-PII", "has_pii": False},
     {"text": "What is the weather today?", "category": "Non-PII", "has_pii": False},
-    {"text": "How do I solve this math problem?", "category": "Non-PII", "has_pii": False},
+    {
+        "text": "How do I solve this math problem?",
+        "category": "Non-PII",
+        "has_pii": False,
+    },
     {"text": "Tell me about machine learning", "category": "Non-PII", "has_pii": False},
     {"text": "12345", "category": "Non-PII", "has_pii": False},
     {"text": "abc def ghi", "category": "Non-PII", "has_pii": False},
     {"text": "What time is it?", "category": "Non-PII", "has_pii": False},
     {"text": "Explain quantum physics", "category": "Non-PII", "has_pii": False},
     {"text": "Recipe for chocolate cake", "category": "Non-PII", "has_pii": False},
-
     # === EDGE CASES (Ambiguous) ===
     {"text": "at", "category": "Edge Case", "has_pii": False},
     {"text": "@", "category": "Edge Case", "has_pii": False},
     {"text": "123", "category": "Edge Case", "has_pii": False},
     {"text": "test test test", "category": "Edge Case", "has_pii": False},
 ]
+
 
 def run_benchmark() -> List[BenchmarkResult]:
     """Run benchmark on all test prompts"""
@@ -169,7 +241,7 @@ def run_benchmark() -> List[BenchmarkResult]:
                 f"{CLASSIFICATION_API_URL}{PII_ENDPOINT}",
                 headers={"Content-Type": "application/json"},
                 json=payload,
-                timeout=10
+                timeout=10,
             )
             end_time = time.time()
 
@@ -185,7 +257,9 @@ def run_benchmark() -> List[BenchmarkResult]:
                 max_confidence = max(e.get("confidence", 0.0) for e in entities)
 
             # Use API's processing time if available, otherwise use our measured time
-            api_processing_time = result_data.get("processing_time_ms", processing_time_ms)
+            api_processing_time = result_data.get(
+                "processing_time_ms", processing_time_ms
+            )
 
             result = BenchmarkResult(
                 prompt=prompt,
@@ -194,7 +268,7 @@ def run_benchmark() -> List[BenchmarkResult]:
                 has_pii=has_pii,
                 max_confidence=max_confidence,
                 entities_detected=entities,
-                processing_time_ms=api_processing_time
+                processing_time_ms=api_processing_time,
             )
 
         except Exception as e:
@@ -206,13 +280,14 @@ def run_benchmark() -> List[BenchmarkResult]:
                 max_confidence=0.0,
                 entities_detected=[],
                 processing_time_ms=0.0,
-                error=str(e)
+                error=str(e),
             )
 
         results.append(result)
 
     print(f"\nCompleted testing {len(BENCHMARK_PROMPTS)} prompts.\n")
     return results
+
 
 def print_results_table(results: List[BenchmarkResult]):
     """Print detailed results table"""
@@ -221,12 +296,16 @@ def print_results_table(results: List[BenchmarkResult]):
     print(f"{'='*150}")
 
     # Table header
-    print(f"{'#':<4} {'Category':<15} {'Prompt':<50} {'Confidence':<12} {'Time (ms)':<12} {'Status':<10}")
+    print(
+        f"{'#':<4} {'Category':<15} {'Prompt':<50} {'Confidence':<12} {'Time (ms)':<12} {'Status':<10}"
+    )
     print(f"{'-'*150}")
 
     for i, result in enumerate(results, 1):
         # Truncate long prompts
-        prompt_display = result.prompt[:47] + "..." if len(result.prompt) > 50 else result.prompt
+        prompt_display = (
+            result.prompt[:47] + "..." if len(result.prompt) > 50 else result.prompt
+        )
 
         # Status: ✅ correct detection, ❌ missed/false positive, ⚠️ error
         if result.error:
@@ -236,12 +315,21 @@ def print_results_table(results: List[BenchmarkResult]):
         else:
             status = "❌ FAIL"
 
-        confidence_str = f"{result.max_confidence:.4f}" if result.max_confidence > 0 else "N/A"
-        time_str = f"{result.processing_time_ms:.1f}" if result.processing_time_ms > 0 else "N/A"
+        confidence_str = (
+            f"{result.max_confidence:.4f}" if result.max_confidence > 0 else "N/A"
+        )
+        time_str = (
+            f"{result.processing_time_ms:.1f}"
+            if result.processing_time_ms > 0
+            else "N/A"
+        )
 
-        print(f"{i:<4} {result.category:<15} {prompt_display:<50} {confidence_str:<12} {time_str:<12} {status:<10}")
+        print(
+            f"{i:<4} {result.category:<15} {prompt_display:<50} {confidence_str:<12} {time_str:<12} {status:<10}"
+        )
 
     print(f"{'='*150}\n")
+
 
 def print_statistics(results: List[BenchmarkResult]):
     """Print comprehensive statistics"""
@@ -265,7 +353,9 @@ def print_statistics(results: List[BenchmarkResult]):
 
     # Confidence statistics
     confidences = [r.max_confidence for r in results if r.max_confidence > 0]
-    processing_times = [r.processing_time_ms for r in results if r.processing_time_ms > 0]
+    processing_times = [
+        r.processing_time_ms for r in results if r.processing_time_ms > 0
+    ]
 
     print(f"📊 Overall Performance:")
     print(f"   Total Prompts:        {total}")
@@ -282,9 +372,17 @@ def print_statistics(results: List[BenchmarkResult]):
     print(f"   True Negatives:       {true_negatives}")
 
     if expected_pii_count > 0:
-        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+        precision = (
+            true_positives / (true_positives + false_positives)
+            if (true_positives + false_positives) > 0
+            else 0
+        )
         recall = true_positives / expected_pii_count
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        f1_score = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0
+        )
 
         print(f"\n📈 Classification Metrics:")
         print(f"   Precision:            {precision:.3f} ({precision*100:.1f}%)")
@@ -297,7 +395,11 @@ def print_statistics(results: List[BenchmarkResult]):
         print(f"   Median:               {statistics.median(confidences):.4f}")
         print(f"   Min:                  {min(confidences):.4f}")
         print(f"   Max:                  {max(confidences):.4f}")
-        print(f"   Std Dev:              {statistics.stdev(confidences):.4f}" if len(confidences) > 1 else "   Std Dev:              N/A")
+        print(
+            f"   Std Dev:              {statistics.stdev(confidences):.4f}"
+            if len(confidences) > 1
+            else "   Std Dev:              N/A"
+        )
 
     if processing_times:
         print(f"\n⏱️  Processing Time (ms):")
@@ -305,7 +407,11 @@ def print_statistics(results: List[BenchmarkResult]):
         print(f"   Median:               {statistics.median(processing_times):.2f}")
         print(f"   Min:                  {min(processing_times):.2f}")
         print(f"   Max:                  {max(processing_times):.2f}")
-        print(f"   Std Dev:              {statistics.stdev(processing_times):.2f}" if len(processing_times) > 1 else "   Std Dev:              N/A")
+        print(
+            f"   Std Dev:              {statistics.stdev(processing_times):.2f}"
+            if len(processing_times) > 1
+            else "   Std Dev:              N/A"
+        )
 
     # Category breakdown
     print(f"\n📂 Results by Category:")
@@ -322,9 +428,12 @@ def print_statistics(results: List[BenchmarkResult]):
     for category in sorted(categories.keys()):
         stats = categories[category]
         accuracy = stats["correct"] / stats["total"] * 100
-        print(f"   {category:<20} {stats['correct']}/{stats['total']} correct ({accuracy:.0f}%), {stats['detected']} detected")
+        print(
+            f"   {category:<20} {stats['correct']}/{stats['total']} correct ({accuracy:.0f}%), {stats['detected']} detected"
+        )
 
     print(f"\n{'='*100}\n")
+
 
 def main():
     """Main benchmark execution"""
@@ -332,10 +441,14 @@ def main():
     try:
         response = requests.get("http://localhost:8080/health", timeout=5)
         if response.status_code != 200:
-            print(f"❌ ERROR: Classification API not healthy (status {response.status_code})")
+            print(
+                f"❌ ERROR: Classification API not healthy (status {response.status_code})"
+            )
             return
     except Exception as e:
-        print(f"❌ ERROR: Cannot connect to Classification API at {CLASSIFICATION_API_URL}")
+        print(
+            f"❌ ERROR: Cannot connect to Classification API at {CLASSIFICATION_API_URL}"
+        )
         print(f"   Make sure the router is running on port 8080")
         print(f"   Error: {e}")
         return
@@ -349,22 +462,25 @@ def main():
 
     # Save detailed results to JSON
     output_file = "/tmp/pii-benchmark-results.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json_results = []
         for r in results:
-            json_results.append({
-                "prompt": r.prompt,
-                "category": r.category,
-                "expected_pii": r.expected_pii,
-                "has_pii": r.has_pii,
-                "max_confidence": r.max_confidence,
-                "entities_detected": r.entities_detected,
-                "processing_time_ms": r.processing_time_ms,
-                "error": r.error
-            })
+            json_results.append(
+                {
+                    "prompt": r.prompt,
+                    "category": r.category,
+                    "expected_pii": r.expected_pii,
+                    "has_pii": r.has_pii,
+                    "max_confidence": r.max_confidence,
+                    "entities_detected": r.entities_detected,
+                    "processing_time_ms": r.processing_time_ms,
+                    "error": r.error,
+                }
+            )
         json.dump(json_results, f, indent=2)
 
     print(f"📄 Detailed results saved to: {output_file}\n")
+
 
 if __name__ == "__main__":
     main()

@@ -53,7 +53,6 @@ PII_TEST_CASES = [
         "min_confidence": 0.7,
         "description": "ModernBERT PASSED: 0.947. LoRA should also pass",
     },
-
     # ===== Email Variations =====
     {
         "name": "Email - Work Domain",
@@ -79,7 +78,6 @@ PII_TEST_CASES = [
         "expected_types": ["EMAIL_ADDRESS"],
         "min_confidence": 0.7,
     },
-
     # ===== SSN Variations =====
     {
         "name": "SSN - No Dashes",
@@ -99,7 +97,6 @@ PII_TEST_CASES = [
         "expected_types": ["US_SSN"],
         "min_confidence": 0.7,
     },
-
     # ===== Credit Card Variations =====
     {
         "name": "Credit Card - Spaces",
@@ -131,7 +128,6 @@ PII_TEST_CASES = [
         "expected_types": ["CREDIT_CARD"],
         "min_confidence": 0.7,
     },
-
     # ===== Phone Variations =====
     {
         "name": "Phone - Dashes",
@@ -169,7 +165,6 @@ PII_TEST_CASES = [
         "expected_types": ["PHONE_NUMBER"],
         "min_confidence": 0.7,
     },
-
     # ===== Person Names =====
     {
         "name": "Person - Full Name",
@@ -195,7 +190,6 @@ PII_TEST_CASES = [
         "expected_types": ["PERSON"],
         "min_confidence": 0.7,
     },
-
     # ===== Addresses =====
     {
         "name": "Address - Street",
@@ -209,7 +203,6 @@ PII_TEST_CASES = [
         "expected_types": ["ADDRESS", "GPE"],
         "min_confidence": 0.7,
     },
-
     # ===== Organizations =====
     {
         "name": "Organization - Tech Company",
@@ -223,7 +216,6 @@ PII_TEST_CASES = [
         "expected_types": ["ORGANIZATION"],
         "min_confidence": 0.7,
     },
-
     # ===== Dates =====
     {
         "name": "Date - Numeric",
@@ -237,7 +229,6 @@ PII_TEST_CASES = [
         "expected_types": ["DATE_TIME"],
         "min_confidence": 0.7,
     },
-
     # ===== Locations =====
     {
         "name": "Location - City",
@@ -251,7 +242,6 @@ PII_TEST_CASES = [
         "expected_types": ["GPE"],
         "min_confidence": 0.7,
     },
-
     # ===== Edge Cases =====
     {
         "name": "No PII - Random Text",
@@ -329,7 +319,9 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
             payload = {"text": test_case["text"]}
 
             print(f"   Input: \"{test_case['text']}\"")
-            print(f"   Expected: {', '.join(test_case['expected_types']) if test_case['expected_types'] else 'No PII'}")
+            print(
+                f"   Expected: {', '.join(test_case['expected_types']) if test_case['expected_types'] else 'No PII'}"
+            )
             if "description" in test_case:
                 print(f"   Note: {test_case['description']}")
 
@@ -357,13 +349,17 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
                         results_summary["passed"] += 1
                         status = "PASS"
                     else:
-                        print(f"   ⚠️  UNEXPECTED - PII detected: {[e['type'] for e in entities]}")
+                        print(
+                            f"   ⚠️  UNEXPECTED - PII detected: {[e['type'] for e in entities]}"
+                        )
                         results_summary["partial"] += 1
                         status = "PARTIAL"
                 else:
                     # Expecting PII
                     if not has_pii or not entities:
-                        print(f"   ❌ FAIL - No PII detected (expected {test_case['expected_types']})")
+                        print(
+                            f"   ❌ FAIL - No PII detected (expected {test_case['expected_types']})"
+                        )
                         results_summary["failed"] += 1
                         status = "FAIL"
                     else:
@@ -373,28 +369,49 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
 
                         print(f"   Detected {len(entities)} entities:")
                         for entity in entities:
-                            entity_type = entity.get("type", "UNKNOWN").replace("B-", "").replace("I-", "")
+                            entity_type = (
+                                entity.get("type", "UNKNOWN")
+                                .replace("B-", "")
+                                .replace("I-", "")
+                            )
                             confidence = entity.get("confidence", 0.0)
                             detected_types.add(entity_type)
                             max_confidence = max(max_confidence, confidence)
 
-                            conf_status = "✅" if confidence >= test_case["min_confidence"] else "⚠️"
-                            print(f"      {conf_status} {entity['type']}: confidence={confidence:.3f}")
+                            conf_status = (
+                                "✅"
+                                if confidence >= test_case["min_confidence"]
+                                else "⚠️"
+                            )
+                            print(
+                                f"      {conf_status} {entity['type']}: confidence={confidence:.3f}"
+                            )
 
                         # Check if expected types were found
                         expected_set = set(test_case["expected_types"])
-                        found_expected = any(dt in expected_set for dt in detected_types)
+                        found_expected = any(
+                            dt in expected_set for dt in detected_types
+                        )
 
-                        if found_expected and max_confidence >= test_case["min_confidence"]:
-                            print(f"   ✅ PASS - Expected types detected with sufficient confidence")
+                        if (
+                            found_expected
+                            and max_confidence >= test_case["min_confidence"]
+                        ):
+                            print(
+                                f"   ✅ PASS - Expected types detected with sufficient confidence"
+                            )
                             results_summary["passed"] += 1
                             status = "PASS"
                         elif found_expected:
-                            print(f"   ⚠️  PARTIAL - Expected types found but confidence too low ({max_confidence:.3f} < {test_case['min_confidence']})")
+                            print(
+                                f"   ⚠️  PARTIAL - Expected types found but confidence too low ({max_confidence:.3f} < {test_case['min_confidence']})"
+                            )
                             results_summary["partial"] += 1
                             status = "PARTIAL"
                         else:
-                            print(f"   ❌ FAIL - Expected {expected_set} but detected {detected_types}")
+                            print(
+                                f"   ❌ FAIL - Expected {expected_set} but detected {detected_types}"
+                            )
                             results_summary["failed"] += 1
                             status = "FAIL"
 
@@ -409,7 +426,11 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
             # Track by category (outside try to ensure it always runs)
             category = test_case["name"].split(" - ")[0]
             if category not in results_summary["by_category"]:
-                results_summary["by_category"][category] = {"PASS": 0, "FAIL": 0, "PARTIAL": 0}
+                results_summary["by_category"][category] = {
+                    "PASS": 0,
+                    "FAIL": 0,
+                    "PARTIAL": 0,
+                }
             results_summary["by_category"][category][status] += 1
 
         # Print summary
@@ -430,15 +451,25 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
         for category, stats in sorted(results_summary["by_category"].items()):
             cat_total = stats["PASS"] + stats["FAIL"] + stats["PARTIAL"]
             if cat_total > 0:
-                print(f"   {category}: {stats['PASS']}/{cat_total} passed "
-                      f"({stats['PASS']/cat_total*100:.0f}%)")
+                print(
+                    f"   {category}: {stats['PASS']}/{cat_total} passed "
+                    f"({stats['PASS']/cat_total*100:.0f}%)"
+                )
 
         # Compare to Issue #647 original cases
         print(f"\n🎯 Issue #647 Original Cases:")
-        print(f"   Email:       {'✅ FIXED' if PII_TEST_CASES[0] else '❌ Still failing'}")
-        print(f"   SSN:         {'✅ FIXED' if PII_TEST_CASES[1] else '❌ Still failing'}")
-        print(f"   Credit Card: {'✅ FIXED' if PII_TEST_CASES[2] else '❌ Still failing'}")
-        print(f"   Phone:       {'✅ Working' if PII_TEST_CASES[3] else '❌ Regressed'}")
+        print(
+            f"   Email:       {'✅ FIXED' if PII_TEST_CASES[0] else '❌ Still failing'}"
+        )
+        print(
+            f"   SSN:         {'✅ FIXED' if PII_TEST_CASES[1] else '❌ Still failing'}"
+        )
+        print(
+            f"   Credit Card: {'✅ FIXED' if PII_TEST_CASES[2] else '❌ Still failing'}"
+        )
+        print(
+            f"   Phone:       {'✅ Working' if PII_TEST_CASES[3] else '❌ Regressed'}"
+        )
 
         # Determine overall test result
         # We'll be lenient - partial counts as pass for now since we're evaluating the model
@@ -446,7 +477,7 @@ class DirectPIIClassificationTest(SemanticRouterTestBase):
 
         self.print_test_result(
             passed=success_rate >= 70,  # 70% threshold for comprehensive test
-            message=f"PII Detection: {success_rate:.1f}% success rate ({passed} passed, {partial} partial, {failed} failed)"
+            message=f"PII Detection: {success_rate:.1f}% success rate ({passed} passed, {partial} partial, {failed} failed)",
         )
 
 
