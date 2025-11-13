@@ -142,15 +142,29 @@ type PIIInitializer interface {
 	Init(modelID string, useCPU bool, numClasses int) error
 }
 
-type PIIInitializerImpl struct{}
+type PIIInitializerImpl struct {
+	usedModernBERT bool // Track which init path succeeded for inference routing
+}
 
 func (c *PIIInitializerImpl) Init(modelID string, useCPU bool, numClasses int) error {
-	// Use auto-detecting Candle BERT init - checks for lora_config.json
+	// Try auto-detecting Candle BERT init first - checks for lora_config.json
+	// This enables LoRA PII models when available
 	success := candle_binding.InitCandleBertTokenClassifier(modelID, numClasses, useCPU)
-	if !success {
-		return fmt.Errorf("failed to initialize PII token classifier")
+	if success {
+		c.usedModernBERT = false
+		logging.Infof("Initialized PII token classifier with auto-detection (LoRA or Traditional BERT)")
+		return nil
 	}
-	logging.Infof("Initialized PII token classifier with auto-detection (LoRA or Traditional)")
+
+	// Fallback to ModernBERT-specific init for backward compatibility
+	// This handles models with incomplete configs (missing hidden_act, etc.)
+	logging.Infof("Auto-detection failed, falling back to ModernBERT PII initializer")
+	err := candle_binding.InitModernBertPIITokenClassifier(modelID, useCPU)
+	if err != nil {
+		return fmt.Errorf("failed to initialize PII token classifier (both auto-detect and ModernBERT): %w", err)
+	}
+	c.usedModernBERT = true
+	logging.Infof("Initialized ModernBERT PII token classifier (fallback mode)")
 	return nil
 }
 
