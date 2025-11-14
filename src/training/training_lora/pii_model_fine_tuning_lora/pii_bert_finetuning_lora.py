@@ -754,18 +754,32 @@ def main(
     # Auto-merge LoRA adapter with base model for Rust compatibility
     logger.info("Auto-merging LoRA adapter with base model for Rust inference...")
     try:
-        # Option 1: Keep both LoRA adapter and Rust-compatible model (default)
-        merged_output_dir = f"{output_dir}_rust"
+        # Merge in-place to replace LoRA adapter with full model
+        # This ensures users get a Rust-compatible model ready for HuggingFace upload
+        import tempfile
+        import shutil
 
-        # Option 2: Replace LoRA adapter with Rust-compatible model (uncomment to use)
-        # merged_output_dir = output_dir
+        # Create temp directory for merge
+        temp_merge_dir = tempfile.mkdtemp(prefix="pii_merge_")
 
-        merge_lora_adapter_to_full_model(output_dir, merged_output_dir, model_path)
-        logger.info(f"Rust-compatible model saved to: {merged_output_dir}")
-        logger.info(f"This model can be used with Rust candle-binding!")
+        try:
+            # Merge to temp directory
+            merge_lora_adapter_to_full_model(output_dir, temp_merge_dir, model_path)
+
+            # Move merged model to replace adapter
+            shutil.rmtree(output_dir)
+            shutil.move(temp_merge_dir, output_dir)
+
+            logger.info(f"✅ Merged model saved to: {output_dir}")
+            logger.info(f"✅ This model is ready for Rust inference and HuggingFace upload!")
+        except Exception as inner_e:
+            # Clean up temp dir on failure
+            if os.path.exists(temp_merge_dir):
+                shutil.rmtree(temp_merge_dir)
+            raise inner_e
     except Exception as e:
         logger.warning(f"Auto-merge failed: {e}")
-        logger.info(f"You can manually merge using: python merge_lora_pii_model.py")
+        logger.info(f"You can manually merge using the merge_lora_adapter_to_full_model function")
 
 
 def merge_lora_adapter_to_full_model(
