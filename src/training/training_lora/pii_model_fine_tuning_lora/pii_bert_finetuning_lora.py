@@ -728,6 +728,16 @@ def main(
             f,
         )
 
+    # Save PII type mapping (required by Go router)
+    with open(os.path.join(output_dir, "pii_type_mapping.json"), "w") as f:
+        json.dump(
+            {
+                "label_to_idx": label_to_id,
+                "idx_to_label": {str(k): v for k, v in id_to_label.items()},
+            },
+            f,
+        )
+
     # Save LoRA config
     with open(os.path.join(output_dir, "lora_config.json"), "w") as f:
         json.dump(lora_config, f)
@@ -816,7 +826,7 @@ def merge_lora_adapter_to_full_model(
         logger.info("Updated config.json with correct PII label mappings")
 
     # Copy important files from LoRA adapter
-    for file_name in ["label_mapping.json", "lora_config.json"]:
+    for file_name in ["label_mapping.json", "pii_type_mapping.json", "lora_config.json"]:
         src_file = Path(lora_adapter_path) / file_name
         if src_file.exists():
             shutil.copy(src_file, Path(output_path) / file_name)
