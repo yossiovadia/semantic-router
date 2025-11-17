@@ -672,8 +672,17 @@ def main(
     val_dataset = prepare_token_dataset(val_data, tokenizer, label_to_id)
 
     # Setup output directory - save to project root models/ for consistency with traditional training
+    # Get the project root (4 levels up from this script)
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent.parent.parent.parent
+    final_model_dir = project_root / "models" / f"lora_pii_detector_{model_name.replace('/', '_')}_model"
+
+    # Training outputs to a temporary directory first, then we'll move to final location after merge
     output_dir = f"lora_pii_detector_{model_name}_r{lora_rank}_token_model"
     os.makedirs(output_dir, exist_ok=True)
+
+    logger.info(f"Training output directory: {output_dir}")
+    logger.info(f"Final model will be saved to: {final_model_dir}")
 
     # Training arguments
     # Training arguments optimized for LoRA token classification based on PEFT best practices
@@ -761,7 +770,23 @@ def main(
     )
     logger.info(f"✅ Training complete! Merged FP32 model saved to: {output_dir}")
     logger.info(f"✅ Model structure: model.safetensors (LoRA merged with FP32 base model)")
+
+    # Move merged model to final location in models/ directory
+    logger.info(f"Moving model to final location: {final_model_dir}")
+    if final_model_dir.exists():
+        logger.info(f"Removing existing model at {final_model_dir}")
+        shutil.rmtree(final_model_dir)
+
+    shutil.move(output_dir, str(final_model_dir))
+    logger.info(f"✅ Model successfully saved to: {final_model_dir}")
     logger.info(f"✅ This model is ready for Rust/Candle inference!")
+
+    # Create .downloaded marker to prevent Makefile from re-downloading
+    marker_file = final_model_dir / ".downloaded"
+    marker_file.write_text(f"Trained locally on {os.uname().nodename}\n")
+    logger.info(f"Created .downloaded marker file")
+
+    return str(final_model_dir)
 
 
 def merge_lora_adapter_to_full_model(
