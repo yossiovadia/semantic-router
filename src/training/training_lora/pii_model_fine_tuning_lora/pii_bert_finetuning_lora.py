@@ -148,11 +148,11 @@ def create_lora_token_model(model_name: str, num_labels: int, lora_config: dict)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Load base model for token classification
+    # Load base model for token classification - Force FP32 to prevent confidence compression
     base_model = AutoModelForTokenClassification.from_pretrained(
         model_name,
         num_labels=num_labels,
-        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        torch_dtype=torch.float32,  # Always use FP32 for stable training and proper confidence distribution
     )
 
     # Create LoRA configuration for token classification
@@ -728,6 +728,16 @@ def main(
             f,
         )
 
+    # Save PII type mapping (required by Go router)
+    with open(os.path.join(output_dir, "pii_type_mapping.json"), "w") as f:
+        json.dump(
+            {
+                "label_to_idx": label_to_id,
+                "idx_to_label": {str(k): v for k, v in id_to_label.items()},
+            },
+            f,
+        )
+
     # Save LoRA config
     with open(os.path.join(output_dir, "lora_config.json"), "w") as f:
         json.dump(lora_config, f)
@@ -740,22 +750,14 @@ def main(
     logger.info(f"  Precision: {eval_results['eval_precision']:.4f}")
     logger.info(f"  Recall: {eval_results['eval_recall']:.4f}")
     logger.info(f"LoRA PII model saved to: {output_dir}")
+    logger.info(f"✅ Training complete! LoRA adapter with FP32 base model saved.")
+    logger.info(f"✅ Model structure: adapter_model.safetensors + base model")
+    logger.info(f"✅ This LoRA adapter is ready for Rust/Candle inference and HuggingFace upload!")
 
-    # Auto-merge LoRA adapter with base model for Rust compatibility
-    logger.info("Auto-merging LoRA adapter with base model for Rust inference...")
-    try:
-        # Option 1: Keep both LoRA adapter and Rust-compatible model (default)
-        merged_output_dir = f"{output_dir}_rust"
-
-        # Option 2: Replace LoRA adapter with Rust-compatible model (uncomment to use)
-        # merged_output_dir = output_dir
-
-        merge_lora_adapter_to_full_model(output_dir, merged_output_dir, model_path)
-        logger.info(f"Rust-compatible model saved to: {merged_output_dir}")
-        logger.info(f"This model can be used with Rust candle-binding!")
-    except Exception as e:
-        logger.warning(f"Auto-merge failed: {e}")
-        logger.info(f"You can manually merge using: python merge_lora_pii_model.py")
+    # NOTE: We do NOT merge the adapter with the base model
+    # Candle/Rust expects the LoRA adapter format (adapter_model.safetensors + base model)
+    # Merging breaks compatibility with the Rust candle-binding
+    # The FP32 precision fix is in the base model loading (line 155: torch_dtype=torch.float32)
 
 
 def merge_lora_adapter_to_full_model(
@@ -775,7 +777,7 @@ def merge_lora_adapter_to_full_model(
 
     # Load base model with correct number of labels
     base_model = AutoModelForTokenClassification.from_pretrained(
-        base_model_path, num_labels=num_labels, dtype=torch.float32, device_map="cpu"
+        base_model_path, num_labels=num_labels, torch_dtype=torch.float32
     )
 
     # Load tokenizer with model-specific configuration
@@ -816,7 +818,7 @@ def merge_lora_adapter_to_full_model(
         logger.info("Updated config.json with correct PII label mappings")
 
     # Copy important files from LoRA adapter
-    for file_name in ["label_mapping.json", "lora_config.json"]:
+    for file_name in ["label_mapping.json", "pii_type_mapping.json", "lora_config.json"]:
         src_file = Path(lora_adapter_path) / file_name
         if src_file.exists():
             shutil.copy(src_file, Path(output_path) / file_name)
