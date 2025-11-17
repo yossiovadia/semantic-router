@@ -723,7 +723,41 @@ pub extern "C" fn init_lora_unified_classifier(
     ) {
         Ok(engine) => {
             // Store in global static variable (Arc for efficient cloning during concurrent access)
-            PARALLEL_LORA_ENGINE.set(Arc::new(engine)).is_ok()
+            let parallel_init_success = PARALLEL_LORA_ENGINE.set(Arc::new(engine)).is_ok();
+
+            if !parallel_init_success {
+                eprintln!("Failed to set PARALLEL_LORA_ENGINE - already initialized");
+                return false;
+            }
+
+            // Also initialize legacy BERT_CLASSIFIER for backward compatibility
+            // This allows legacy code paths (like LinearCategoryInference.ClassifyWithProbabilities)
+            // to work seamlessly with the unified classifier architecture
+            match load_labels_from_model_config(intent_path) {
+                Ok(labels) => {
+                    let num_classes = labels.len();
+                    match BertClassifier::new(intent_path, num_classes, use_cpu) {
+                        Ok(classifier) => {
+                            let legacy_init_success = BERT_CLASSIFIER.set(Arc::new(classifier)).is_ok();
+                            if !legacy_init_success {
+                                eprintln!("Warning: Failed to initialize legacy BERT_CLASSIFIER (may already be initialized)");
+                            }
+                            // Return true even if legacy init fails - parallel engine is primary
+                            true
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Failed to create legacy BERT classifier: {:?}", e);
+                            // Return true - parallel engine is primary, legacy is optional
+                            true
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to load labels for legacy classifier: {:?}", e);
+                    // Return true - parallel engine is primary, legacy is optional
+                    true
+                }
+            }
         }
         Err(e) => {
             eprintln!(
