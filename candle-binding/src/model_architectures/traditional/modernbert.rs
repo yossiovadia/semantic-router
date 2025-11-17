@@ -252,10 +252,8 @@ impl FixedModernBertClassifier {
         config: &Config,
         num_classes: usize,
     ) -> Result<Self, candle_core::Error> {
-        // Load pre-trained classifier weights (match old architecture)
-        let weight = vb.get((num_classes, config.hidden_size), "weight")?;
-        let bias = vb.get((num_classes,), "bias")?;
-        let classifier = candle_nn::Linear::new(weight, Some(bias));
+        // Load pre-trained classifier weights using candle_nn::linear for proper transpose handling
+        let classifier = candle_nn::linear(config.hidden_size, num_classes, vb)?;
 
         Ok(Self { classifier })
     }
@@ -287,11 +285,8 @@ impl FixedModernBertTokenClassifier {
         config: &Config,
         num_classes: usize,
     ) -> Result<Self, candle_core::Error> {
-        // Following old architecture pattern - manually load weight and bias
-        let classifier = candle_nn::Linear::new(
-            vb.get((num_classes, config.hidden_size), "classifier.weight")?,
-            Some(vb.get((num_classes,), "classifier.bias")?),
-        );
+        // Load classifier using candle_nn::linear for proper transpose handling
+        let classifier = candle_nn::linear(config.hidden_size, num_classes, vb.pp("classifier"))?;
 
         Ok(Self { classifier })
     }

@@ -108,12 +108,7 @@ impl TraditionalBertClassifier {
         };
 
         // Create classification head
-        let classifier = {
-            let classifier_weight =
-                vb.get((num_classes, config.hidden_size), "classifier.weight")?;
-            let classifier_bias = vb.get(num_classes, "classifier.bias")?;
-            Linear::new(classifier_weight, Some(classifier_bias))
-        };
+        let classifier = candle_nn::linear(config.hidden_size, num_classes, vb.pp("classifier"))?;
 
         Ok(Self {
             bert,
