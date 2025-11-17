@@ -714,13 +714,10 @@ impl HighPerformanceBertTokenClassifier {
         // Load BERT model
         let bert = BertModel::load(vb.pp("bert"), &config)?;
 
-        // Create token classifier (following old architecture pattern)
-        let classifier = {
-            let classifier_weight =
-                vb.get((num_classes, config.hidden_size), "classifier.weight")?;
-            let classifier_bias = vb.get(num_classes, "classifier.bias")?;
-            Linear::new(classifier_weight, Some(classifier_bias))
-        };
+        // Create token classifier using candle_nn::linear (handles transpose automatically)
+        // PyTorch saves weights as (out_features, in_features) but needs transpose for matmul
+        // candle_nn::linear handles this transpose automatically like the sequence classifier
+        let classifier = candle_nn::linear(config.hidden_size, num_classes, vb.pp("classifier"))?;
 
         Ok(Self {
             bert,
