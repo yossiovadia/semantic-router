@@ -750,14 +750,18 @@ def main(
     logger.info(f"  Precision: {eval_results['eval_precision']:.4f}")
     logger.info(f"  Recall: {eval_results['eval_recall']:.4f}")
     logger.info(f"LoRA PII model saved to: {output_dir}")
-    logger.info(f"✅ Training complete! LoRA adapter with FP32 base model saved.")
-    logger.info(f"✅ Model structure: adapter_model.safetensors + base model")
-    logger.info(f"✅ This LoRA adapter is ready for Rust/Candle inference and HuggingFace upload!")
 
-    # NOTE: We do NOT merge the adapter with the base model
-    # Candle/Rust expects the LoRA adapter format (adapter_model.safetensors + base model)
-    # Merging breaks compatibility with the Rust candle-binding
-    # The FP32 precision fix is in the base model loading (line 155: torch_dtype=torch.float32)
+    # Merge LoRA adapter with base model for Candle/Rust compatibility
+    # The working intent classifier has model.safetensors (merged), not just adapter
+    logger.info("Merging LoRA adapter with base model for Candle/Rust compatibility...")
+    merge_lora_adapter_to_full_model(
+        lora_adapter_path=output_dir,
+        output_path=output_dir,
+        base_model_path=model_name
+    )
+    logger.info(f"✅ Training complete! Merged FP32 model saved to: {output_dir}")
+    logger.info(f"✅ Model structure: model.safetensors (LoRA merged with FP32 base model)")
+    logger.info(f"✅ This model is ready for Rust/Candle inference!")
 
 
 def merge_lora_adapter_to_full_model(
