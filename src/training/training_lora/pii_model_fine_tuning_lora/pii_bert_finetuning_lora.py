@@ -821,11 +821,12 @@ def merge_lora_adapter_to_full_model(
 
         logger.info("Updated config.json with correct PII label mappings")
 
-    # Copy important files from LoRA adapter
-    for file_name in ["label_mapping.json", "pii_type_mapping.json", "lora_config.json"]:
-        src_file = Path(lora_adapter_path) / file_name
-        if src_file.exists():
-            shutil.copy(src_file, Path(output_path) / file_name)
+    # Copy important files from LoRA adapter (only if source != destination)
+    if lora_adapter_path != output_path:
+        for file_name in ["label_mapping.json", "pii_type_mapping.json", "lora_config.json"]:
+            src_file = Path(lora_adapter_path) / file_name
+            if src_file.exists():
+                shutil.copy(src_file, Path(output_path) / file_name)
 
     logger.info("LoRA adapter merged successfully!")
 
