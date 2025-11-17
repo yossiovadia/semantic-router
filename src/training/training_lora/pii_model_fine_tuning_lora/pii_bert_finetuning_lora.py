@@ -799,12 +799,54 @@ def merge_lora_adapter_to_full_model(
 
     logger.info(f"Saving merged model to: {output_path}")
 
-    # Create output directory
-    os.makedirs(output_path, exist_ok=True)
+    # When merging in-place (lora_adapter_path == output_path), we need to:
+    # 1. Save to temp directory
+    # 2. Remove old adapter files
+    # 3. Move merged files back
+    if lora_adapter_path == output_path:
+        import tempfile
+        temp_dir = tempfile.mkdtemp(prefix="pii_merge_")
+        logger.info(f"Using temporary directory for merge: {temp_dir}")
 
-    # Save merged model
-    merged_model.save_pretrained(output_path)
-    tokenizer.save_pretrained(output_path)
+        # Save to temp
+        merged_model.save_pretrained(temp_dir)
+        tokenizer.save_pretrained(temp_dir)
+
+        # Remove adapter-specific files from original directory
+        adapter_files = [
+            "adapter_model.safetensors",
+            "adapter_config.json",
+            "checkpoint-*"  # Remove checkpoint directories
+        ]
+        for pattern in adapter_files:
+            if "*" in pattern:
+                # Handle wildcards for directories
+                import glob
+                for item in glob.glob(os.path.join(output_path, pattern)):
+                    if os.path.isdir(item):
+                        shutil.rmtree(item)
+                        logger.info(f"Removed checkpoint directory: {item}")
+            else:
+                file_path = os.path.join(output_path, pattern)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    logger.info(f"Removed adapter file: {pattern}")
+
+        # Copy merged model files from temp to output
+        for item in os.listdir(temp_dir):
+            src = os.path.join(temp_dir, item)
+            dst = os.path.join(output_path, item)
+            if os.path.isfile(src):
+                shutil.copy2(src, dst)
+
+        # Clean up temp directory
+        shutil.rmtree(temp_dir)
+        logger.info("Cleaned up temporary directory")
+    else:
+        # Different directories - just save directly
+        os.makedirs(output_path, exist_ok=True)
+        merged_model.save_pretrained(output_path)
+        tokenizer.save_pretrained(output_path)
 
     # Fix config.json to include correct id2label mapping for Rust compatibility
     config_path = os.path.join(output_path, "config.json")
