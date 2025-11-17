@@ -76,6 +76,13 @@ impl ParallelLoRAEngine {
         })
     }
 
+    /// Classify intent for a single text (wrapper for backward compatibility)
+    ///
+    /// This method provides legacy API compatibility by delegating to the intent classifier
+    pub fn classify_intent(&self, text: &str) -> Result<IntentResult> {
+        self.intent_classifier.classify_intent(text)
+    }
+
     /// Parallel classification across all three tasks using rayon
     ///
     /// # Performance

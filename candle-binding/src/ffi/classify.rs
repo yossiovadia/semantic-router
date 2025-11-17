@@ -113,6 +113,7 @@ pub extern "C" fn classify_text_with_probabilities(
         }
     };
 
+    // Try legacy BERT_CLASSIFIER first for backward compatibility
     if let Some(classifier) = BERT_CLASSIFIER.get() {
         let classifier = classifier.clone();
         match classifier.classify_text(text) {
@@ -135,8 +136,26 @@ pub extern "C" fn classify_text_with_probabilities(
                 default_result
             }
         }
+    } else if let Some(engine) = PARALLEL_LORA_ENGINE.get() {
+        // Fallback to parallel LoRA engine if legacy classifier not available
+        let engine = engine.clone();
+        match engine.classify_intent(text) {
+            Ok(result) => {
+                ClassificationResultWithProbs {
+                    predicted_class: 0,
+                    confidence: result.confidence,
+                    label: std::ptr::null_mut(),
+                    probabilities: std::ptr::null_mut(),
+                    num_classes: 0,
+                }
+            }
+            Err(e) => {
+                eprintln!("Error classifying text with parallel engine: {e}");
+                default_result
+            }
+        }
     } else {
-        eprintln!("BERT classifier not initialized");
+        eprintln!("BERT classifier not initialized (neither legacy nor parallel engine available)");
         default_result
     }
 }
