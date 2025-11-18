@@ -149,10 +149,12 @@ def create_lora_token_model(model_name: str, num_labels: int, lora_config: dict)
         tokenizer.pad_token = tokenizer.eos_token
 
     # Load base model for token classification
+    # Force FP32 for proper confidence score distribution (FP16 causes uniform ~0.9 scores)
+    # Issue #647: FP16 limited precision (10-11 bits) compresses confidence distributions
     base_model = AutoModelForTokenClassification.from_pretrained(
         model_name,
         num_labels=num_labels,
-        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        torch_dtype=torch.float32,  # Always use FP32 for stable token classification
     )
 
     # Create LoRA configuration for token classification
