@@ -732,17 +732,13 @@ func (c *Classifier) classifyWithUnifiedClassifier(text string) (string, float64
 
 // makeReasoningDecisionForCategory creates reasoning decision based on category config
 func (c *Classifier) makeReasoningDecisionForCategory(category string, confidence float64) entropy.ReasoningDecision {
-	normalizedCategory := strings.ToLower(strings.TrimSpace(category))
+	// Note: In the new config architecture, reasoning configuration has moved from
+	// categories to decisions. However, the unified LoRA classifier returns category names
+	// (e.g., "business") while decisions have different names (e.g., "business_decision").
+	// For now, default to useReasoning=false since there's no direct mapping from
+	// category name to decision. This maintains backward compatibility and allows
+	// the system to function without reasoning until proper decision mapping is implemented.
 	useReasoning := false
-
-	for _, cat := range c.Config.Categories {
-		if strings.ToLower(cat.Name) == normalizedCategory {
-			if len(cat.ModelScores) > 0 && cat.ModelScores[0].UseReasoning != nil {
-				useReasoning = *cat.ModelScores[0].UseReasoning
-			}
-			break
-		}
-	}
 
 	return entropy.ReasoningDecision{
 		UseReasoning:     useReasoning,
