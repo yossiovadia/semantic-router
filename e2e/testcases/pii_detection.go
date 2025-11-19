@@ -135,7 +135,7 @@ func testSinglePIIDetection(ctx context.Context, testCase PIITestCase, localPort
 
 	// Create chat completion request
 	requestBody := map[string]interface{}{
-		"model": "MoM",
+		"model": "general-expert",
 		"messages": []map[string]string{
 			{"role": "user", "content": testCase.Question},
 		},
