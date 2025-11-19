@@ -14,9 +14,10 @@ type PolicyChecker struct {
 
 // IsPIIEnabled checks if PII detection is enabled for a given decision
 func (c *PolicyChecker) IsPIIEnabled(decisionName string) bool {
+	// If no decision specified, try to use the default catch-all decision
 	if decisionName == "" {
-		logging.Infof("No decision specified, PII detection disabled")
-		return false
+		decisionName = "default_decision"
+		logging.Infof("No decision specified, trying default decision: %s", decisionName)
 	}
 
 	decision := c.Config.GetDecisionByName(decisionName)
@@ -47,6 +48,12 @@ func (pc *PolicyChecker) CheckPolicy(decisionName string, detectedPII []string) 
 	if !pc.IsPIIEnabled(decisionName) {
 		logging.Infof("PII detection is disabled for decision %s, allowing request", decisionName)
 		return true, nil, nil
+	}
+
+	// Apply same default decision fallback as in IsPIIEnabled
+	if decisionName == "" {
+		decisionName = "default_decision"
+		logging.Infof("No decision specified for CheckPolicy, trying default decision: %s", decisionName)
 	}
 
 	decision := pc.Config.GetDecisionByName(decisionName)

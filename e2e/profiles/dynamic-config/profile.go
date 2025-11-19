@@ -242,10 +242,27 @@ func (p *Profile) deployCRDs(ctx context.Context, opts *framework.SetupOptions) 
 		return fmt.Errorf("failed to apply IntelligentRoute CRD: %w", err)
 	}
 
-	// Wait a bit for CRDs to be processed
-	time.Sleep(5 * time.Second)
+	// Wait for CRD reconciliation to complete in semantic-router pod
+	p.log("Waiting for CRD reconciliation to complete...")
+	if err := p.waitForCRDReconciliation(ctx, opts.KubeConfig); err != nil {
+		return fmt.Errorf("failed to wait for CRD reconciliation: %w", err)
+	}
 
 	return nil
+}
+
+func (p *Profile) waitForCRDReconciliation(ctx context.Context, kubeconfig string) error {
+	// The reconciler polls every 5 seconds, so wait 10 seconds to ensure at least one full cycle
+	waitTime := 10 * time.Second
+	p.log("Waiting %v for CRD reconciliation to complete...", waitTime)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(waitTime):
+		p.log("CRD reconciliation wait complete")
+		return nil
+	}
 }
 
 func (p *Profile) kubectlApply(ctx context.Context, kubeconfig, manifestPath string) error {

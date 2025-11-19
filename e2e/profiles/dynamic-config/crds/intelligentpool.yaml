@@ -5,6 +5,11 @@ metadata:
   namespace: default
 spec:
   defaultModel: "general-expert"
+  piiModel:
+    modelPath: "models/lora_pii_detector_bert-base-uncased_model"
+    modelType: "auto"
+    threshold: 0.7
+    useCPU: true
   models:
     - name: "base-model"
       reasoningFamily: "qwen3"

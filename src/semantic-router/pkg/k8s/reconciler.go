@@ -261,6 +261,10 @@ func (r *Reconciler) validateAndUpdate(ctx context.Context, pool *v1alpha1.Intel
 	newConfig.BackendModels = *backendModels
 	newConfig.IntelligentRouting = *intelligentRouting
 
+	// CRITICAL: Also update top-level Decisions field for PII policy lookups
+	// The Decisions field is used by GetDecisionByName() which is called by PII policy checker
+	newConfig.Decisions = intelligentRouting.Decisions
+
 	// Call update callback
 	if r.onConfigUpdate != nil {
 		if err := r.onConfigUpdate(&newConfig); err != nil {

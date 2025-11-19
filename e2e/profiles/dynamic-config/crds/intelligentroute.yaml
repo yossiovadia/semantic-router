@@ -5,6 +5,12 @@ metadata:
   namespace: default
 spec:
   signals:
+    keywords:
+      - name: "thinking"
+        operator: "OR"
+        keywords: ["urgent", "immediate", "asap", "think", "careful"]
+        caseSensitive: false
+
     domains:
       - name: "business"
         description: "Business and management related queries"

@@ -49,6 +49,10 @@ type IntelligentPoolSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=100
 	Models []ModelConfig `json:"models" yaml:"models"`
+
+	// PIIModel defines the PII detection model configuration
+	// +optional
+	PIIModel *PIIModelConfig `json:"piiModel,omitempty" yaml:"piiModel,omitempty"`
 }
 
 // ModelConfig defines the configuration for a single model
@@ -100,6 +104,30 @@ type LoRAConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxLength=500
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+}
+
+// PIIModelConfig defines the configuration for PII detection model
+type PIIModelConfig struct {
+	// ModelPath is the path to the PII detection model
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=500
+	ModelPath string `json:"modelPath" yaml:"modelPath"`
+
+	// ModelType specifies the model type (e.g., "auto" for auto-detection)
+	// +optional
+	// +kubebuilder:validation:MaxLength=50
+	ModelType string `json:"modelType,omitempty" yaml:"modelType,omitempty"`
+
+	// Threshold is the confidence threshold for PII detection
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	Threshold float64 `json:"threshold,omitempty" yaml:"threshold,omitempty"`
+
+	// UseCPU specifies whether to use CPU for inference
+	// +optional
+	UseCPU bool `json:"useCPU,omitempty" yaml:"useCPU,omitempty"`
 }
 
 // IntelligentPoolStatus defines the observed state of IntelligentPool

@@ -101,12 +101,12 @@ spec:
                       properties:
                         inputTokenPrice:
                           description: InputTokenPrice is the cost per input token
-                          minimum: 0
                           type: number
+                          minimum: 0
                         outputTokenPrice:
                           description: OutputTokenPrice is the cost per output token
-                          minimum: 0
                           type: number
+                          minimum: 0
                       type: object
                     reasoningFamily:
                       description: |-
@@ -120,6 +120,30 @@ spec:
                 maxItems: 100
                 minItems: 1
                 type: array
+              piiModel:
+                description: PIIModel defines the PII detection model configuration
+                properties:
+                  modelPath:
+                    description: ModelPath is the path to the PII detection model
+                    maxLength: 500
+                    minLength: 1
+                    type: string
+                  modelType:
+                    description: ModelType specifies the model type (e.g., "auto"
+                      for auto-detection)
+                    maxLength: 50
+                    type: string
+                  threshold:
+                    description: Threshold is the confidence threshold for PII detection
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  useCPU:
+                    description: UseCPU specifies whether to use CPU for inference
+                    type: boolean
+                required:
+                - modelPath
+                type: object
             required:
             - defaultModel
             - models
