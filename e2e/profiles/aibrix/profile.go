@@ -81,6 +81,9 @@ func (p *Profile) Setup(ctx context.Context, opts *framework.SetupOptions) error
 	p.verbose = opts.Verbose
 	p.log("Setting up AIBrix test environment")
 
+	// Configure PII test to use vllm-llama3-8b-instruct model
+	os.Setenv("E2E_TEST_MODEL", deploymentDemoLLM)
+
 	deployer := helm.NewDeployer(opts.KubeConfig, opts.Verbose)
 
 	// Track what we've deployed for cleanup on error

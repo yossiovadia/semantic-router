@@ -41,12 +41,6 @@ spec:
       - name: "other"
         description: "General knowledge and miscellaneous topics"
 
-    keywords:
-      - name: "thinking"
-        operator: "OR"
-        keywords: ["urgent", "immediate", "asap", "think", "careful"]
-        caseSensitive: false
-
   decisions:
     - name: "thinking_decision"
       priority: 15

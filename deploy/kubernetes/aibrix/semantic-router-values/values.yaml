@@ -380,6 +380,26 @@ config:
             system_prompt: "You are a thinking expert, should think multiple steps before answering. Please answer the question step by step."
             mode: "replace"
 
+    # Default catch-all decision for unmatched requests (E2E PII test fix)
+    # This ensures PII detection is always enabled via policy.go fallback mechanism
+    # When no decision matches, CheckPolicy and IsPIIEnabled fall back to this decision
+    - name: default_decision
+      description: "Default catch-all decision - blocks all PII for safety"
+      priority: 0
+      rules:
+        operator: "OR"
+        conditions:
+          - type: "domain"
+            name: "other"
+      modelRefs:
+        - model: vllm-llama3-8b-instruct
+          use_reasoning: false
+      plugins:
+        - type: "pii"
+          configuration:
+            enabled: true
+            pii_types_allowed: []
+
   # Strategy for selecting between multiple matching decisions
   # Options: "priority" (use decision with highest priority) or "confidence" (use decision with highest confidence)
   strategy: "priority"
@@ -437,11 +457,13 @@ config:
       use_cpu: true
       category_mapping_path: "models/category_classifier_modernbert-base_model/category_mapping.json"
     pii_model:
-      model_id: "models/pii_classifier_modernbert-base_presidio_token_model"
-      use_modernbert: true
+      # Support both traditional (modernbert) and LoRA-based PII detection
+      # When model_type is "auto", the system will auto-detect LoRA configuration
+      model_id: "models/lora_pii_detector_bert-base-uncased_model"
+      model_type: "auto"  # Enables LoRA auto-detection
       threshold: 0.7
       use_cpu: true
-      pii_mapping_path: "models/pii_classifier_modernbert-base_presidio_token_model/pii_type_mapping.json"
+      pii_mapping_path: "models/lora_pii_detector_bert-base-uncased_model/pii_type_mapping.json"
 
   keyword_rules:
     - name: "thinking"
