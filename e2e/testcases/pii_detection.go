@@ -133,9 +133,15 @@ func testSinglePIIDetection(ctx context.Context, testCase PIITestCase, localPort
 		ExpectedBlocked: testCase.ExpectedBlocked,
 	}
 
+	// Get model name from environment, default to "general-expert" for backward compatibility
+	modelName := os.Getenv("E2E_TEST_MODEL")
+	if modelName == "" {
+		modelName = "general-expert"
+	}
+
 	// Create chat completion request
 	requestBody := map[string]interface{}{
-		"model": "general-expert",
+		"model": modelName,
 		"messages": []map[string]string{
 			{"role": "user", "content": testCase.Question},
 		},

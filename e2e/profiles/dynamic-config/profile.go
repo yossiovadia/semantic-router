@@ -43,6 +43,9 @@ func (p *Profile) Setup(ctx context.Context, opts *framework.SetupOptions) error
 	p.verbose = opts.Verbose
 	p.log("Setting up Dynamic Config test environment")
 
+	// Configure PII test to use MoM model for decision-based routing
+	os.Setenv("E2E_TEST_MODEL", "MoM")
+
 	deployer := helm.NewDeployer(opts.KubeConfig, opts.Verbose)
 
 	// Step 1: Deploy Semantic Router with Kubernetes config source
