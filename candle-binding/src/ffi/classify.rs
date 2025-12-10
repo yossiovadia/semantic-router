@@ -23,7 +23,9 @@ use crate::BertClassifier;
 use std::ffi::{c_char, CStr};
 use std::sync::{Arc, OnceLock};
 
-use crate::ffi::init::{LORA_INTENT_CLASSIFIER, LORA_JAILBREAK_CLASSIFIER, PARALLEL_LORA_ENGINE, UNIFIED_CLASSIFIER};
+use crate::ffi::init::{
+    LORA_INTENT_CLASSIFIER, LORA_JAILBREAK_CLASSIFIER, PARALLEL_LORA_ENGINE, UNIFIED_CLASSIFIER,
+};
 // Import DeBERTa classifier for jailbreak detection
 use super::init::DEBERTA_JAILBREAK_CLASSIFIER;
 

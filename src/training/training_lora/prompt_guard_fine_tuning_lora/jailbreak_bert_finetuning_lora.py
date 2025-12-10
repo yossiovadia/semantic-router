@@ -454,7 +454,9 @@ def create_lora_security_model(model_name: str, num_labels: int, lora_config: di
         lora_dropout=lora_config["dropout"],
         target_modules=lora_config["target_modules"],
         bias="none",
-        modules_to_save=["classifier"],  # CRITICAL: Train the classification head alongside LoRA adapters
+        modules_to_save=[
+            "classifier"
+        ],  # CRITICAL: Train the classification head alongside LoRA adapters
     )
 
     # Apply LoRA to the model
