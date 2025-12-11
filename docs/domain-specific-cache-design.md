@@ -37,10 +37,11 @@ This document outlines the implementation of **hierarchical, mixture-of-experts 
 | Cache Backend | **Redis with key prefixes** | Pattern: `cache:{namespace}:{requestID}` |
 
 ### POC Scope
-- **Single domain**: Medical (biology category from 14-category MMLU classifier)
-- **Training objective**: Contrastive learning on medical query pairs
-- **Expected improvement**: +15-30% cache hit rate for medical queries
+- **Single domain**: Coding (computer science category from 14-category MMLU classifier)
+- **Training objective**: Contrastive learning on coding query pairs
+- **Expected improvement**: +15-30% cache hit rate for coding queries
 - **Success criteria**: Trained model converges, namespace isolation works, measurable hit rate improvement
+- **Key test case**: "How do I kill zombies?" should match "How to terminate zombie processes?" (NOT zombie movies/survival)
 
 ---
 
@@ -55,24 +56,24 @@ User Query → Generic BERT (384-dim) → Single Vector Space → Cache Hit/Miss
 1. **Semantic Drift**: Generic embeddings fail on domain-specific jargon
    - Example: "zombie process" vs "defunct process" (identical in coding context)
    - Example: "statute" vs "law" (subtle legal distinctions)
-2. **One-size-fits-all threshold**: Medical queries need stricter matching (0.98) than coding (0.90)
+2. **One-size-fits-all threshold**: Coding queries need stricter matching (0.98) than coding (0.90)
 3. **No domain isolation**: Medical cache pollution from coding queries
 
 ### Proposed State (Domain-Specific Caching)
 ```
 User Query
   ↓
-Classification (14-category MMLU) → Decision = "medical"
+Classification (14-category MMLU) → Decision = "coding"
   ↓
 Domain-Specific Cache
-  ├─ Specialized Embedder: Medical-BERT-LoRA (384-dim, trained on medical query pairs)
-  ├─ Namespace: cache:medical:*
+  ├─ Specialized Embedder: Coding-BERT-LoRA (384-dim, trained on coding query pairs)
+  ├─ Namespace: cache:coding:*
   ├─ Threshold: 0.98 (stricter)
   └─ Cache Hit/Miss
 ```
 
 **Benefits**:
-1. **Specialized embeddings** capture domain semantics (e.g., "diabetes" ≈ "diabetes mellitus")
+1. **Specialized embeddings** capture domain semantics (e.g., "zombie" = defunct process, NOT undead)
 2. **Namespace isolation** prevents cross-domain pollution
 3. **Domain-specific thresholds** optimize precision/recall tradeoffs per use case
 4. **Better hit rates**: Paper reports +15-30% improvement
@@ -89,10 +90,10 @@ Domain-Specific Cache
 ├─────────────────────────────────────────────────────────────┤
 │  1. Extract query from OpenAI request                       │
 │  2. Classify using 14-category MMLU classifier              │
-│     ↓ Matched Decision: "medical"                           │
+│     ↓ Matched Decision: "coding"                           │
 │  3. Extract semantic-cache plugin config from decision      │
-│     - embedding_model_path: "models/medical_cache_bert_lora"│
-│     - cache_namespace: "medical"                            │
+│     - embedding_model_path: "models/coding_cache_bert_lora"│
+│     - cache_namespace: "coding"                            │
 │     - similarity_threshold: 0.98                            │
 │  4. Perform namespace-aware cache lookup                    │
 └─────────────────────────────────────────────────────────────┘
@@ -100,11 +101,11 @@ Domain-Specific Cache
 ┌─────────────────────────────────────────────────────────────┐
 │              Cache Backend (Redis)                          │
 ├─────────────────────────────────────────────────────────────┤
-│  Namespace: medical                                         │
-│  ├─ Embedder: Medical-BERT-LoRA                            │
-│  │   └─ Model Path: models/medical_cache_bert_lora        │
+│  Namespace: coding                                         │
+│  ├─ Embedder: Coding-BERT-LoRA                            │
+│  │   └─ Model Path: models/coding_cache_bert_lora        │
 │  ├─ Threshold: 0.98                                        │
-│  └─ Redis Keys: cache:medical:{requestID}                 │
+│  └─ Redis Keys: cache:coding:{requestID}                 │
 │                                                             │
 │  Namespace: global (fallback)                              │
 │  ├─ Embedder: Generic BERT                                │
@@ -124,14 +125,14 @@ sequenceDiagram
     participant Embedder as Domain Embedder
     participant LLM
 
-    User->>Router: POST /v1/chat/completions<br/>"What is diabetes?"
+    User->>Router: POST /v1/chat/completions<br/>"How do I kill zombies?"
     Router->>Classifier: Classify query
-    Classifier-->>Router: Decision: "medical"
-    Router->>Router: Extract cache plugin config<br/>(namespace=medical, model=medical_bert_lora)
-    Router->>Embedder: Generate embedding for "What is diabetes?"
+    Classifier-->>Router: Decision: "coding"
+    Router->>Router: Extract cache plugin config<br/>(namespace=coding, model=coding_bert_lora)
+    Router->>Embedder: Generate embedding for "How do I kill zombies?"
     Embedder-->>Router: embedding[384]
-    Router->>Cache: FindSimilarWithOptions(namespace=medical)
-    Cache->>Cache: SCAN cache:medical:*
+    Router->>Cache: FindSimilarWithOptions(namespace=coding)
+    Cache->>Cache: SCAN cache:coding:*
     Cache->>Cache: Compute similarities
 
     alt Cache Hit (similarity ≥ 0.98)
@@ -141,7 +142,7 @@ sequenceDiagram
         Cache-->>Router: Miss
         Router->>LLM: Forward to LLM
         LLM-->>Router: LLM response
-        Router->>Cache: Store in cache:medical:{requestID}
+        Router->>Cache: Store in cache:coding:{requestID}
         Router-->>User: Response
     end
 ```
@@ -162,12 +163,12 @@ type SemanticCachePluginConfig struct {
     SimilarityThreshold *float32 `json:"similarity_threshold,omitempty" yaml:"similarity_threshold,omitempty"`
 
     // NEW: Domain-specific embedding model
-    // Path to domain-specific embedding model (e.g., "models/medical_cache_bert_lora")
+    // Path to domain-specific embedding model (e.g., "models/coding_cache_bert_lora")
     // If not specified, uses global semantic_cache.embedding_model
     EmbeddingModelPath  *string  `json:"embedding_model_path,omitempty" yaml:"embedding_model_path,omitempty"`
 
     // NEW: Cache namespace for isolation
-    // Format: "medical", "coding", etc. (becomes Redis key prefix: "cache:medical:")
+    // Format: "coding", "coding", etc. (becomes Redis key prefix: "cache:coding:")
     // If not specified, uses decision name as namespace
     CacheNamespace      *string  `json:"cache_namespace,omitempty" yaml:"cache_namespace,omitempty"`
 }
@@ -177,12 +178,12 @@ type SemanticCachePluginConfig struct {
 ```yaml
 decisions:
   - name: medical
-    description: "Medical and healthcare queries"
+    description: "Coding and computer science queries"
     rules:
       operator: OR
       conditions:
         - type: domain
-          name: biology  # Maps to 14-category MMLU classifier
+          name: computer science  # Maps to 14-category MMLU classifier
     modelRefs:
       - model: medical-llm-7b
     plugins:
@@ -190,8 +191,8 @@ decisions:
         configuration:
           enabled: true
           similarity_threshold: 0.98  # Stricter for medical
-          embedding_model_path: "models/medical_cache_bert_lora"
-          cache_namespace: "medical"
+          embedding_model_path: "models/coding_cache_bert_lora"
+          cache_namespace: "coding"
 ```
 
 #### 1.2 Update Cache Interface
@@ -202,7 +203,7 @@ decisions:
 type CacheLookupOptions struct {
     Threshold          float32  // Similarity threshold (0.0-1.0)
     EmbeddingModelPath string   // Path to domain-specific embedding model
-    Namespace          string   // Cache namespace (e.g., "medical", "coding")
+    Namespace          string   // Cache namespace (e.g., "coding", "coding")
 }
 
 type CacheBackend interface {
@@ -265,7 +266,7 @@ type NamespaceEmbedder struct {
 **New Pattern**:
 ```
 cache:global:{requestID}     # Default/fallback namespace
-cache:medical:{requestID}    # Medical domain queries
+cache:coding:{requestID}    # Coding domain queries
 cache:coding:{requestID}     # Coding domain queries
 cache:finance:{requestID}    # Finance domain queries
 ```
@@ -733,7 +734,7 @@ Train domain-specific embedding models using **LoRA (Low-Rank Adaptation)** fine
 ### Directory Structure
 ```
 src/training/cache_embeddings_lora/
-├── medical_cache_training.py       # POC: Medical domain fine-tuning
+├── coding_cache_training.py       # POC: Coding domain fine-tuning
 ├── prepare_cache_dataset.py        # Convert cache logs to training pairs
 ├── evaluate_cache_model.py         # Measure hit rate improvement
 ├── config_medical.yaml             # Training hyperparameters
@@ -748,8 +749,13 @@ src/training/cache_embeddings_lora/
 **Positive Pairs** (label=1): Queries that resulted in cache hits
 ```json
 {
-  "query1": "What is diabetes?",
-  "query2": "Explain diabetes mellitus",
+  "query1": "How do I kill zombies?",
+  "query2": "How to terminate zombie processes?",
+  "label": 1
+},
+{
+  "query1": "What is a zombie process?",
+  "query2": "Explain defunct processes",
   "label": 1
 }
 ```
@@ -757,19 +763,24 @@ src/training/cache_embeddings_lora/
 **Negative Pairs** (label=0): Random unrelated queries from same domain
 ```json
 {
-  "query1": "What is diabetes?",
-  "query2": "How to install Python?",
+  "query1": "How do I kill zombies?",
+  "query2": "Zombie survival guide",
+  "label": 0
+},
+{
+  "query1": "What is a pointer?",
+  "query2": "How do I kill zombies?",
   "label": 0
 }
 ```
 
 ### Training Script
-**File**: `src/training/cache_embeddings_lora/medical_cache_training.py`
+**File**: `src/training/cache_embeddings_lora/coding_cache_training.py`
 
 ```python
 #!/usr/bin/env python3
 """
-Fine-tune BERT embeddings for medical domain cache using LoRA
+Fine-tune BERT embeddings for coding domain cache using LoRA
 Based on semantic-router's existing LoRA training pipeline
 """
 
@@ -807,20 +818,24 @@ class CachePairDataset(Dataset):
             "label": torch.tensor(pair["label"], dtype=torch.float32)
         }
 
-def train_medical_cache_embeddings(
+def train_coding_cache_embeddings(
     base_model="bert-base-uncased",
-    train_data="data/medical_cache_pairs_train.json",
-    val_data="data/medical_cache_pairs_val.json",
-    output_dir="models/medical_cache_bert_lora",
+    train_data="data/coding_cache_pairs_train.json",
+    val_data="data/coding_cache_pairs_val.json",
+    output_dir="models/coding_cache_bert_lora",
     epochs=3,
     batch_size=32,
     learning_rate=5e-4
 ):
     """
-    Fine-tune BERT for medical cache embeddings using LoRA
+    Fine-tune BERT for coding cache embeddings using LoRA
 
     This creates a domain-specific embedding model that better captures
-    medical terminology similarities (e.g., "diabetes" vs "diabetes mellitus")
+    coding terminology similarities (e.g., "zombie" vs "defunct process",
+    "kill" vs "terminate" in process context)
+
+    Key example: Generic BERT sees "How do I kill zombies?" as undead/survival,
+    but coding-specific BERT understands it as zombie process cleanup.
     """
 
     # Load base BERT model
@@ -931,7 +946,7 @@ def train_medical_cache_embeddings(
     print(f"  embedding_model_path: {output_dir}")
 
 if __name__ == "__main__":
-    train_medical_cache_embeddings()
+    train_coding_cache_embeddings()
 ```
 
 ### Data Preparation Script
@@ -949,9 +964,9 @@ from collections import defaultdict
 
 def prepare_cache_pairs_from_logs(
     cache_log_file="logs/semantic_cache.jsonl",
-    output_train="data/medical_cache_pairs_train.json",
-    output_val="data/medical_cache_pairs_val.json",
-    domain_filter="medical",  # Only use queries classified as medical
+    output_train="data/coding_cache_pairs_train.json",
+    output_val="data/coding_cache_pairs_val.json",
+    domain_filter="coding",  # Only use queries classified as medical
     val_split=0.2
 ):
     """
@@ -1024,9 +1039,9 @@ from peft import PeftModel
 import json
 
 def evaluate_cache_model(
-    test_pairs_file="data/medical_cache_pairs_test.json",
+    test_pairs_file="data/coding_cache_pairs_test.json",
     generic_model="bert-base-uncased",
-    domain_model="models/medical_cache_bert_lora",
+    domain_model="models/coding_cache_bert_lora",
     threshold=0.95
 ):
     """
@@ -1120,15 +1135,15 @@ classifier:
 
 # Domain-specific routing decisions
 decisions:
-  # POC: Medical domain with specialized cache
+  # POC: Coding domain with specialized cache
   - name: medical
-    description: "Medical and healthcare queries"
+    description: "Coding and computer science queries"
     priority: 10
     rules:
       operator: OR
       conditions:
         - type: domain
-          name: biology  # Maps to 14-category MMLU classifier
+          name: computer science  # Maps to 14-category MMLU classifier
     modelRefs:
       - model: medical-llm-7b
     plugins:
@@ -1136,9 +1151,9 @@ decisions:
       - type: semantic-cache
         configuration:
           enabled: true
-          similarity_threshold: 0.98  # Stricter threshold for medical queries
-          embedding_model_path: "models/medical_cache_bert_lora"  # LoRA fine-tuned model
-          cache_namespace: "medical"  # Isolated Redis namespace
+          similarity_threshold: 0.98  # Stricter threshold for coding queries
+          embedding_model_path: "models/coding_cache_bert_lora"  # LoRA fine-tuned model
+          cache_namespace: "coding"  # Isolated Redis namespace
 
   # Fallback: General queries use default cache
   - name: general
@@ -1188,7 +1203,7 @@ func TestNamespaceIsolation(t *testing.T) {
 
     // Add entry to medical namespace
     cache.AddEntryWithNamespace("req1", "model1", "What is diabetes?",
-        []byte("request1"), []byte("Diabetes is..."), "medical")
+        []byte("request1"), []byte("Diabetes is..."), "coding")
 
     // Add entry to coding namespace
     cache.AddEntryWithNamespace("req2", "model1", "What is a pointer?",
@@ -1196,9 +1211,9 @@ func TestNamespaceIsolation(t *testing.T) {
 
     // Query medical namespace - should only match medical entry
     medicalOpts := cache.CacheLookupOptions{
-        Namespace: "medical",
+        Namespace: "coding",
         Threshold: 0.95,
-        EmbeddingModelPath: "models/medical_cache_bert_lora",
+        EmbeddingModelPath: "models/coding_cache_bert_lora",
     }
     resp, found, _ := cache.FindSimilarWithOptions("model1", "Explain diabetes mellitus", medicalOpts)
     assert.True(t, found, "Should find similar medical query")
@@ -1220,15 +1235,15 @@ func TestNamespaceIsolation(t *testing.T) {
 ```go
 func TestSemanticCachePluginExtraction(t *testing.T) {
     decision := &config.Decision{
-        Name: "medical",
+        Name: "coding",
         Plugins: []config.DecisionPlugin{
             {
                 Type: "semantic-cache",
                 Configuration: map[string]interface{}{
                     "enabled": true,
                     "similarity_threshold": 0.98,
-                    "embedding_model_path": "models/medical_cache_bert_lora",
-                    "cache_namespace": "medical",
+                    "embedding_model_path": "models/coding_cache_bert_lora",
+                    "cache_namespace": "coding",
                 },
             },
         },
@@ -1238,8 +1253,8 @@ func TestSemanticCachePluginExtraction(t *testing.T) {
     assert.NotNil(t, plugin)
     assert.True(t, plugin.Enabled)
     assert.Equal(t, float32(0.98), *plugin.SimilarityThreshold)
-    assert.Equal(t, "models/medical_cache_bert_lora", *plugin.EmbeddingModelPath)
-    assert.Equal(t, "medical", *plugin.CacheNamespace)
+    assert.Equal(t, "models/coding_cache_bert_lora", *plugin.EmbeddingModelPath)
+    assert.Equal(t, "coding", *plugin.CacheNamespace)
 }
 ```
 
@@ -1277,8 +1292,8 @@ def test_namespace_isolation():
     resp1 = requests.post(SEMANTIC_ROUTER_URL, json=medical_request)
     assert resp1.status_code == 200
 
-    # Verify stored in cache:medical:*
-    medical_keys = redis_client.keys("cache:medical:*")
+    # Verify stored in cache:coding:*
+    medical_keys = redis_client.keys("cache:coding:*")
     assert len(medical_keys) > 0, "Medical query should be in medical namespace"
 
     # Test 2: Send similar medical query (should cache hit)
@@ -1316,16 +1331,17 @@ def test_namespace_isolation():
 def test_hit_rate_improvement():
     """Test that domain-specific embeddings improve hit rate"""
 
-    medical_query_pairs = [
-        ("What is diabetes?", "Explain diabetes mellitus"),
-        ("insulin resistance symptoms", "signs of insulin resistance"),
-        ("type 2 diabetes treatment", "how to treat T2DM"),
+    coding_query_pairs = [
+        ("How do I kill zombies?", "How to terminate zombie processes?"),
+        ("What is a zombie process?", "Explain defunct processes"),
+        ("How to reap zombie processes?", "Parent process not reaping children"),
+        ("SIGCHLD handler", "Handling zombie process cleanup"),
     ]
 
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
     hits = 0
-    for q1, q2 in medical_query_pairs:
+    for q1, q2 in coding_query_pairs:
         redis_client.flushdb()
 
         # Send first query
@@ -1345,12 +1361,13 @@ def test_hit_rate_improvement():
         if latency < 0.1:  # Heuristic: <100ms indicates cache hit
             hits += 1
 
-    hit_rate = hits / len(medical_query_pairs) * 100
-    print(f"Medical domain cache hit rate: {hit_rate:.1f}%")
+    hit_rate = hits / len(coding_query_pairs) * 100
+    print(f"Coding domain cache hit rate: {hit_rate:.1f}%")
 
-    # With generic BERT, expect ~33% hit rate
-    # With medical-specific BERT, expect ~66% hit rate (paper's +30% improvement)
-    assert hit_rate >= 50, f"Expected hit rate ≥50%, got {hit_rate:.1f}%"
+    # With generic BERT, expect ~25% hit rate ("zombie" confuses with undead)
+    # With coding-specific BERT, expect ~75% hit rate (understands process context)
+    # Paper reports +15-30% improvement, we expect +50% due to domain-specific jargon
+    assert hit_rate >= 60, f"Expected hit rate ≥60%, got {hit_rate:.1f}%"
 
     print("✓ Hit rate improvement test passed")
 
@@ -1365,7 +1382,7 @@ if __name__ == "__main__":
 ```bash
 # Measure latency overhead of namespace selection + domain embedding
 wrk -t4 -c100 -d30s --latency http://localhost:9001/v1/chat/completions \
-  -s medical_cache_benchmark.lua
+  -s coding_cache_benchmark.lua
 ```
 
 Expected:
@@ -1381,7 +1398,7 @@ docker stats semantic-router --format "table {{.MemUsage}}"
 
 Expected:
 - BERT (384-dim): ~500MB
-- Medical-BERT-LoRA (384-dim + adapter): ~520MB (+20MB per namespace)
+- Coding-BERT-LoRA (384-dim + adapter): ~520MB (+20MB per namespace)
 - 5 namespaces: ~500MB + 100MB = 600MB total
 
 ---
@@ -1392,7 +1409,7 @@ Expected:
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| **Cache Hit Rate (Medical)** | +15-30% improvement over generic BERT | Compare hit rate on medical test set |
+| **Cache Hit Rate (Coding)** | +15-50% improvement over generic BERT | Compare hit rate on coding test set (zombie queries) |
 | **Training Convergence** | Contrastive loss < 0.3 within 3 epochs | Monitor validation loss during training |
 | **Namespace Isolation** | 0 cross-namespace matches | Unit tests verify isolation |
 | **Lookup Latency** | <10ms overhead for namespace selection | Benchmark with wrk |
@@ -1400,7 +1417,7 @@ Expected:
 
 ### Production Readiness Checklist
 
-- [ ] Medical cache model trained and validated
+- [ ] Coding cache model trained and validated (zombie process test case passes)
 - [ ] Redis namespace implementation complete
 - [ ] Request processing integration functional
 - [ ] All unit tests passing
@@ -1460,7 +1477,7 @@ If POC proves successful (meets success criteria):
 ### New Files
 ```
 docs/domain-specific-cache-design.md                                    # This document
-src/training/cache_embeddings_lora/medical_cache_training.py           # Training script
+src/training/cache_embeddings_lora/coding_cache_training.py           # Training script
 src/training/cache_embeddings_lora/prepare_cache_dataset.py            # Data prep
 src/training/cache_embeddings_lora/evaluate_cache_model.py             # Evaluation
 src/training/cache_embeddings_lora/config_medical.yaml                 # Hyperparameters
@@ -1503,7 +1520,7 @@ cache:global:{requestID}
 
 ### Medical Namespace
 ```
-cache:medical:{requestID}
+cache:coding:{requestID}
   ├─ model: "medical-llm-7b"
   ├─ query: "What is diabetes?"
   ├─ embedding: [base64-encoded float32 array, 384 dims from medical-BERT-LoRA]
