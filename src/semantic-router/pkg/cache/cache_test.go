@@ -663,7 +663,7 @@ development:
 		})
 
 		It("should handle AddEntry operation with embeddings", func() {
-			err := inMemoryCache.AddEntry("test-request-id", "test-model", "test query", []byte("request"), []byte("response"))
+			err := inMemoryCache.AddEntry("test-request-id", "general", "test-model", "test query", []byte("request"), []byte("response"))
 			Expect(err).NotTo(HaveOccurred())
 
 			stats := inMemoryCache.GetStats()
@@ -672,7 +672,7 @@ development:
 
 		It("should handle FindSimilar operation with embeddings", func() {
 			// First add an entry
-			err := inMemoryCache.AddEntry("test-request-id", "test-model", "test query", []byte("request"), []byte("response"))
+			err := inMemoryCache.AddEntry("test-request-id", "general", "test-model", "test query", []byte("request"), []byte("response"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Search for similar query
@@ -689,7 +689,7 @@ development:
 		})
 
 		It("should handle AddPendingRequest and UpdateWithResponse", func() {
-			err := inMemoryCache.AddPendingRequest("test-request-id", "test-model", "test query", []byte("request"))
+			err := inMemoryCache.AddPendingRequest("test-request-id", "general", "test-model", "test query", []byte("request"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Update with response
@@ -716,7 +716,7 @@ development:
 				EmbeddingModel:      "bert",
 			})
 
-			err := inMemoryCache.AddPendingRequest("expired-request-id", "test-model", "stale query", []byte("request"))
+			err := inMemoryCache.AddPendingRequest("expired-request-id", "general", "test-model", "stale query", []byte("request"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testutil.ToFloat64(metrics.CacheEntriesTotal.WithLabelValues("memory"))).To(Equal(float64(1)))
 
@@ -742,7 +742,7 @@ development:
 			highThresholdCache := NewInMemoryCache(highThresholdOptions)
 			defer highThresholdCache.Close()
 
-			err := highThresholdCache.AddEntry("test-request-id", "test-model", "machine learning", []byte("request"), []byte("ml response"))
+			err := highThresholdCache.AddEntry("test-request-id", "general", "test-model", "machine learning", []byte("request"), []byte("ml response"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Exact match should work
@@ -760,7 +760,7 @@ development:
 
 		It("should track hit and miss statistics", func() {
 			// Add an entry with a specific query
-			err := inMemoryCache.AddEntry("test-request-id", "test-model", "What is machine learning?", []byte("request"), []byte("ML is a subset of AI"))
+			err := inMemoryCache.AddEntry("test-request-id", "general", "test-model", "What is machine learning?", []byte("request"), []byte("ML is a subset of AI"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Search for the exact cached query (should be a hit)
@@ -792,7 +792,7 @@ development:
 			})
 			defer ttlCache.Close()
 
-			err := ttlCache.AddEntry("ttl-request-id", "ttl-model", "time-sensitive query", []byte("request"), []byte("response"))
+			err := ttlCache.AddEntry("ttl-request-id", "general", "ttl-model", "time-sensitive query", []byte("request"), []byte("response"))
 			Expect(err).NotTo(HaveOccurred())
 
 			time.Sleep(1100 * time.Millisecond)
@@ -835,13 +835,13 @@ development:
 
 			// Disabled cache operations should not error but should be no-ops
 			// They should NOT try to generate embeddings
-			err := disabledCache.AddPendingRequest("test-request-id", "test-model", "test query", []byte("request"))
+			err := disabledCache.AddPendingRequest("test-request-id", "general", "test-model", "test query", []byte("request"))
 			Expect(err).NotTo(HaveOccurred())
 
 			err = disabledCache.UpdateWithResponse("test-request-id", []byte("response"))
 			Expect(err).NotTo(HaveOccurred())
 
-			err = disabledCache.AddEntry("test-request-id", "test-model", "test query", []byte("request"), []byte("response"))
+			err = disabledCache.AddEntry("test-request-id", "general", "test-model", "test query", []byte("request"), []byte("response"))
 			Expect(err).NotTo(HaveOccurred())
 
 			response, found, err := disabledCache.FindSimilar("model", "query")
@@ -871,10 +871,10 @@ development:
 			})
 			defer cacheWithHNSW.Close()
 
-			err := cacheWithHNSW.AddEntry("req-1", "test-model", "first query text", []byte("request-1"), []byte("response-1"))
+			err := cacheWithHNSW.AddEntry("req-1", "general", "test-model", "first query text", []byte("request-1"), []byte("response-1"))
 			Expect(err).NotTo(HaveOccurred())
 
-			err = cacheWithHNSW.AddEntry("req-2", "test-model", "second query text", []byte("request-2"), []byte("response-2"))
+			err = cacheWithHNSW.AddEntry("req-2", "general", "test-model", "second query text", []byte("request-2"), []byte("response-2"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Sanity check: the second entry should be retrievable before any eviction occurs.
@@ -884,7 +884,7 @@ development:
 			Expect(resp).To(Equal([]byte("response-2")))
 
 			// Adding a third entry triggers eviction (max entries = 2).
-			err = cacheWithHNSW.AddEntry("req-3", "test-model", "third query text", []byte("request-3"), []byte("response-3"))
+			err = cacheWithHNSW.AddEntry("req-3", "general", "test-model", "third query text", []byte("request-3"), []byte("response-3"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Entry 2 should still be searchable even after eviction reshuffles the slice.
@@ -1157,7 +1157,7 @@ func BenchmarkComprehensive(b *testing.B) {
 				// Populate cache
 				for i, query := range testQueries {
 					reqID := fmt.Sprintf("req%d", i)
-					_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+					_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 				}
 
 				searchQuery := generateQuery(contentLen, cacheSize/2)
@@ -1197,7 +1197,7 @@ func BenchmarkComprehensive(b *testing.B) {
 					// Populate cache
 					for i, query := range testQueries {
 						reqID := fmt.Sprintf("req%d", i)
-						_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+						_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 					}
 
 					searchQuery := generateQuery(contentLen, cacheSize/2)
@@ -1260,7 +1260,7 @@ func BenchmarkIndexConstruction(b *testing.B) {
 					// Build index by adding entries
 					for j, query := range testQueries {
 						reqID := fmt.Sprintf("req%d", j)
-						_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+						_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 					}
 				}
 			})
@@ -1584,7 +1584,7 @@ func TestHybridCacheDisabled(t *testing.T) {
 	}
 
 	// All operations should be no-ops
-	err = cache.AddEntry("req1", "model1", "test query", []byte("request"), []byte("response"))
+	err = cache.AddEntry("req1", "general", "model1", "test query", []byte("request"), []byte("response"))
 	if err != nil {
 		t.Errorf("AddEntry should not error on disabled cache: %v", err)
 	}
@@ -1631,7 +1631,7 @@ func TestHybridCacheBasicOperations(t *testing.T) {
 	testQuery := "What is the meaning of life?"
 	testResponse := []byte(`{"response": "42"}`)
 
-	err = cache.AddEntry("req1", "gpt-4", testQuery, []byte("{}"), testResponse)
+	err = cache.AddEntry("req1", "general", "gpt-4", testQuery, []byte("{}"), testResponse)
 	if err != nil {
 		t.Fatalf("Failed to add entry: %v", err)
 	}
@@ -1709,7 +1709,7 @@ func TestHybridCachePendingRequest(t *testing.T) {
 
 	// Add pending request
 	testQuery := "Explain quantum computing"
-	err = cache.AddPendingRequest("req1", "gpt-4", testQuery, []byte("{}"))
+	err = cache.AddPendingRequest("req1", "general", "gpt-4", testQuery, []byte("{}"))
 	if err != nil {
 		t.Fatalf("Failed to add pending request: %v", err)
 	}
@@ -1764,7 +1764,7 @@ func TestHybridCacheEviction(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		query := fmt.Sprintf("Query number %d", i)
 		response := []byte(fmt.Sprintf(`{"answer": "Response %d"}`, i))
-		err = cache.AddEntry(fmt.Sprintf("req%d", i), "gpt-4", query, []byte("{}"), response)
+		err = cache.AddEntry(fmt.Sprintf("req%d", "general", i), "gpt-4", query, []byte("{}"), response)
 		if err != nil {
 			t.Fatalf("Failed to add entry %d: %v", i, err)
 		}
@@ -1822,7 +1822,7 @@ func TestHybridCacheLocalCacheHit(t *testing.T) {
 	// Add an entry
 	testQuery := "What is machine learning?"
 	testResponse := []byte(`{"answer": "ML is..."}`)
-	err = cache.AddEntry("req1", "gpt-4", testQuery, []byte("{}"), testResponse)
+	err = cache.AddEntry("req1", "general", "gpt-4", testQuery, []byte("{}"), testResponse)
 	if err != nil {
 		t.Fatalf("Failed to add entry: %v", err)
 	}
@@ -1992,7 +1992,7 @@ milvus:
 	for i := 0; i < b.N; i++ {
 		query := fmt.Sprintf("Benchmark query number %d", i)
 		response := []byte(fmt.Sprintf(`{"answer": "Response %d"}`, i))
-		err := cache.AddEntry(fmt.Sprintf("req%d", i), "gpt-4", query, []byte("{}"), response)
+		err := cache.AddEntry(fmt.Sprintf("req%d", "general", i), "gpt-4", query, []byte("{}"), response)
 		if err != nil {
 			b.Fatalf("AddEntry failed: %v", err)
 		}
@@ -2036,7 +2036,7 @@ milvus:
 	for i := 0; i < 100; i++ {
 		query := fmt.Sprintf("Benchmark query number %d", i)
 		response := []byte(fmt.Sprintf(`{"answer": "Response %d"}`, i))
-		err := cache.AddEntry(fmt.Sprintf("req%d", i), "gpt-4", query, []byte("{}"), response)
+		err := cache.AddEntry(fmt.Sprintf("req%d", "general", i), "gpt-4", query, []byte("{}"), response)
 		if err != nil {
 			b.Fatalf("AddEntry failed: %v", err)
 		}
@@ -2660,7 +2660,7 @@ func BenchmarkComponentLatency(b *testing.B) {
 
 		b.Logf("Building HNSW index with %d entries...", cacheSize)
 		for i := 0; i < cacheSize; i++ {
-			_ = cache.AddEntry(fmt.Sprintf("req-%d", i), "model", testQueries[i], []byte("req"), []byte("resp"))
+			_ = cache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model", testQueries[i], []byte("req"), []byte("resp"))
 		}
 		b.Logf("✓ HNSW index built")
 
@@ -2694,7 +2694,7 @@ func BenchmarkComponentLatency(b *testing.B) {
 
 		b.Logf("Populating Milvus with %d entries...", cacheSize)
 		for i := 0; i < cacheSize; i++ {
-			_ = milvusCache.AddEntry(fmt.Sprintf("req-%d", i), "model", testQueries[i], []byte("req"), []byte("resp"))
+			_ = milvusCache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model", testQueries[i], []byte("req"), []byte("resp"))
 		}
 		time.Sleep(2 * time.Second)
 		b.Logf("✓ Milvus populated")
@@ -2752,7 +2752,7 @@ func BenchmarkThroughputUnderLoad(b *testing.B) {
 
 			// Populate
 			for i := 0; i < cacheSize; i++ {
-				_ = milvusCache.AddEntry(fmt.Sprintf("req-%d", i), "model", testQueries[i], []byte("req"), []byte("resp"))
+				_ = milvusCache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model", testQueries[i], []byte("req"), []byte("resp"))
 			}
 			time.Sleep(2 * time.Second)
 
@@ -2794,7 +2794,7 @@ func BenchmarkThroughputUnderLoad(b *testing.B) {
 
 			// Populate
 			for i := 0; i < cacheSize; i++ {
-				_ = hybridCache.AddEntry(fmt.Sprintf("req-%d", i), "model", testQueries[i], []byte("req"), []byte("resp"))
+				_ = hybridCache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model", testQueries[i], []byte("req"), []byte("resp"))
 			}
 			time.Sleep(2 * time.Second)
 
@@ -2900,7 +2900,7 @@ func TestHybridVsMilvusSmoke(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Add entry
-		err = cache.AddEntry("req-1", "model", "What is machine learning?", []byte("req"), []byte("ML is..."))
+		err = cache.AddEntry("req-1", "general", "model", "What is machine learning?", []byte("req"), []byte("ML is..."))
 		if err != nil {
 			t.Fatalf("Failed to add entry: %v", err)
 		}
@@ -2941,7 +2941,7 @@ func TestHybridVsMilvusSmoke(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Add entry
-		err = cache.AddEntry("req-1", "model", "What is deep learning?", []byte("req"), []byte("DL is..."))
+		err = cache.AddEntry("req-1", "general", "model", "What is deep learning?", []byte("req"), []byte("DL is..."))
 		if err != nil {
 			t.Fatalf("Failed to add entry: %v", err)
 		}
@@ -2980,14 +2980,14 @@ func TestInMemoryCacheIntegration(t *testing.T) {
 
 	t.Run("InMemoryCacheIntegration", func(t *testing.T) {
 		// Step 1: Add first entry
-		err := cache.AddEntry("req1", "test-model", "Hello world",
+		err := cache.AddEntry("req1", "general", "test-model", "Hello world",
 			[]byte("request1"), []byte("response1"))
 		if err != nil {
 			t.Fatalf("Failed to add first entry: %v", err)
 		}
 
 		// Step 2: Add second entry (cache at capacity)
-		err = cache.AddEntry("req2", "test-model", "Good morning",
+		err = cache.AddEntry("req2", "general", "test-model", "Good morning",
 			[]byte("request2"), []byte("response2"))
 		if err != nil {
 			t.Fatalf("Failed to add second entry: %v", err)
@@ -3028,7 +3028,7 @@ func TestInMemoryCacheIntegration(t *testing.T) {
 		}
 
 		// Step 5: Add third entry - should trigger LFU eviction
-		err = cache.AddEntry("req3", "test-model", "Bye",
+		err = cache.AddEntry("req3", "general", "test-model", "Bye",
 			[]byte("request3"), []byte("response3"))
 		if err != nil {
 			t.Fatalf("Failed to add third entry: %v", err)
@@ -3067,7 +3067,7 @@ func TestInMemoryCachePendingRequestWorkflow(t *testing.T) {
 
 	t.Run("PendingRequestFlow", func(t *testing.T) {
 		// Step 1: Add pending request
-		err := cache.AddPendingRequest("req1", "test-model", "test query", []byte("request"))
+		err := cache.AddPendingRequest("req1", "general", "test-model", "test query", []byte("request"))
 		if err != nil {
 			t.Fatalf("Failed to add pending request: %v", err)
 		}
@@ -3171,12 +3171,12 @@ func TestInMemoryCacheHNSW(t *testing.T) {
 		// Add entries to both caches
 		for i, q := range testQueries {
 			reqID := fmt.Sprintf("req%d", i)
-			err := cacheHNSW.AddEntry(reqID, q.model, q.query, []byte(q.query), []byte(q.response))
+			err := cacheHNSW.AddEntry(reqID, "general", q.model, q.query, []byte(q.query), []byte(q.response))
 			if err != nil {
 				t.Fatalf("Failed to add entry to HNSW cache: %v", err)
 			}
 
-			err = cacheLinear.AddEntry(reqID, q.model, q.query, []byte(q.query), []byte(q.response))
+			err = cacheLinear.AddEntry(reqID, "general", q.model, q.query, []byte(q.query), []byte(q.response))
 			if err != nil {
 				t.Fatalf("Failed to add entry to linear cache: %v", err)
 			}
@@ -3234,7 +3234,7 @@ func TestInMemoryCacheHNSW(t *testing.T) {
 		})
 
 		// Add an entry
-		err := cacheTTL.AddEntry("req1", "test-model", "test query", []byte("request"), []byte("response"))
+		err := cacheTTL.AddEntry("req1", "general", "test-model", "test query", []byte("request"), []byte("response"))
 		if err != nil {
 			t.Fatalf("Failed to add entry: %v", err)
 		}
@@ -3290,7 +3290,7 @@ func BenchmarkInMemoryCacheSearch(b *testing.B) {
 			// Populate cache
 			for i, entry := range entries {
 				reqID := fmt.Sprintf("req%d", i)
-				_ = cache.AddEntry(reqID, "test-model", entry.query, []byte(entry.query), []byte(entry.response))
+				_ = cache.AddEntry(reqID, "general", "test-model", entry.query, []byte(entry.query), []byte(entry.response))
 			}
 
 			// Benchmark search
@@ -3316,7 +3316,7 @@ func BenchmarkInMemoryCacheSearch(b *testing.B) {
 			// Populate cache
 			for i, entry := range entries {
 				reqID := fmt.Sprintf("req%d", i)
-				_ = cache.AddEntry(reqID, "test-model", entry.query, []byte(entry.query), []byte(entry.response))
+				_ = cache.AddEntry(reqID, "general", "test-model", entry.query, []byte(entry.query), []byte(entry.response))
 			}
 
 			// Benchmark search
@@ -3362,7 +3362,7 @@ func BenchmarkHNSWIndexConstruction(b *testing.B) {
 				// Add entries and build index
 				for j := 0; j < count; j++ {
 					reqID := fmt.Sprintf("req%d", j)
-					_ = cache.AddEntry(reqID, "test-model", testQueries[j], []byte(testQueries[j]), []byte("response"))
+					_ = cache.AddEntry(reqID, "general", "test-model", testQueries[j], []byte(testQueries[j]), []byte("response"))
 				}
 			}
 		})
@@ -3412,7 +3412,7 @@ func BenchmarkHNSWParameters(b *testing.B) {
 			// Populate cache
 			for i, entry := range entries {
 				reqID := fmt.Sprintf("req%d", i)
-				_ = cache.AddEntry(reqID, "test-model", entry.query, []byte(entry.query), []byte(entry.response))
+				_ = cache.AddEntry(reqID, "general", "test-model", entry.query, []byte(entry.query), []byte(entry.response))
 			}
 
 			// Benchmark search
@@ -3446,7 +3446,7 @@ func BenchmarkCacheOperations(b *testing.B) {
 			reqID := fmt.Sprintf("req%d", i)
 
 			// Add entry
-			_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+			_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 
 			// Find similar
 			_, _, _ = cache.FindSimilar("test-model", query)
@@ -3470,7 +3470,7 @@ func BenchmarkCacheOperations(b *testing.B) {
 			reqID := fmt.Sprintf("req%d", i)
 
 			// Add entry
-			_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+			_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 
 			// Find similar
 			_, _, _ = cache.FindSimilar("test-model", query)
@@ -3503,7 +3503,7 @@ func BenchmarkHNSWRebuild(b *testing.B) {
 			for i := 0; i < size; i++ {
 				query := fmt.Sprintf("Query %d about machine learning", i)
 				reqID := fmt.Sprintf("req%d", i)
-				_ = cache.AddEntry(reqID, "test-model", query, []byte(query), []byte("response"))
+				_ = cache.AddEntry(reqID, "general", "test-model", query, []byte(query), []byte("response"))
 			}
 
 			b.ResetTimer()
@@ -3937,7 +3937,7 @@ func BenchmarkScalability(b *testing.B) {
 					})
 
 					for i := 0; i < cacheSize; i++ {
-						if err := cache.AddEntry(fmt.Sprintf("req-%d", i), "model",
+						if err := cache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model",
 							testQueries[i], []byte("req"), []byte("resp")); err != nil {
 							b.Fatalf("AddEntry failed: %v", err)
 						}
@@ -3981,7 +3981,7 @@ func BenchmarkScalability(b *testing.B) {
 
 				buildStart := time.Now()
 				for i := 0; i < cacheSize; i++ {
-					if err := cache.AddEntry(fmt.Sprintf("req-%d", i), "model",
+					if err := cache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model",
 						testQueries[i], []byte("req"), []byte("resp")); err != nil {
 						b.Fatalf("AddEntry failed: %v", err)
 					}
@@ -4101,7 +4101,7 @@ func BenchmarkHNSWParameterSweep(b *testing.B) {
 			b.Logf("Building HNSW index: M=%d, efConstruction=200, efSearch=%d", config.m, config.efSearch)
 			buildStart := time.Now()
 			for i := 0; i < cacheSize; i++ {
-				if err := cache.AddEntry(fmt.Sprintf("req-%d", i), "model",
+				if err := cache.AddEntry(fmt.Sprintf("req-%d", "general", i), "model",
 					testQueries[i], []byte("req"), []byte("resp")); err != nil {
 					b.Fatalf("AddEntry failed: %v", err)
 				}

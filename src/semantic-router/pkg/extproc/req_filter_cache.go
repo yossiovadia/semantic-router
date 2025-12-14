@@ -25,32 +25,54 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 	ctx.RequestModel = requestModel
 	ctx.RequestQuery = requestQuery
 
-	// Check if caching is enabled for this decision
-	cacheEnabled := r.Config.SemanticCache.Enabled
-	if categoryName != "" {
-		cacheEnabled = r.Config.IsCacheEnabledForDecision(categoryName)
+	// Determine domain from category (default to "general" if no category)
+	domain := categoryName
+	if domain == "" {
+		domain = "general"
 	}
 
-	logging.Infof("handleCaching: requestQuery='%s' (len=%d), cacheEnabled=%v, r.Cache.IsEnabled()=%v",
-		requestQuery, len(requestQuery), cacheEnabled, r.Cache.IsEnabled())
+	// Check if caching is enabled for this domain
+	cacheEnabled := r.CacheManager.IsEnabled(domain)
+	if !cacheEnabled {
+		logging.Debugf("Caching is disabled for domain '%s'", domain)
+		return nil, false
+	}
 
-	if requestQuery != "" && r.Cache.IsEnabled() && cacheEnabled {
+	// Get domain-specific cache
+	domainCache, err := r.CacheManager.GetCache(domain)
+	if err != nil {
+		logging.Errorf("Failed to get cache for domain '%s': %v", domain, err)
+		// Try fallback to general cache
+		domainCache, err = r.CacheManager.GetCache("general")
+		if err != nil {
+			logging.Errorf("Failed to get fallback general cache: %v", err)
+			return nil, false
+		}
+		logging.Infof("Using fallback general cache for domain '%s'", domain)
+	}
+
+	logging.Infof("handleCaching: requestQuery='%s' (len=%d), domain='%s', cacheEnabled=%v",
+		requestQuery, len(requestQuery), domain, cacheEnabled)
+
+	if requestQuery != "" && domainCache.IsEnabled() {
 		// Get decision-specific threshold
 		threshold := r.Config.GetCacheSimilarityThreshold()
 		if categoryName != "" {
 			threshold = r.Config.GetCacheSimilarityThresholdForDecision(categoryName)
 		}
 
-		logging.Infof("handleCaching: Performing cache lookup - model=%s, query='%s', threshold=%.2f",
-			requestModel, requestQuery, threshold)
+		logging.Infof("handleCaching: Performing cache lookup - domain=%s, model=%s, query='%s', threshold=%.2f",
+			domain, requestModel, requestQuery, threshold)
 
 		// Start cache lookup span
 		spanCtx, span := tracing.StartSpan(ctx.TraceContext, tracing.SpanCacheLookup)
 		defer span.End()
 
 		startTime := time.Now()
-		// Try to find a similar cached response using category-specific threshold
-		cachedResponse, found, cacheErr := r.Cache.FindSimilarWithThreshold(requestModel, requestQuery, threshold)
+		// Use domain as namespace for cache isolation
+		namespace := domain
+		// Try to find a similar cached response using category-specific threshold and namespace
+		cachedResponse, found, cacheErr := domainCache.FindSimilarWithThreshold(namespace, requestModel, requestQuery, threshold)
 		lookupTime := time.Since(startTime).Milliseconds()
 
 		logging.Infof("FindSimilarWithThreshold returned: found=%v, error=%v, lookupTime=%dms", found, cacheErr, lookupTime)
@@ -60,6 +82,7 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 			attribute.Bool(tracing.AttrCacheHit, found),
 			attribute.Int64(tracing.AttrCacheLookupTimeMs, lookupTime),
 			attribute.String(tracing.AttrCategoryName, categoryName),
+			attribute.String("cache.domain", domain),
 			attribute.Float64("cache.threshold", float64(threshold)))
 
 		if cacheErr != nil {
@@ -74,6 +97,7 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 				"model":      requestModel,
 				"query":      requestQuery,
 				"category":   categoryName,
+				"domain":     domain,
 				"threshold":  threshold,
 			})
 			// Return immediate response from cache
@@ -84,8 +108,9 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 		ctx.TraceContext = spanCtx
 	}
 
-	// Cache miss, store the request for later
-	err = r.Cache.AddPendingRequest(ctx.RequestID, requestModel, requestQuery, ctx.OriginalRequestBody)
+	// Cache miss, store the request for later with namespace
+	namespace := domain
+	err = domainCache.AddPendingRequest(ctx.RequestID, namespace, requestModel, requestQuery, ctx.OriginalRequestBody)
 	if err != nil {
 		logging.Errorf("Error adding pending request to cache: %v", err)
 		// Continue without caching
