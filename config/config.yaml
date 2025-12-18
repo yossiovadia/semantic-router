@@ -46,13 +46,12 @@ semantic_cache:
     # backend_type and backend_config_path inherited from semantic_cache above
 
   # Per-domain cache configurations
-  # EXAMPLE 1: All domains share same Redis backend (minimal config, inherits from semantic_cache)
   domains:
     # Health/Medical domain - only override what's different from global
     health:
       enabled: true
       namespace: "medical"
-      embedding_model: "bert"  # Explicitly use BERT for medical domain
+      embedding_model_path: "models/medical-cache-model"  # Custom trained for medical domain
       # backend_type and backend_config_path inherited from semantic_cache above
       similarity_threshold: 0.95  # Higher threshold for medical precision
       ttl_seconds: 86400  # 24 hours
