@@ -17,16 +17,13 @@
 
 *Latest News* 🔥
 
-- [2025/11/19] We released the [Signal-Decision Driven Architecture: Reshaping Semantic Routing at Scale](https://blog.vllm.ai/2025/11/19/signal-decision.html) 🧠
+- [2025/12/15] New Blog: [Token-Level Truth: Real-Time Hallucination Detection for Production LLMs](https://blog.vllm.ai/2025/12/14/halugate.html) 🚪
+- [2025/11/19] New Blog: [Signal-Decision Driven Architecture: Reshaping Semantic Routing at Scale](https://blog.vllm.ai/2025/11/19/signal-decision.html) 🧠
 - [2025/11/03] **Our paper** [Category-Aware Semantic Caching for Heterogeneous LLM Workloads](https://arxiv.org/abs/2510.26835) published 📝
-- [2025/10/26] We reached 2000 stars on GitHub! 🔥
 - [2025/10/21] We announced the [2025 Q4 Roadmap: Journey to Iris](https://vllm-semantic-router.com/blog/q4-roadmap-iris) 📅.
-- [2025/10/16] We established the [vLLM Semantic Router Youtube Channel](https://www.youtube.com/@vLLMSemanticRouter) ✨.
-- [2025/10/15] We announced the [vLLM Semantic Router Dashboard](https://www.youtube.com/watch?v=E2IirN8PsFw) 🚀.
 - [2025/10/12] **Our paper** [When to Reason: Semantic Router for vLLM](https://arxiv.org/abs/2510.08731) accepted by NeurIPS 2025 MLForSys 🧠.
 - [2025/10/08] We announced the integration with [vLLM Production Stack](https://github.com/vllm-project/production-stack) Team 👋.
 - [2025/10/01] We supported to deploy on [Kubernetes](https://vllm-semantic-router.com/docs/installation/k8s/ai-gateway) 🌊.
-- [2025/09/15] We reached 1000 stars on GitHub! 🔥
 - [2025/09/01] We released the project officially: [vLLM Semantic Router: Next Phase in LLM inference](https://blog.vllm.ai/2025/09/11/semantic-router.html) 🚀.
 
 ---
@@ -81,19 +78,60 @@ Detect PII in the prompt, avoiding sending PII to the LLM so as to protect the p
 
 Detect if the prompt is a jailbreak prompt, avoiding sending jailbreak prompts to the LLM so as to prevent the LLM from misbehaving. Can be configured globally or at the category level for fine-grained security control.
 
-### vLLM Semantic Router Dashboard 💬
-
-Watch the quick demo of the dashboard below:
-
-<div align="center">
-<a href="https://www.youtube.com/watch?v=E2IirN8PsFw">
-  <img src="https://img.youtube.com/vi/E2IirN8PsFw/maxresdefault.jpg" alt="vLLM Semantic Router Dashboard" width="90%">
-</a>
-</div>
-
 ## Quick Start 🚀
 
-Get up and running in seconds with our interactive setup script:
+### Using VSR CLI (Recommended)
+
+The `vsr` CLI tool provides a unified interface for managing the vLLM Semantic Router across all environments. It reduces setup time from hours to minutes with intelligent auto-detection, comprehensive diagnostics, and beautiful CLI output.
+
+#### Installation
+
+```bash
+# Clone and build
+cd semantic-router/src/semantic-router
+make build-cli
+export PATH=$PATH:$(pwd)/bin
+
+# Verify installation
+vsr --version
+```
+
+#### Get Started in 4 Commands
+
+```bash
+vsr init                    # Initialize configuration
+make download-models        # Download AI models
+vsr config validate        # Validate setup
+vsr deploy docker          # Deploy with Docker Compose
+```
+
+#### Key Features
+
+- **Multi-Environment Support**: Deploy to Local, Docker, Kubernetes, or Helm
+- **Model Management**: Download, validate, list, and inspect models
+- **Health Monitoring**: Status checks, diagnostics, and health reports
+- **Debug Tools**: Interactive debugging and troubleshooting
+- **Dashboard Integration**: Auto-detect and open dashboard in browser
+- **Enhanced Logging**: Multi-environment log fetching with filtering
+
+#### Common Commands
+
+```bash
+vsr status                  # Check deployment status
+vsr logs --follow          # View logs in real-time
+vsr health                 # Quick health check
+vsr dashboard              # Open dashboard
+vsr model list             # List available models
+vsr debug                  # Run diagnostics
+vsr upgrade docker         # Upgrade deployment
+vsr undeploy docker        # Stop deployment
+```
+
+For complete CLI documentation, see [src/semantic-router/cmd/vsr/README.md](src/semantic-router/cmd/vsr/README.md) or [Quick Start Guide](src/semantic-router/cmd/vsr/QUICKSTART.md).
+
+### Using Quickstart Script
+
+Alternatively, get up and running in seconds with our interactive setup script:
 
 ```bash
 bash ./scripts/quickstart.sh
@@ -162,3 +200,19 @@ If you find Semantic Router helpful in your research or projects, please conside
 We opened the project at Aug 31, 2025. We love open source  and collaboration ❤️
 
 [![Star History Chart](https://api.star-history.com/svg?repos=vllm-project/semantic-router&type=Date)](https://www.star-history.com/#vllm-project/semantic-router&Date)
+
+## Sponsors 👋
+
+We are grateful to our sponsors who support us:
+
+---
+
+[**AMD**](https://www.amd.com) provides us with GPU resources and [ROCm™](https://www.amd.com/en/products/software/rocm.html) Software for training and researching the frontier router models, enhancing e2e testing, and building online models playground.
+
+<div align="center">
+<a href="https://www.amd.com">
+  <img src="website/static/img/amd-logo.svg" alt="AMD" width="40%"/>
+</a>
+</div>
+
+---

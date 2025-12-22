@@ -2,23 +2,97 @@
 
 This directory contains Kubernetes manifests for E2E testing of **Semantic Router with NVIDIA Dynamo integration**.
 
+## 🎥 Demo Video
+
+▶️ **[Watch the E2E Demo on YouTube](https://www.youtube.com/watch?v=rRULSR9gTds&list=PLmrddZ45wYcuPrXisC-yl7bMI39PLo4LO&index=2)**
+
 ## ⚠️ GPU Requirements
 
 **This test requires a VM with at least 3 GPUs:**
 
 | Component | GPU | Description |
 |-----------|-----|-------------|
-| Frontend | GPU 0 | Dynamo Frontend (coordinates workers via etcd/NATS) |
-| VLLMPrefillWorker | GPU 1 | Handles prefill phase of inference |
+| Frontend | GPU 0 | Dynamo Frontend with KV-aware routing (`--router-mode kv`) |
+| VLLMPrefillWorker | GPU 1 | Handles prefill phase of inference (`--is-prefill-worker`) |
 | VLLMDecodeWorker | GPU 2 | Handles decode phase of inference |
+
+## 🏗️ Deployment Pattern: Disaggregated Router Deployment
+
+This integration uses **Pattern 4: Disaggregated Router Deployment** (`disagg_router.yaml`) - the most advanced configuration from [NVIDIA Dynamo](https://github.com/ai-dynamo/dynamo/blob/main/examples/backends/vllm/deploy/README.md).
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DYNAMO FRONTEND                          │
+│              (KV-aware routing enabled)                     │
+│                  --router-mode kv                           │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            │                           │
+            ▼                           ▼
+┌───────────────────────┐   ┌───────────────────────┐
+│   PREFILL WORKER      │   │   DECODE WORKER       │
+│  --is-prefill-worker  │   │  (decode-only)        │
+│  Processes input      │──▶│  Generates output     │
+│  tokens               │   │  tokens               │
+└───────────────────────┘   └───────────────────────┘
+```
+
+### Why Disaggregated Router Deployment?
+
+| Feature | Benefit |
+|---------|---------|
+| **Disaggregated Serving** | Separate Prefill/Decode workers for optimal GPU utilization |
+| **KV-Aware Routing** | Routes requests to workers with relevant KV cache (prefix cache optimization) |
+| **Reduced Latency** | 2-4x faster responses on repeated/similar prompts |
+| **Better Throughput** | Workers specialize in their tasks |
+
+### KV Cache Routing Benefits
+
+The Frontend with `--router-mode kv` enables:
+
+- **Prefix Cache Hits**: Routes to workers with cached prefixes
+- **Load Balancing**: Considers worker busyness and cache state
+- **Optimal Worker Selection**: Uses cost formula based on prefill/decode load
+
+## 🔧 Prerequisites (One-Time Setup)
+
+> **Tested on:** RHEL 9 VM with NVIDIA GPUs
+
+Before running the E2E tests, you must configure Docker to use the NVIDIA runtime as the default. This is a **one-time setup** that persists across reboots.
+
+### Step 1: Configure NVIDIA Runtime as Default
+
+```bash
+sudo nvidia-ctk runtime configure --runtime=docker --set-as-default
+```
+
+### Step 2: Restart Docker
+
+```bash
+sudo systemctl restart docker
+```
+
+### Step 3: Verify Configuration
+
+```bash
+docker info | grep -i "default runtime"
+```
+
+You should see: `Default Runtime: nvidia`
+
+> **Note:** The E2E framework verifies this configuration but does not set it automatically (requires sudo privileges).
+
+## What the E2E Framework Does
 
 The E2E framework automatically:
 
-1. Sets Docker runtime to `nvidia` (required for GPU passthrough)
+1. **Verifies** Docker runtime is set to `nvidia` (fails with instructions if not configured)
 2. Creates Kind cluster with GPU support
 3. Copies NVIDIA libraries to the Kind worker node
 4. Deploys the NVIDIA device plugin
-5. Restores Docker runtime to default after tests complete
 
 ## What We Test
 

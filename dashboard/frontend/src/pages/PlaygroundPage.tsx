@@ -1,48 +1,15 @@
-import React, { useState, useEffect } from 'react'
 import styles from './PlaygroundPage.module.css'
 
-const PlaygroundPage: React.FC = () => {
-  // Detect OpenWebUI URL based on current hostname
-  // Assumes openwebui and dashboard have matching hostname patterns
-  const getOpenWebUIUrl = () => {
-    const hostname = window.location.hostname
-    const openwebuiHost = hostname.replace('dashboard', 'openwebui')
-    return `${window.location.protocol}//${openwebuiHost}`
-  }
-
-  const [openWebUIUrl] = useState(getOpenWebUIUrl())
-  const [currentUrl, setCurrentUrl] = useState('')
-
-  // Auto-load on mount
-  useEffect(() => {
-    // Default to loading the configured URL on mount
-    setCurrentUrl(openWebUIUrl)
-  }, [openWebUIUrl]) // Load when URL changes
-
+const PlaygroundPage = () => {
   return (
     <div className={styles.container}>
       <div className={styles.iframeContainer}>
-        {!currentUrl && (
-          <div className={styles.placeholder}>
-            <span className={styles.placeholderIcon}>🎮</span>
-            <h3>Open WebUI Playground</h3>
-            <p>
-              Test your LLM models and semantic routing with Open WebUI.
-            </p>
-            <p className={styles.note}>
-              Note: Open WebUI needs to be deployed separately. Check the dashboard README for instructions.
-            </p>
-          </div>
-        )}
-
-        {currentUrl && (
           <iframe
-            src={currentUrl}
+          src="/embedded/openwebui/"
             className={styles.iframe}
             title="Open WebUI Playground"
             allowFullScreen
           />
-        )}
       </div>
     </div>
   )

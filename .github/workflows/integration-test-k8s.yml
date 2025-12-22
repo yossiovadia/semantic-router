@@ -21,15 +21,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Detect which files changed to determine which profiles to test
+  changes:
+    uses: ./.github/workflows/ci-changes.yml
+
+  # Determine which profiles need to be tested based on file changes
+  determine-profiles:
+    needs: changes
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.set-matrix.outputs.profiles }}
+      should_run: ${{ steps.set-matrix.outputs.should_run }}
+    steps:
+      - id: set-matrix
+        run: |
+          # Run all profiles if common e2e code, core code changes, or manual/scheduled trigger
+          if [[ "${{ needs.changes.outputs.e2e_common }}" == "true" ]] || \
+             [[ "${{ needs.changes.outputs.core }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "${{ github.event_name }}" == "push" ]]; then
+            echo 'profiles=["ai-gateway", "aibrix", "routing-strategies", "llm-d", "istio", "production-stack"]' >> $GITHUB_OUTPUT
+            echo 'should_run=true' >> $GITHUB_OUTPUT
+            echo "Running all profiles due to common/core changes or push/schedule/manual trigger"
+            exit 0
+          fi
+
+          # Only run affected profiles for PRs
+          profiles=()
+          [[ "${{ needs.changes.outputs.e2e_istio }}" == "true" ]] && profiles+=("istio")
+          [[ "${{ needs.changes.outputs.e2e_ai_gateway }}" == "true" ]] && profiles+=("ai-gateway")
+          [[ "${{ needs.changes.outputs.e2e_aibrix }}" == "true" ]] && profiles+=("aibrix")
+          [[ "${{ needs.changes.outputs.e2e_llm_d }}" == "true" ]] && profiles+=("llm-d")
+          [[ "${{ needs.changes.outputs.e2e_routing_strategies }}" == "true" ]] && profiles+=("routing-strategies")
+          [[ "${{ needs.changes.outputs.e2e_production_stack }}" == "true" ]] && profiles+=("production-stack")
+
+          # Convert to JSON array
+          if [ ${#profiles[@]} -eq 0 ]; then
+            echo 'profiles=[]' >> $GITHUB_OUTPUT
+            echo 'should_run=false' >> $GITHUB_OUTPUT
+            echo "No profile changes detected, skipping all e2e tests"
+          else
+            printf -v json '"%s",' "${profiles[@]}"
+            echo "profiles=[${json%,}]" >> $GITHUB_OUTPUT
+            echo 'should_run=true' >> $GITHUB_OUTPUT
+            echo "Running profiles: ${profiles[*]}"
+          fi
+
   integration-test:
-    if: ${{ !github.event.pull_request.draft }}
+    needs: [changes, determine-profiles]
+    if: ${{ needs.determine-profiles.outputs.should_run == 'true' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     strategy:
       fail-fast: false  # Continue testing other profiles even if one fails
       matrix:
-        # Note: dynamo profile requires GPU, run manually with: make e2e-test-dynamo
-        profile: [ai-gateway, aibrix, routing-strategies, llm-d, istio, production-stack]
+        # Dynamic profile matrix based on detected changes
+        profile: ${{ fromJson(needs.determine-profiles.outputs.profiles) }}
 
     steps:
       - name: Check out the repo
@@ -43,32 +91,21 @@ jobs:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.90
+          toolchain: "1.90"
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             make \
-            curl \
             build-essential \
             pkg-config
 
       - name: Install Kind
         run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          curl --retry 5 --retry-delay 5 --retry-all-errors -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
-
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/kubectl
-
-      - name: Install Helm
-        run: |
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
       - name: Download E2E test dependencies
         run: |
