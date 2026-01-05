@@ -47,7 +47,8 @@ Format: {{"paraphrases": ["string1", "string2", "string3"]}}
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
-                "format": "json"
+                "format": "json",
+                "keep_alive": -1  # Keep model loaded indefinitely (clears context each request)
             },
             timeout=60
         )
@@ -104,7 +105,8 @@ Format: {{"negatives": ["string1", "string2"]}}
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
-                "format": "json"
+                "format": "json",
+                "keep_alive": -1  # Keep model loaded indefinitely (clears context each request)
             },
             timeout=60
         )
