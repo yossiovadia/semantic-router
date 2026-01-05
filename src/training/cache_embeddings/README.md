@@ -1,277 +1,251 @@
-# Cache-Specific Embedding Training Pipeline
+# Cache Embedding Training Pipeline
 
-**Status:** 🚧 Work in Progress (Phase 1 - Coding Domain)
+**Research-validated pipeline for training domain-specific cache embedding models using LLM-generated synthetic data.**
+
+Based on: [arXiv:2504.02268v1](https://arxiv.org/pdf/2504.02268v1)
 
 ## Overview
 
-This package implements domain-specific embedding model training for semantic caching, following the methodology from the research paper "Enhancing Semantic Caching with Domain-Specific Embeddings" ([arXiv:2504.02268v1](https://arxiv.org/abs/2504.02268v1)).
+This pipeline trains specialized embedding models for semantic caching by:
+1. Taking unlabeled domain queries (medical, legal, history, etc.)
+2. Using LLM to generate paraphrases (positive pairs) and hard negatives
+3. Training LoRA-adapted models with Multiple Negatives Ranking loss
+4. Producing lightweight, domain-specialized cache embeddings
 
-### Key Findings from Research
+## Quick Start
 
-- **Small, specialized models outperform large general-purpose ones** for cache matching
-- **1 epoch fine-tuning** is sufficient with proper dataset
-- **Synthetic data generation** is crucial for performance
-- **Precision/recall balance** is more important than raw accuracy
+### Prerequisites
 
-## Architecture
+- **Ollama** installed locally with a model (e.g., `qwen2.5:1.5b`)
+- Python 3.11+ with dependencies: `transformers`, `torch`, `peft`, `sentence-transformers`
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Training Pipeline                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  1. Dataset Collection                                        │
-│     ├─ Real Data (Stack Overflow, GitHub, Docs)              │
-│     └─ Synthetic Data Generation                             │
-│         ├─ Paraphrasing (T5/BART)                            │
-│         ├─ Hard Negative Mining                              │
-│         └─ Query Reformulation                               │
-│                                                               │
-│  2. Contrastive Learning                                      │
-│     ├─ Triplet Loss                                          │
-│     ├─ InfoNCE Loss                                          │
-│     └─ Multiple Negatives Ranking (MNR) ✅ Recommended       │
-│                                                               │
-│  3. LoRA Fine-Tuning                                          │
-│     ├─ Base: bert-base-uncased (110M params)                 │
-│     ├─ Trainable: ~0.02% (LoRA adapters)                     │
-│     └─ Output: 384-dim embeddings                            │
-│                                                               │
-│  4. Evaluation                                                │
-│     ├─ Precision@K (K=0.80, 0.85, 0.90, 0.95)                │
-│     ├─ Recall@K                                              │
-│     ├─ MRR (Mean Reciprocal Rank)                            │
-│     └─ False Positive/Negative Rates                         │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Project Structure
-
-```
-src/training/cache_embeddings/
-├── __init__.py                     # Package initialization
-├── common_utils.py                 # ✅ Shared utilities (logging, metrics, I/O)
-├── losses.py                       # ✅ Contrastive loss functions
-├── dataset_builder.py              # 🚧 Real & synthetic data collection
-├── synthetic_data_generator.py     # 🔜 Paraphrasing & hard negative mining
-├── train_cache_embedding_lora.py   # 🔜 Main training script
-├── evaluate_cache_model.py         # 🔜 Evaluation framework
-└── README.md                       # 📄 This file
-
-datasets/cache_training/
-└── coding/
-    ├── real_data.jsonl             # Stack Overflow, GitHub issues
-    ├── synthetic_data.jsonl        # Generated training pairs
-    └── test_set.jsonl              # Held-out evaluation set
-```
-
-## Components
-
-### ✅ Completed
-
-#### 1. Common Utilities (`common_utils.py`)
-- Logging setup
-- Random seed setting
-- Device selection (CPU/GPU)
-- Similarity metrics (cosine, euclidean)
-- Cache-specific metrics calculation
-- Model artifact saving/loading
-- JSONL I/O utilities
-
-#### 2. Contrastive Losses (`losses.py`)
-
-**TripletLoss**
-```python
-loss = max(d(anchor, positive) - d(anchor, negative) + margin, 0)
-```
-- Margin: 1.0 (default)
-- Distance: Cosine or Euclidean
-
-**InfoNCELoss**
-```python
-# Normalized temperature-scaled cross-entropy
-# Used in SimCLR
-```
-- Temperature: 0.07 (default)
-- Encourages clustering of similar pairs
-
-**MultipleNegativesRankingLoss (MNR)** ⭐ **Recommended**
-```python
-# Uses in-batch negatives efficiently
-# All other positives serve as negatives
-```
-- Temperature: 0.05 (default)
-- Most efficient for cache learning
-- Recommended by research paper
-
-**CosineEmbeddingLoss**
-```python
-# Simple pairwise cosine loss
-```
-- Margin: 0.5 (default)
-
-**HardTripletLoss**
-```python
-# Mines hardest examples in batch
-# More efficient than random triplets
-```
-- Strategies: hardest, semi-hard, all
-
-### 🚧 In Progress
-
-#### 3. Dataset Builder (`dataset_builder.py`)
-- [ ] Stack Overflow Q&A loader
-- [ ] GitHub issues/discussions loader
-- [ ] Coding documentation scraper
-- [ ] Data preprocessing & filtering
-- [ ] Train/val/test splitting
-- [ ] JSONL export
-
-### 🔜 Planned
-
-#### 4. Synthetic Data Generator (`synthetic_data_generator.py`)
-- [ ] Paraphrase generation (T5-small/BART)
-- [ ] Hard negative mining (clustering-based)
-- [ ] Query reformulation
-- [ ] Back-translation augmentation
-
-#### 5. Training Script (`train_cache_embedding_lora.py`)
-- [ ] LoRA configuration for embeddings
-- [ ] Training loop with contrastive loss
-- [ ] Checkpoint management
-- [ ] TensorBoard logging
-- [ ] Distributed training support
-
-#### 6. Evaluation Framework (`evaluate_cache_model.py`)
-- [ ] Precision@K calculation
-- [ ] Recall@K calculation
-- [ ] MRR (Mean Reciprocal Rank)
-- [ ] False positive/negative rates
-- [ ] Latency benchmarking
-- [ ] A/B comparison with baseline
-
-## Training Data Format
-
-### Triplet Format (for Triplet/InfoNCE/MNR losses)
-
-```jsonl
-{
-  "anchor": "How do I reverse a string in Python?",
-  "positive": "What's the method to reverse a Python string?",
-  "hard_negative": "How do I reverse a list in Python?",
-  "domain": "coding",
-  "similarity_score": 0.95,
-  "source": "stackoverflow"
-}
-```
-
-### Pair Format (for Cosine loss)
-
-```jsonl
-{
-  "query1": "How to sort a Python list?",
-  "query2": "Python list sorting methods",
-  "label": 1,
-  "domain": "coding",
-  "similarity_score": 0.92,
-  "source": "synthetic"
-}
-```
-
-## Usage (Coming Soon)
-
-### Training
+### Complete Workflow (Medical Domain Example)
 
 ```bash
-# Train coding domain model with MNR loss
-python train_cache_embedding_lora.py \
-  --domain coding \
-  --base-model bert-base-uncased \
-  --loss-type mnr \
+# 1. Prepare unlabeled queries (44K medical queries provided)
+ls data/cache_embeddings/medical/unlabeled_queries.jsonl
+
+# 2. Generate training data using LLM (Ollama)
+# This creates paraphrases + hard negatives for each query
+# ~12 min for 500 queries, ~4 hours for full 44K on CPU
+python3 src/training/cache_embeddings/generate_training_data.py \
+  --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
+  --output data/cache_embeddings/medical/augmented.jsonl \
+  --model qwen2.5:1.5b \
+  --paraphrases 3 \
+  --negatives 2 \
+  --workers 10
+
+# 3. Convert to triplet format for training
+python3 << 'EOF'
+import json
+
+# Read augmented data
+with open('data/cache_embeddings/medical/augmented.jsonl') as f:
+    data = [json.loads(line) for line in f]
+
+# Group by positive (canonical query)
+positive_groups = {}
+for item in data:
+    if 'positive' in item:
+        positive = item['positive']
+        if positive not in positive_groups:
+            positive_groups[positive] = {'paraphrases': [], 'negatives': []}
+        positive_groups[positive]['paraphrases'].append(item['anchor'])
+
+# Add negatives
+for item in data:
+    if 'hard_negative' in item:
+        anchor = item['anchor']
+        for positive, group in positive_groups.items():
+            if anchor in group['paraphrases'] or anchor == positive:
+                group['negatives'].append(item['hard_negative'])
+                break
+
+# Create triplets
+triplets = []
+for positive, group in positive_groups.items():
+    for para in group['paraphrases']:
+        for neg in group['negatives']:
+            triplets.append({
+                'anchor': para,
+                'positive': positive,
+                'hard_negative': neg
+            })
+
+# Save
+with open('data/cache_embeddings/medical/training.jsonl', 'w') as f:
+    for t in triplets:
+        f.write(json.dumps(t) + '\n')
+
+print(f"Created {len(triplets)} triplets")
+EOF
+
+# 4. Train LoRA model (~8 min for 2.8K samples on CPU, ~2 hours for full dataset)
+python3 src/training/cache_embeddings/lora_trainer.py \
+  --train-data data/cache_embeddings/medical/training.jsonl \
+  --base-model sentence-transformers/all-MiniLM-L12-v2 \
+  --output models/medical-cache-lora \
   --epochs 1 \
   --batch-size 32 \
-  --lora-rank 16 \
-  --output-dir models/cache_coding_bert-base_lora
+  --lr 2e-5 \
+  --temperature 0.05
 
-# Train with triplet loss
-python train_cache_embedding_lora.py \
-  --domain coding \
-  --loss-type triplet \
-  --margin 1.0 \
-  --epochs 3
+# 5. Model ready! (582KB LoRA adapter)
+ls models/medical-cache-lora/
 ```
 
-### Evaluation
+## Methodology
+
+### 1. Data Generation (`generate_training_data.py`)
+
+**Input:** Unlabeled domain queries
+```json
+{"query": "How to diagnose Pertussis?"}
+```
+
+**Process:** Uses Ollama LLM to generate:
+- **Paraphrases** (positive pairs): Same meaning, different wording
+- **Hard negatives**: Related but different queries
+
+**Output:** Augmented training samples
+```json
+{"anchor": "What are the methods for diagnosing pertussis?", "positive": "How to diagnose Pertussis?", "is_duplicate": 1}
+{"anchor": "How to diagnose Pertussis?", "hard_negative": "What are symptoms of pertussis?", "is_duplicate": 0}
+```
+
+**Key Parameters:**
+- `--paraphrases 3`: Generate 3 paraphrases per query
+- `--negatives 2`: Generate 2 hard negatives per query
+- `--workers 10`: Parallel workers for faster processing
+- `--max-queries N`: Limit for testing (e.g., 500)
+
+**Augmentation Factor:** ~5x (500 queries → 2,449 samples → 2,854 triplets)
+
+### 2. LoRA Training (`lora_trainer.py`)
+
+**Input:** Triplets with anchor, positive, hard_negative
+
+**Training:**
+- **Base model:** `sentence-transformers/all-MiniLM-L12-v2` (33.5M params)
+- **LoRA adapter:** Only 147K trainable params (0.44%)
+- **Loss:** Multiple Negatives Ranking (MNR) with temperature=0.05
+- **Epochs:** 1 (per paper recommendation)
+
+**Output:** Lightweight domain-specific model (582KB)
+
+**Performance:**
+- Training time: ~1.7s per batch (32 samples)
+- Final loss: ~0.086 (lower is better)
+- Model size: 582KB vs 130MB full model
+
+## Pipeline Architecture
+
+```
+Unlabeled Queries (44K medical questions)
+    ↓
+LLM Augmentation (Ollama qwen2.5:1.5b)
+    ↓
+Augmented Data (~220K samples: paraphrases + hard negatives)
+    ↓
+Triplet Creation (~220K triplets with anchor/positive/negative)
+    ↓
+LoRA Training (1 epoch, MNR loss, temp=0.05)
+    ↓
+Domain-Specific Cache Model (582KB, 0.44% trainable params)
+```
+
+## Files
+
+| File | Purpose | Usage |
+|------|---------|-------|
+| `generate_training_data.py` | LLM-based data augmentation | Generate paraphrases + hard negatives |
+| `lora_trainer.py` | LoRA fine-tuning | Train domain-specific models |
+| `hard_negative_miner.py` | Similarity-based mining | Alternative to LLM negatives |
+| `evaluate_model.py` | Model evaluation | Compare LoRA vs baseline |
+
+## Validated Dataset: Medical Domain
+
+**Source:** MedQuAD (Medical Question Answering Dataset)
+- **Queries:** 44,603 medical questions
+- **License:** CC BY 4.0
+- **Format:** `{"query": "medical question"}`
+- **File:** `data/cache_embeddings/medical/unlabeled_queries.jsonl`
+
+**Example queries:**
+- "How to diagnose Pertussis?"
+- "What are the symptoms of diabetes?"
+- "What treatments are available for hypertension?"
+
+## Training Configuration
+
+### LLM Augmentation
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Model | qwen2.5:1.5b | Fast, good quality |
+| Paraphrases | 3 | Sufficient diversity |
+| Hard negatives | 2 | Challenging but learnable |
+| Workers | 10 | Parallel processing |
+
+### LoRA Training
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Base model | all-MiniLM-L12-v2 | Strong baseline |
+| LoRA rank | 8 | Efficient adaptation |
+| LoRA alpha | 32 | 4x rank (standard) |
+| Epochs | 1 | Per paper recommendation |
+| Batch size | 32 | Good for 8K+ samples |
+| Learning rate | 2e-5 | Standard for BERT |
+| Temperature | 0.05 | MNR loss scaling |
+
+## Scaling to Full Dataset (4090 GPU)
+
+For full 44K queries on GPU:
 
 ```bash
-# Evaluate against baseline
-python evaluate_cache_model.py \
-  --model models/cache_coding_bert-base_lora \
-  --baseline models/all-MiniLM-L12-v2 \
-  --test-data datasets/cache_training/coding/test_set.jsonl \
-  --thresholds 0.80 0.85 0.90 0.95
+# Expected output: ~220K training samples
+# Expected time: ~4 hours for augmentation, ~2 hours for training
+
+python3 src/training/cache_embeddings/generate_training_data.py \
+  --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
+  --output data/cache_embeddings/medical/augmented_full.jsonl \
+  --model qwen2.5:1.5b \
+  --paraphrases 3 \
+  --negatives 2 \
+  --workers 20
+
+# Then follow triplet creation + training steps above
 ```
 
-### Synthetic Data Generation
+## Next Steps
 
-```bash
-# Generate synthetic training data
-python synthetic_data_generator.py \
-  --input datasets/cache_training/coding/real_data.jsonl \
-  --output datasets/cache_training/coding/synthetic_data.jsonl \
-  --num-paraphrases 5 \
-  --num-hard-negatives 3
-```
+1. **Validate on full medical dataset** (44K queries on 4090 GPU)
+2. **Expand to other domains:** history, legal, finance, etc.
+3. **Production integration:** Deploy models in semantic router
+4. **Evaluation framework:** Build proper test sets with held-out queries
 
-## Success Criteria (Phase 1 - Coding Domain)
+## Key Insights
 
-| Metric | Target | Baseline (all-MiniLM-L12-v2) |
-|--------|--------|------------------------------|
-| Precision@0.90 | +10% improvement | TBD |
-| Recall@0.90 | +5% improvement | TBD |
-| False Positive Rate | < 2% | TBD |
-| Embedding Latency | < 10ms | ~5ms |
-| Model Size | < 150MB | 127MB |
+### ✅ What Works
+- **LLM-generated synthetic data:** High-quality paraphrases and hard negatives
+- **LoRA fine-tuning:** Efficient (0.44% params) and effective
+- **Single epoch training:** Sufficient per paper validation
+- **Domain specialization:** Unlabeled queries from specific domains
 
-## Integration with Multi-Domain Cache
-
-Once trained, the model integrates with the `semantic_cache` branch's domain-specific caching:
-
-```yaml
-# config/config.yaml
-semantic_cache:
-  enabled: true
-  backend_type: "redis"
-
-  domains:
-    coding:
-      namespace: "coding"
-      embedding_model_path: "models/cache_coding_bert-base_lora"  # ← New!
-      similarity_threshold: 0.92
-      ttl_seconds: 7200
-```
+### ❌ Previous Approach (Deprecated)
+- ~~Manual template-based data~~ → Replaced with LLM generation
+- ~~Hardcoded topic lists~~ → Replaced with real unlabeled queries
+- ~~11 small manually-created domains~~ → Focused on quality over quantity
 
 ## References
 
-1. **Research Paper:** "Enhancing Semantic Caching with Domain-Specific Embeddings" ([arXiv:2504.02268v1](https://arxiv.org/abs/2504.02268v1))
-2. **Semantic Cache Overview:** [website/docs/tutorials/semantic-cache/overview.md](../../../website/docs/tutorials/semantic-cache/overview.md)
-3. **Redis Cache Tutorial:** [website/docs/tutorials/semantic-cache/redis-cache.md](../../../website/docs/tutorials/semantic-cache/redis-cache.md)
-4. **LoRA Training Reference:** [training_lora/classifier_model_fine_tuning_lora/ft_linear_lora.py](../training_lora/classifier_model_fine_tuning_lora/ft_linear_lora.py)
-
-## Contributing
-
-This is Phase 1 (Coding Domain). Future phases:
-- Phase 2: Medical domain
-- Phase 3: Math domain
-- Phase 4: Business domain
-- Phase 5: Multi-task model (domain-conditioned)
+- **Paper:** [Semantic Cache Embeddings (arXiv:2504.02268v1)](https://arxiv.org/pdf/2504.02268v1)
+- **Base Model:** [all-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2)
+- **Dataset:** [MedQuAD](https://github.com/abachaa/MedQuAD) (CC BY 4.0)
+- **LoRA:** [Low-Rank Adaptation](https://arxiv.org/abs/2106.09685)
+- **MNR Loss:** [Sentence-BERT](https://arxiv.org/abs/1908.10084)
 
 ## License
 
-Apache 2.0 (same as parent project)
-
----
-
-**Last Updated:** 2024-12-17
-**Status:** Phase 1 Implementation in Progress
+- Code: Follow semantic-router repository license
+- MedQuAD dataset: CC BY 4.0
