@@ -100,8 +100,10 @@ class TripletDataset(Dataset):
             return_tensors="pt",
         )
 
+        # Handle positive pairs (may not exist for negative samples)
+        positive_text = item.get("positive", "")
         positive = self.tokenizer(
-            item["positive"],
+            positive_text if positive_text else "[PAD]",
             padding="max_length",
             truncation=True,
             max_length=self.max_length,
@@ -109,9 +111,9 @@ class TripletDataset(Dataset):
         )
 
         # Support both 'negative' and 'hard_negative' field names
-        negative_text = item.get("negative") or item.get("hard_negative")
+        negative_text = item.get("negative") or item.get("hard_negative", "")
         negative = self.tokenizer(
-            negative_text,
+            negative_text if negative_text else "[PAD]",
             padding="max_length",
             truncation=True,
             max_length=self.max_length,
