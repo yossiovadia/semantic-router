@@ -153,6 +153,11 @@ fi
 if [ "$SKIP_UPLOAD" = false ]; then
     echo -e "${GREEN}[2/6] Uploading data and code to AWS...${NC}"
 
+    # Create directory structure on remote
+    DATA_DIR=$(dirname "$DATA_FILE")
+    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ubuntu@$INSTANCE_IP" \
+        "mkdir -p ~/semantic-router/$DATA_DIR ~/semantic-router/src/training/cache_embeddings"
+
     # Upload data file
     scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
         "$REPO_ROOT/$DATA_FILE" \
@@ -209,19 +214,22 @@ EOF
     echo ""
 else
     echo -e "${GREEN}[3/6] Running vLLM data generation (this takes ~1.5-2 hours)...${NC}"
-    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ubuntu@$INSTANCE_IP" << EOF
+    echo -e "${BLUE}Progress will update every few minutes. Please be patient...${NC}"
+    echo ""
+    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ubuntu@$INSTANCE_IP" bash << EOFREMOTE
 cd ~/semantic-router
+export VLLM_DISABLE_PROGRESS_BAR=1
 python3 src/training/cache_embeddings/generate_training_data.py \
   --input $DATA_FILE \
   --output data/cache_embeddings/${DOMAIN}/triplets.jsonl \
   --model Qwen/Qwen2.5-1.5B-Instruct \
   --paraphrases 3 \
   --negatives 2 \
-  --batch-size 32 \
+  --batch-size 256 \
   --gpu-memory 0.9 \
   --tensor-parallel 4 \
   --checkpoint-interval 50
-EOF
+EOFREMOTE
 
     echo -e "${GREEN}✓ Data generation complete${NC}"
     echo ""
@@ -270,25 +278,89 @@ else
     echo ""
 fi
 
-# Step 6: Cleanup AWS instance
+# Step 6: Prompt user for VM management
 if [ "$SKIP_CLEANUP" = false ] || [ "$TEST_MODE" = true ]; then
-    echo -e "${GREEN}[6/6] Cleaning up AWS instance...${NC}"
-    cd "$AWS_DIR"
-    ./deploy-vllm.sh cleanup
-    echo -e "${GREEN}✓ Cleanup complete${NC}"
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                  Training Complete! 🎉                    ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${BLUE}Trained adapter:${NC} $OUTPUT_DIR"
+    echo -e "${BLUE}Size:${NC} $(du -sh "$REPO_ROOT/$OUTPUT_DIR" | awk '{print $1}')"
+    echo ""
+    echo -e "${YELLOW}[6/6] AWS Instance Management${NC}"
+    echo ""
+    echo "Instance Details:"
+    echo "  IP: $INSTANCE_IP"
+    echo "  Type: g5.12xlarge (4x A10G GPUs)"
+    echo "  SSH: ssh -i $SSH_KEY ubuntu@$INSTANCE_IP"
+    echo ""
+    echo "What would you like to do with the AWS instance?"
+    echo "  1) Terminate (delete completely - stops billing immediately)"
+    echo "  2) Stop (shut down - minimal storage billing only)"
+    echo "  3) Keep running (continue billing ~$5.67/hour)"
+    echo ""
+
+    # Only prompt if running interactively
+    if [ -t 0 ]; then
+        read -p "Enter choice [1-3]: " choice
+        echo ""
+
+        case $choice in
+            1)
+                echo -e "${GREEN}Terminating instance...${NC}"
+                cd "$AWS_DIR"
+                ./deploy-vllm.sh cleanup
+                echo -e "${GREEN}✓ Instance terminated${NC}"
+                ;;
+            2)
+                echo -e "${YELLOW}Stopping instance (can be restarted later)...${NC}"
+                INSTANCE_ID=$(aws ec2 describe-instances \
+                    --filters "Name=ip-address,Values=$INSTANCE_IP" \
+                    --query 'Reservations[0].Instances[0].InstanceId' \
+                    --output text 2>/dev/null)
+
+                if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "None" ]; then
+                    aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+                    echo -e "${GREEN}✓ Instance stopped (ID: $INSTANCE_ID)${NC}"
+                    echo -e "${BLUE}To restart: aws ec2 start-instances --instance-ids $INSTANCE_ID${NC}"
+                else
+                    echo -e "${RED}Error: Could not find instance ID${NC}"
+                fi
+                ;;
+            3)
+                echo -e "${YELLOW}Keeping instance running${NC}"
+                echo "Instance will continue running and incurring charges (~$5.67/hour)"
+                echo ""
+                echo -e "${BLUE}To terminate later:${NC}"
+                echo "  cd $AWS_DIR && ./deploy-vllm.sh cleanup"
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice. Keeping instance running by default.${NC}"
+                echo "Instance IP: $INSTANCE_IP"
+                ;;
+        esac
+    else
+        # Non-interactive mode - don't cleanup automatically
+        echo -e "${YELLOW}Running in non-interactive mode. Instance left running.${NC}"
+        echo "To manage the instance later:"
+        echo "  Terminate: cd $AWS_DIR && ./deploy-vllm.sh cleanup"
+        echo "  Stop: aws ec2 stop-instances --instance-ids <instance-id>"
+    fi
 else
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                  Training Complete! 🎉                    ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${BLUE}Trained adapter:${NC} $OUTPUT_DIR"
+    echo -e "${BLUE}Size:${NC} $(du -sh "$REPO_ROOT/$OUTPUT_DIR" | awk '{print $1}')"
+    echo ""
     echo -e "${YELLOW}[6/6] Skipping cleanup (instance still running)${NC}"
     echo "Instance IP: $INSTANCE_IP"
     echo "SSH: ssh -i $SSH_KEY ubuntu@$INSTANCE_IP"
 fi
 
-echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                  Training Complete! 🎉                    ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${BLUE}Trained adapter:${NC} $OUTPUT_DIR"
-echo -e "${BLUE}Size:${NC} $(du -sh "$REPO_ROOT/$OUTPUT_DIR" | awk '{print $1}')"
 echo ""
 
 # Optional: Push to HuggingFace

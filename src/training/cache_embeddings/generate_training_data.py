@@ -21,6 +21,7 @@ import signal
 import sys
 from typing import Optional, List, Dict
 import time
+import os
 
 # Global flag for graceful shutdown
 shutdown_requested = False
@@ -236,6 +237,9 @@ def process_batch_vllm(batch_queries: List[str], llm, args) -> List[Dict]:
 
 
 def main():
+    # Disable vLLM's verbose progress bars to show clean overall progress
+    os.environ['VLLM_DISABLE_PROGRESS_BAR'] = '1'
+
     parser = argparse.ArgumentParser(description="Production vLLM augmentation with streaming and checkpointing")
     parser.add_argument("--input", required=True, help="Input JSONL with unlabeled queries")
     parser.add_argument("--output", required=True, help="Output JSONL for training")

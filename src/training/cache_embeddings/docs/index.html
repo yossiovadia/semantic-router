@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Domain-Specific Cache Embeddings Training Pipeline</title>
+    <title>Medical Cache Embeddings - Training Results & Methodology</title>
     <style>
         * {
             margin: 0;
@@ -639,9 +639,9 @@
 
     <!-- Hero Section -->
     <div class="hero">
-        <h1>Domain-Specific Cache Embeddings</h1>
+        <h1>Medical Domain Cache Embeddings</h1>
         <p class="hero-subtitle">
-            Production-grade LoRA fine-tuning pipeline for semantic caching optimization using LLM-generated synthetic data
+            Case study demonstrating LoRA fine-tuning for healthcare semantic caching using LLM-generated synthetic data from MedQuAD
         </p>
         <div class="hero-stats">
             <div class="stat">
@@ -687,7 +687,7 @@
                         <span class="stat-label">Trainable Params</span>
                         <span class="tooltiptext">
                             <strong>Trainable Parameters</strong>
-                            We only train 147K parameters (0.44%) instead of the full 33.5M parameters in the base model. This makes training fast, cheap, and prevents overfitting on limited domain data.
+                            Percentage of model parameters that are updated during training. Using LoRA (Low-Rank Adaptation), we only train 0.44% of the base model's parameters, which makes training efficient while maintaining quality.
                         </span>
                     </span>
                 </div>
@@ -698,12 +698,29 @@
     <!-- Main Content -->
     <div class="container">
 
+        <!-- Domain Notice -->
+        <div style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-left: 4px solid var(--primary); padding: 1.5rem; margin-bottom: 3rem; border-radius: 8px;">
+            <div style="display: flex; align-items: start; gap: 1rem;">
+                <div style="font-size: 2rem;">ℹ️</div>
+                <div>
+                    <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--primary);">
+                        Medical/Healthcare Domain Case Study
+                    </div>
+                    <div style="color: var(--text-muted); line-height: 1.6;">
+                        This document presents results specific to the <strong>medical/healthcare domain</strong> using the MedQuAD dataset (44,603 medical queries).
+                        The methodology and pipeline demonstrated here are domain-agnostic and can be applied to other specialized domains such as legal, financial, programming, or scientific fields.
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Overview Section -->
         <section id="overview" class="section">
             <h2 class="section-title">What We Accomplished</h2>
             <p class="section-description">
-                Built a production-grade pipeline that trains lightweight domain-specific embedding models for semantic caching,
-                achieving significant performance improvements over generic embeddings while maintaining deployment efficiency.
+                Developed and validated a production-grade pipeline for training domain-specific cache embeddings.
+                This case study demonstrates the medical/healthcare domain, achieving 21.4% margin improvement using
+                44K medical queries from MedQuAD.
             </p>
 
             <div class="card-grid">
@@ -887,7 +904,7 @@ python3 test_lora_model.py
             <h2 class="section-title">Performance Results</h2>
             <p class="section-description">
                 Validated on 5 medical query triplets, measuring how well the model distinguishes semantically identical queries
-                from related but intent-different ones.
+                from related but intent-different ones. <strong>These results are specific to the medical domain trained on MedQuAD data.</strong>
             </p>
 
             <div class="card-grid">
@@ -1186,7 +1203,7 @@ ansible-playbook cleanup-vllm-instance.yaml</code></pre>
                 <div class="card">
                     <div class="card-title">🔬 More Domains</div>
                     <div class="card-content">
-                        Legal, financial, programming, scientific - apply the same methodology to other specialized domains.
+                        The methodology demonstrated here for medical queries can be applied to other specialized domains: legal, financial, programming, scientific, etc.
                     </div>
                 </div>
                 <div class="card">
