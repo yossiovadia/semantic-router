@@ -1,0 +1,217 @@
+# Domain-specific prompts for cache embedding training
+#
+# This file defines how the LLM should generate paraphrases and hard negatives
+# for each domain to ensure high-quality triplet generation.
+#
+# Supported semantic router categories (from models/lora_intent_classifier_bert-base-uncased_model/label_mapping.json):
+# 1. biology
+# 2. business
+# 3. chemistry
+# 4. computer_science (alias: programming)
+# 5. economics
+# 6. engineering
+# 7. health (alias: medical)
+# 8. history
+# 9. law (alias: legal)
+# 10. math
+# 11. other (generic fallback)
+# 12. philosophy
+# 13. physics
+# 14. psychology
+#
+# When training a new domain that doesn't have prompts here, the script will exit
+# with an error asking you to add the prompts first. This prevents accidentally
+# using wrong prompts (like we did with programming using medical prompts!).
+
+domains:
+  # HEALTH / MEDICAL - Trained and tested: +21.4% improvement
+  health:
+    role: "helpful medical expert"
+    topic_name: "medical query"
+    recommended_model: "Qwen/Qwen2.5-1.5B-Instruct"  # General instruction-following model
+
+    paraphrase_guidelines: |
+      1. Preserve the original medical meaning but use different wording or sentence structure
+      2. Avoid changing medical intent or introducing new information
+      3. Be professionally written and clear
+      4. Maintain medical accuracy and terminology
+
+    paraphrase_examples:
+      - original: "What are the best ways to reduce stress?"
+        paraphrases:
+          - "How can a person effectively manage stress?"
+          - "What strategies help in reducing stress levels?"
+          - "What methods are effective for stress reduction?"
+
+    negative_guidelines: |
+      1. Generate FULL, COMPLETE medical questions (8-15 words minimum)
+      2. Questions MUST be on RELATED but DISTINCT medical topics
+      3. MUST focus on different aspects: if original is about stress management, discuss sleep disorders or exercise physiology; if about diabetes diagnosis, discuss heart disease or cancer screening
+
+      CRITICAL - DO NOT DUPLICATE THE ORIGINAL:
+      - DO NOT reword or paraphrase the original query
+      - DO NOT use the exact same medical condition (if original mentions "diabetes", use "hypertension" or "arthritis")
+      - DO NOT use the same treatment approach (if original is "medication", use "surgery" or "physical therapy")
+      - The negative MUST be medically related but clearly different
+
+      STRICTLY FORBIDDEN (DO NOT generate):
+      - Exact or near-exact rewording of the original query
+      - Questions about the same specific medical condition or treatment
+      - Placeholder text like "question 1?" or "question 2?"
+      - Single words: "diabetes", "stress", "treatment"
+      - Incomplete sentences or fragments
+      - Short phrases under 8 words: "heart disease", "mental health"
+
+    negative_examples:
+      - original: "How to reduce stress?"
+        negatives:
+          - "How can athletes manage stress during high-pressure competitions?"
+          - "What are effective stress management strategies for children with ADHD?"
+
+      - original: "What is diabetes?"
+        negatives:
+          - "How does gestational diabetes differ from type 2 diabetes?"
+          - "What are the long-term complications of uncontrolled diabetes?"
+
+  # COMPUTER SCIENCE / PROGRAMMING
+  computer_science:
+    role: "expert programming instructor"
+    topic_name: "programming query"
+    recommended_model: "Qwen/Qwen2.5-7B-Instruct"  # General-purpose model works better than coding-specialized
+
+    paraphrase_guidelines: |
+      1. Preserve the original programming intent but use different wording or sentence structure
+      2. Avoid changing the technical meaning or introducing new requirements
+      3. Be clear and professionally written
+      4. Maintain technical accuracy
+
+    paraphrase_examples:
+      - original: "How do I sort a list in Python?"
+        paraphrases:
+          - "What's the best way to sort a Python list?"
+          - "How can I order items in a Python list?"
+          - "What method should I use to arrange a list in Python?"
+
+    negative_guidelines: |
+      1. Generate FULL, COMPLETE programming questions (8-15 words minimum)
+      2. Questions MUST be on RELATED but DISTINCT programming topics
+      3. MUST focus on different aspects within the same context:
+         - If original is about matplotlib margins, ask about matplotlib fonts or layout
+         - If original is about Django ManyToMany counting, ask about Django relationships filtering or optimization
+         - If original is about Python generators, ask about Python iterators or coroutines
+         - Stay in the same library/framework but different feature
+
+      CRITICAL - DO NOT DUPLICATE THE ORIGINAL:
+      - DO NOT reword or paraphrase the original query
+      - DO NOT use the exact same feature (if original mentions "ticklabels margin", use "ticklabels fontsize" or "subplot spacing")
+      - DO NOT ask the exact same question (if original is "how to count", use "how to filter" or "how to optimize")
+      - The negative MUST be related but clearly different aspect
+
+      STRICTLY FORBIDDEN (DO NOT generate):
+      - Exact or near-exact rewording of the original query
+      - Questions about the same specific feature or method
+      - Completely unrelated topics (if original is Django, don't jump to React or Vue)
+      - Placeholder text like "question 1?" or "question 2?"
+      - Single words: "count", "Django", "list"
+      - Code snippets: "getDictionaryValue()", "myFunction()"
+      - Short phrases under 8 words: "data structures", "web development"
+      - Incomplete sentences or fragments
+
+    negative_examples:
+      - original: "How can I increase margin between ticklabels in matplotlib?"
+        negatives:
+          - "How can I adjust the fontsize of ticklabels in matplotlib?"
+          - "What is the effect of using tight_layout on subplot spacing in matplotlib?"
+
+      - original: "How to count and display objects in relation ManyToMany in Django?"
+        negatives:
+          - "How can you filter objects based on their ManyToMany relationships in Django?"
+          - "What is the recommended approach for optimizing ManyToMany queries in Django?"
+
+      - original: "How do you determine if an object is a generator in Python?"
+        negatives:
+          - "How do you create a generator function in Python?"
+          - "What methods can you use to consume a generator in Python?"
+
+  # LAW / LEGAL - Next domain to train
+  law:
+    role: "legal expert assistant"
+    topic_name: "legal query"
+    recommended_model: "Qwen/Qwen2.5-7B-Instruct"  # General instruction-following model
+
+    paraphrase_guidelines: |
+      1. Preserve the original legal meaning but use different wording or sentence structure
+      2. Avoid changing legal intent or introducing new information
+      3. Be professionally written using appropriate legal terminology
+      4. Maintain legal accuracy and precision
+
+    paraphrase_examples:
+      - original: "What constitutes a breach of contract?"
+        paraphrases:
+          - "How is a breach of contract legally defined?"
+          - "What actions would be considered a violation of contractual obligations?"
+          - "Under what circumstances is a contract considered breached?"
+
+      - original: "What are the requirements for establishing negligence?"
+        paraphrases:
+          - "What elements must be proven to show negligence?"
+          - "How do you demonstrate negligence in a legal case?"
+          - "What are the necessary components of a negligence claim?"
+
+    negative_guidelines: |
+      1. Generate FULL, COMPLETE legal questions (8-15 words minimum)
+      2. Questions MUST be on RELATED but DISTINCT legal topics
+      3. MUST focus on different legal areas:
+         - If original is about contract law, ask about tort law or property law
+         - If original is about criminal procedure, ask about civil procedure or constitutional law
+         - If original is about negligence, ask about strict liability or intentional torts
+         - Stay within legal domain but different legal concept
+
+      CRITICAL - DO NOT DUPLICATE THE ORIGINAL:
+      - DO NOT reword or paraphrase the original query
+      - DO NOT use the exact same legal doctrine (if original mentions "negligence", use "fraud" or "battery")
+      - DO NOT ask about the same cause of action (if original is "breach of contract", use "promissory estoppel" or "unjust enrichment")
+      - The negative MUST be legally related but clearly different area of law
+
+      STRICTLY FORBIDDEN (DO NOT generate):
+      - Exact or near-exact rewording of the original query
+      - Questions about the same specific legal doctrine or principle
+      - Placeholder text like "question 1?" or "question 2?"
+      - Single words: "contract", "negligence", "liability"
+      - Incomplete sentences or fragments
+      - Short phrases under 8 words: "tort law", "criminal defense"
+      - Legal jargon without context: "res judicata", "voir dire"
+
+    negative_examples:
+      - original: "What constitutes a breach of contract?"
+        negatives:
+          - "What elements must be proven to establish fraudulent misrepresentation?"
+          - "How does the statute of frauds affect oral agreements?"
+
+      - original: "What are the requirements for establishing negligence?"
+        negatives:
+          - "What is the difference between comparative and contributory negligence?"
+          - "How do strict liability claims differ from negligence claims in product liability cases?"
+
+      - original: "What is the doctrine of res ipsa loquitur?"
+        negatives:
+          - "How does the doctrine of stare decisis apply to appellate court decisions?"
+          - "What is the legal standard for proving causation in tort cases?"
+
+      - original: "Can a minor enter into a legally binding contract?"
+        negatives:
+          - "What are the exceptions to the hearsay rule in criminal trials?"
+          - "How is the statute of limitations calculated for personal injury claims?"
+
+# TODO: Add prompts for remaining 11 domains when needed:
+# - biology
+# - business
+# - chemistry
+# - economics
+# - engineering
+# - history
+# - math
+# - philosophy
+# - physics
+# - psychology
+# - other (generic)
