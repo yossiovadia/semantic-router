@@ -134,6 +134,7 @@ domains:
           - "What methods can you use to consume a generator in Python?"
 
   # LAW / LEGAL - Next domain to train
+  # VARIANT D: ULTRA-STRICT - Force maximum legal branch separation
   law:
     role: "legal expert assistant"
     topic_name: "legal query"
@@ -159,49 +160,84 @@ domains:
           - "What are the necessary components of a negligence claim?"
 
     negative_guidelines: |
-      1. Generate FULL, COMPLETE legal questions (8-15 words minimum)
-      2. Questions MUST be on RELATED but DISTINCT legal topics
-      3. MUST focus on different legal areas:
-         - If original is about contract law, ask about tort law or property law
-         - If original is about criminal procedure, ask about civil procedure or constitutional law
-         - If original is about negligence, ask about strict liability or intentional torts
-         - Stay within legal domain but different legal concept
+      ⚠️ NUCLEAR OPTION - MAXIMUM SEPARATION ⚠️
 
-      CRITICAL - DO NOT DUPLICATE THE ORIGINAL:
-      - DO NOT reword or paraphrase the original query
-      - DO NOT use the exact same legal doctrine (if original mentions "negligence", use "fraud" or "battery")
-      - DO NOT ask about the same cause of action (if original is "breach of contract", use "promissory estoppel" or "unjust enrichment")
-      - The negative MUST be legally related but clearly different area of law
+      STEP 1: EXTRACT AND BLOCK
+      Before generating ANY negative, identify these in the anchor:
+      - Person/company names: [extract all proper nouns]
+      - Case names: [extract all case citations]
+      - Legal doctrines: [extract all legal concepts mentioned]
+      - Topic keywords: [extract all substantive legal topics]
 
-      STRICTLY FORBIDDEN (DO NOT generate):
-      - Exact or near-exact rewording of the original query
-      - Questions about the same specific legal doctrine or principle
-      - Placeholder text like "question 1?" or "question 2?"
-      - Single words: "contract", "negligence", "liability"
-      - Incomplete sentences or fragments
-      - Short phrases under 8 words: "tort law", "criminal defense"
-      - Legal jargon without context: "res judicata", "voir dire"
+      ALL OF THESE ARE **PERMANENTLY BANNED** FROM YOUR NEGATIVES.
+
+      STEP 2: MANDATORY TOPIC JUMP
+      You MUST use this EXACT mapping to jump topics:
+
+      IF anchor mentions → THEN negative MUST be about
+      ================================================
+      "trade secret" OR "IP" → "Miranda rights" OR "search warrants"
+      "contract" OR "breach" → "child custody" OR "divorce proceedings"
+      "negligence" OR "tort" → "tax fraud" OR "estate planning"
+      "bomb" OR "explosive" OR "weapon" → "trademark registration" OR "patent filing"
+      "tax lien" OR "property tax" → "asylum seekers" OR "visa requirements"
+      "criminal procedure" → "corporate merger rules" OR "securities fraud"
+      "consumer protection" → "water pollution permits" OR "EPA compliance"
+      "employment discrimination" → "Chapter 11 bankruptcy" OR "creditor priority"
+
+      STEP 3: ENTITY REPLACEMENT
+      If anchor mentions "Colameta" → negative MUST mention ZERO companies/people
+      If anchor mentions "Taylor v. Mill" → negative MUST mention ZERO case names
+      If anchor mentions specific statute → negative MUST cite DIFFERENT statute from DIFFERENT legal code
+
+      STEP 4: VERIFICATION (MANDATORY)
+      Before finalizing each negative, ask:
+      1. "Does this negative share ANY word with the anchor's legal topic?" → If YES, REJECT
+      2. "Are these from the same legal branch?" → If YES, REJECT
+      3. "Would a lawyer specialize in both topics?" → If YES, REJECT
+
+      EXAMPLES OF COMPLETE FAILURE (WHAT NOT TO DO):
+      ❌ Anchor: "Colameta trade secrets" → Negative: "penalties for Colameta trade secrets"
+      ❌ Anchor: "bomb-making felony" → Negative: "sentencing for bomb offenses"
+      ❌ Anchor: "tax lien priority" → Negative: "federal vs state liens"
+
+      EXAMPLES OF SUCCESS (WHAT TO DO):
+      ✅ Anchor: "Colameta trade secrets" → Negative: "What rights do defendants have during police interrogations?"
+      ✅ Anchor: "bomb-making felony" → Negative: "How are patents evaluated for novelty and non-obviousness?"
+      ✅ Anchor: "tax lien priority" → Negative: "What criteria determine refugee status for asylum applications?"
 
     negative_examples:
-      - original: "What constitutes a breach of contract?"
-        negatives:
-          - "What elements must be proven to establish fraudulent misrepresentation?"
-          - "How does the statute of frauds affect oral agreements?"
+      - original: "Colameta's use of Protégé data in creating a competing business violated trade secret protections."
+        bad_negatives:
+          - "What penalties can Colameta face for misappropriating trade secrets?"
+          - "How are trade secrets legally protected under intellectual property law?"
+        good_negatives:
+          - "What constitutional protections apply when police conduct warrantless searches?"
+          - "How is child custody determined when parents divorce in different states?"
 
-      - original: "What are the requirements for establishing negligence?"
-        negatives:
-          - "What is the difference between comparative and contributory negligence?"
-          - "How do strict liability claims differ from negligence claims in product liability cases?"
+      - original: "What constitutes a breach of contract under common law?"
+        bad_negatives:
+          - "What remedies are available for breach of contract?"
+          - "How is contract formation established in commercial agreements?"
+        good_negatives:
+          - "What sentencing factors do judges consider in federal criminal cases?"
+          - "How does the estate tax exemption apply to inherited property?"
 
-      - original: "What is the doctrine of res ipsa loquitur?"
-        negatives:
-          - "How does the doctrine of stare decisis apply to appellate court decisions?"
-          - "What is the legal standard for proving causation in tort cases?"
+      - original: "What are the elements required to prove negligence in a personal injury case?"
+        bad_negatives:
+          - "What damages can be recovered in negligence lawsuits?"
+          - "How does contributory negligence affect tort liability?"
+        good_negatives:
+          - "What are the requirements for obtaining a trademark registration?"
+          - "How do bankruptcy trustees distribute assets among creditors?"
 
-      - original: "Can a minor enter into a legally binding contract?"
-        negatives:
-          - "What are the exceptions to the hearsay rule in criminal trials?"
-          - "How is the statute of limitations calculated for personal injury claims?"
+      - original: "Under what circumstances can a landlord terminate a month-to-month lease?"
+        bad_negatives:
+          - "What notice period must landlords provide for lease termination?"
+          - "How are security deposits handled in residential leases?"
+        good_negatives:
+          - "What procedures must employers follow when conducting workplace investigations?"
+          - "How does the EPA enforce violations of the Clean Water Act?"
 
 # TODO: Add prompts for remaining 11 domains when needed:
 # - biology
