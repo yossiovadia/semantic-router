@@ -1,19 +1,6 @@
 name: Integration Test [Docker Compose]
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches:
-      - main
-    paths-ignore:
-      - "website/**"
-      - "**/*.md"
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "website/**"
-      - "**/*.md"
   workflow_dispatch: # Allow manual triggering
 
 concurrency:
@@ -21,10 +8,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-ci-compose:
+  quickstart-test:
     if: github.repository == 'vllm-project/semantic-router' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # Reduced from 30 - CI compose is faster
+    timeout-minutes: 30 # Increased to allow for model downloads and loading
 
     steps:
       - name: Check out the repo
@@ -77,18 +64,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y make curl
-          pip install -r src/model_manager/requirements.txt
+          pip install -U "huggingface_hub[cli]" hf_transfer
 
-      - name: Download models
+      # Download Qwen3-0.6B model for llm-katan service
+      # The semantic-router will auto-download its own models (embedding, classifiers)
+      # but llm-katan needs the LLM model pre-downloaded
+      - name: Download Qwen3-0.6B model for llm-katan
         run: |
-          echo "Downloading minimal models for CI..."
-          make download-models
+          echo "Downloading Qwen3-0.6B model for llm-katan service..."
+          mkdir -p models/Qwen
+
+          # Download the model using huggingface-cli
+          hf download Qwen/Qwen3-0.6B --local-dir models/Qwen/Qwen3-0.6B
+
+          echo "Model download complete. Checking downloaded files:"
+          ls -lh models/Qwen/Qwen3-0.6B/
+
+          echo "Disk space after model download:"
+          df -h / && df -h /mnt
         env:
-          CI: true
-          CI_MINIMAL_MODELS: true
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
-          HF_HUB_DISABLE_TELEMETRY: 1
 
       - name: Start CI services
         run: |
@@ -96,24 +91,28 @@ jobs:
           make docker-compose-up-ci
         env:
           CI: true
+          # HF_TOKEN is required for semantic-router to auto-download gated models (e.g., embeddinggemma-300m)
+          # For PRs from forks, this will be empty and gated models will gracefully skip
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HUGGINGFACE_HUB_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for services to be healthy..."
-          max_attempts=60
+          max_attempts=180
           attempt=1
 
           while [ $attempt -le $max_attempts ]; do
             echo "Attempt $attempt/$max_attempts: Checking service health..."
-            
+
             # Check semantic-router health
             if docker ps --filter "name=semantic-router" --filter "health=healthy" --format "{{.Names}}" | grep -q "semantic-router"; then
               echo "✅ semantic-router is healthy"
-              
+
               # Check envoy health
               if docker ps --filter "name=envoy-proxy" --filter "health=healthy" --format "{{.Names}}" | grep -q "envoy-proxy"; then
                 echo "✅ envoy-proxy is healthy"
-                
+
                 # Check llm-katan health
                 if docker ps --filter "name=llm-katan" --filter "health=healthy" --format "{{.Names}}" | grep -q "llm-katan"; then
                   echo "✅ llm-katan is healthy"
@@ -122,10 +121,10 @@ jobs:
                 fi
               fi
             fi
-            
+
             # Show current status
             docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "NAMES|semantic-router|envoy|llm-katan" || true
-            
+
             sleep 5
             ((attempt++))
           done

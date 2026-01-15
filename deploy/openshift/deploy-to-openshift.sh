@@ -13,6 +13,7 @@ NC='\033[0m'
 NAMESPACE="vllm-semantic-router-system"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_OBSERVABILITY=true
+USE_SIMULATOR=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -21,14 +22,20 @@ while [[ $# -gt 0 ]]; do
             DEPLOY_OBSERVABILITY=false
             shift
             ;;
+        --simulator)
+            USE_SIMULATOR=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
+            echo "  --simulator           Use mock-vllm simulator instead of llm-katan (no GPU required)"
             echo "  --no-observability    Skip deploying dashboard, OpenWebUI, Grafana, and Prometheus"
             echo "  --help, -h            Show this help message"
             echo ""
-            echo "By default, deploys the full stack including observability components."
+            echo "By default, deploys the full stack with llm-katan (requires GPU)."
+            echo "Use --simulator for CPU-only clusters without GPUs."
             exit 0
             ;;
         *)
@@ -69,34 +76,70 @@ log "Creating namespace: $NAMESPACE"
 oc create namespace "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 success "Namespace ready"
 
-# Build llm-katan image if needed
-log "Checking for llm-katan image..."
-if ! oc get imagestream llm-katan -n "$NAMESPACE" &> /dev/null; then
-    log "Building llm-katan image..."
+# Build model backend image based on mode
+if [[ "$USE_SIMULATOR" == "true" ]]; then
+    # Use mock-vllm simulator (no GPU required)
+    log "Simulator mode: Building mock-vllm image..."
+    BACKEND_IMAGE_NAME="mock-vllm"
+    MOCK_VLLM_DIR="$SCRIPT_DIR/../../tools/mock-vllm"
 
-    if [[ -f "$SCRIPT_DIR/Dockerfile.llm-katan" ]]; then
-        oc new-build --dockerfile - --name llm-katan -n "$NAMESPACE" < "$SCRIPT_DIR/Dockerfile.llm-katan"
+    if ! oc get imagestream mock-vllm -n "$NAMESPACE" &> /dev/null; then
+        if [[ -f "$MOCK_VLLM_DIR/Dockerfile" ]]; then
+            oc new-build --name mock-vllm --binary --strategy=docker -n "$NAMESPACE"
+            log "Uploading mock-vllm source and building..."
+            oc start-build mock-vllm --from-dir="$MOCK_VLLM_DIR" --follow -n "$NAMESPACE" || true
+
+            log "Waiting for build to complete..."
+            # Get the latest build to handle reruns (mock-vllm-1, mock-vllm-2, etc.)
+            LATEST_BUILD=$(oc get builds -l buildconfig=mock-vllm -n "$NAMESPACE" -o name --sort-by=.metadata.creationTimestamp | tail -1)
+            if [[ -n "$LATEST_BUILD" ]]; then
+                if ! oc wait --for=condition=Complete "$LATEST_BUILD" -n "$NAMESPACE" --timeout=60s 2>/dev/null; then
+                    warn "Build may still be in progress. Checking status..."
+                    oc get builds -n "$NAMESPACE"
+                fi
+            else
+                warn "No mock-vllm build found to wait for"
+            fi
+            success "mock-vllm image built"
+        else
+            error "mock-vllm Dockerfile not found at: $MOCK_VLLM_DIR/Dockerfile"
+            exit 1
+        fi
     else
-        error "Dockerfile.llm-katan not found at: $SCRIPT_DIR/Dockerfile.llm-katan"
-        exit 1
+        log "mock-vllm image already exists"
     fi
-
-    log "Waiting for build to start..."
-    sleep 5
-
-    log "Starting build..."
-    oc start-build llm-katan -n "$NAMESPACE" --follow || true
-
-    log "Waiting for build to complete..."
-    if ! oc wait --for=condition=Complete build/llm-katan-1 -n "$NAMESPACE" --timeout=600s 2>/dev/null; then
-        warn "Build may still be in progress. Checking status..."
-        oc get builds -n "$NAMESPACE"
-        oc logs build/llm-katan-1 -n "$NAMESPACE" --tail=50 || true
-    fi
-
-    success "llm-katan image built"
 else
-    log "llm-katan image already exists"
+    # Use llm-katan (requires GPU)
+    log "Standard mode: Checking for llm-katan image..."
+    BACKEND_IMAGE_NAME="llm-katan"
+
+    if ! oc get imagestream llm-katan -n "$NAMESPACE" &> /dev/null; then
+        log "Building llm-katan image..."
+
+        if [[ -f "$SCRIPT_DIR/Dockerfile.llm-katan" ]]; then
+            oc new-build --dockerfile - --name llm-katan -n "$NAMESPACE" < "$SCRIPT_DIR/Dockerfile.llm-katan"
+        else
+            error "Dockerfile.llm-katan not found at: $SCRIPT_DIR/Dockerfile.llm-katan"
+            exit 1
+        fi
+
+        log "Waiting for build to start..."
+        sleep 5
+
+        log "Starting build..."
+        oc start-build llm-katan -n "$NAMESPACE" --follow || true
+
+        log "Waiting for build to complete..."
+        if ! oc wait --for=condition=Complete build/llm-katan-1 -n "$NAMESPACE" --timeout=600s 2>/dev/null; then
+            warn "Build may still be in progress. Checking status..."
+            oc get builds -n "$NAMESPACE"
+            oc logs build/llm-katan-1 -n "$NAMESPACE" --tail=50 || true
+        fi
+
+        success "llm-katan image built"
+    else
+        log "llm-katan image already exists"
+    fi
 fi
 
 # Create PVCs
@@ -164,7 +207,13 @@ success "PVCs created"
 
 # Deploy vLLM models FIRST to get their ClusterIPs
 log "Deploying vLLM model services and deployments..."
-oc apply -f "$SCRIPT_DIR/deployment.yaml" -n "$NAMESPACE"
+
+if [[ "$USE_SIMULATOR" == "true" ]]; then
+    log "Simulator mode: Using deployment-simulator.yaml (mock-vllm, no GPU required)..."
+    oc apply -f "$SCRIPT_DIR/deployment-simulator.yaml" -n "$NAMESPACE"
+else
+    oc apply -f "$SCRIPT_DIR/deployment.yaml" -n "$NAMESPACE"
+fi
 
 # Wait for services to be created and get ClusterIPs
 log "Waiting for vLLM services to get ClusterIPs..."
@@ -218,18 +267,8 @@ rm -f "$TEMP_CONFIG"
 
 success "Deployment manifests applied"
 
-# Deploy MongoDB (required for ChatUI)
-log "Deploying MongoDB for ChatUI..."
-oc apply -f "$SCRIPT_DIR/mongo/deployment.yaml" -n "$NAMESPACE"
-success "MongoDB deployment applied"
-
-# Deploy ChatUI (HuggingChat interface)
-log "Deploying ChatUI (HuggingChat)..."
-oc apply -f "$SCRIPT_DIR/chatui/deployment.yaml" -n "$NAMESPACE"
-success "ChatUI deployment applied"
-
-# Deploy Dashboard with ChatUI integration
-log "Deploying Dashboard with ChatUI integration..."
+# Deploy Dashboard
+log "Deploying Dashboard..."
 oc apply -f "$SCRIPT_DIR/dashboard/dashboard-deployment.yaml" -n "$NAMESPACE"
 success "Dashboard deployment applied"
 
@@ -321,32 +360,6 @@ log "This may take several minutes as models are downloaded..."
 if [[ "$DEPLOY_OBSERVABILITY" == "true" ]]; then
     log "Deploying observability components..."
 
-    # Create OpenWebUI PVC
-    log "Creating OpenWebUI PVC..."
-    cat <<EOF | oc apply -n "$NAMESPACE" -f -
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: openwebui-data
-  labels:
-    app: openwebui
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-  storageClassName: gp3-csi
-EOF
-    success "OpenWebUI PVC created"
-
-    # Deploy OpenWebUI
-    log "Deploying OpenWebUI..."
-    oc apply -f "$SCRIPT_DIR/openwebui/deployment.yaml" -n "$NAMESPACE"
-    oc apply -f "$SCRIPT_DIR/openwebui/service.yaml" -n "$NAMESPACE"
-    oc apply -f "$SCRIPT_DIR/openwebui/route.yaml" -n "$NAMESPACE"
-    success "OpenWebUI deployed"
-
     # Deploy Grafana with dynamic route URL
     log "Deploying Grafana..."
 
@@ -354,7 +367,9 @@ EOF
     oc apply -f "$SCRIPT_DIR/observability/grafana/pvc.yaml" -n "$NAMESPACE" 2>/dev/null || true
     oc apply -f "$SCRIPT_DIR/observability/grafana/service.yaml" -n "$NAMESPACE" 2>/dev/null || true
     oc apply -f "$SCRIPT_DIR/observability/grafana/route.yaml" -n "$NAMESPACE" 2>/dev/null || true
-    oc apply -f "$SCRIPT_DIR/observability/grafana/configmaps.yaml" -n "$NAMESPACE" 2>/dev/null || true
+    oc apply -f "$SCRIPT_DIR/observability/grafana/configmap-dashboard.yaml" -n "$NAMESPACE" 2>/dev/null || true
+    oc apply -f "$SCRIPT_DIR/observability/grafana/configmap-datasource.yaml" -n "$NAMESPACE" 2>/dev/null || true
+    oc apply -f "$SCRIPT_DIR/observability/grafana/configmap-provisioning.yaml" -n "$NAMESPACE" 2>/dev/null || true
 
     # Wait for route to be created and get its URL
     log "Waiting for Grafana route to be created..."
@@ -410,13 +425,19 @@ EOF
     # Check if dashboard buildconfig exists
     if ! oc get buildconfig dashboard-custom -n "$NAMESPACE" &>/dev/null; then
         log "Creating dashboard build configuration..."
-        cd "$SCRIPT_DIR/../../dashboard"
+        cd "$SCRIPT_DIR/../.."
         oc new-build --name=dashboard-custom --binary --strategy=docker --to=dashboard-custom:latest -n "$NAMESPACE"
     fi
+    # Build context is repo root, so we must point the BuildConfig at dashboard/Dockerfile.
+    # Ensure dockerfilePath is set whether it already exists (replace) or not (add).
+    oc patch buildconfig/dashboard-custom -n "$NAMESPACE" --type='json' \
+        -p='[{"op":"test","path":"/spec/strategy/dockerStrategy/dockerfilePath","value":"dashboard/Dockerfile"},{"op":"replace","path":"/spec/strategy/dockerStrategy/dockerfilePath","value":"dashboard/Dockerfile"}]' \
+        2>/dev/null || oc patch buildconfig/dashboard-custom -n "$NAMESPACE" --type='json' \
+        -p='[{"op":"add","path":"/spec/strategy/dockerStrategy/dockerfilePath","value":"dashboard/Dockerfile"}]'
 
-    # Start the build from local dashboard directory
+    # Start the build from repo root so the dashboard build can access src/semantic-router
     log "Building dashboard image from source..."
-    cd "$SCRIPT_DIR/../../dashboard"
+    cd "$SCRIPT_DIR/../.."
     oc start-build dashboard-custom --from-dir=. --follow -n "$NAMESPACE" || warn "Dashboard build may still be in progress"
 
     # Deploy dashboard
@@ -426,13 +447,11 @@ EOF
 
     # Wait for observability deployments
     log "Waiting for observability components to be ready..."
-    oc rollout status deployment/openwebui -n "$NAMESPACE" --timeout=5m || warn "OpenWebUI may still be starting"
     oc rollout status deployment/dashboard -n "$NAMESPACE" --timeout=5m || warn "Dashboard may still be starting"
 
     success "Observability components deployed!"
     echo ""
     echo "  Dashboard: https://$(oc get route dashboard -n $NAMESPACE -o jsonpath='{.spec.host}' 2>/dev/null || echo 'route-not-ready')"
-    echo "  OpenWebUI: https://$(oc get route openwebui -n $NAMESPACE -o jsonpath='{.spec.host}' 2>/dev/null || echo 'route-not-ready')"
     echo "  Grafana:   https://$(oc get route grafana -n $NAMESPACE -o jsonpath='{.spec.host}' 2>/dev/null || echo 'route-not-ready')"
     echo "  Prometheus: https://$(oc get route prometheus -n $NAMESPACE -o jsonpath='{.spec.host}' 2>/dev/null || echo 'route-not-ready')"
     echo ""
@@ -466,15 +485,6 @@ echo ""
 echo "  # Check logs for Envoy"
 echo "  oc logs -f deployment/semantic-router -c envoy-proxy -n $NAMESPACE"
 echo ""
-echo "  # Check logs for MongoDB"
-echo "  oc logs -f deployment/mongo -n $NAMESPACE"
-echo ""
-echo "  # Check logs for ChatUI (HuggingChat)"
-echo "  oc logs -f deployment/chatui -n $NAMESPACE"
-echo ""
 echo "  # Check logs for Dashboard"
 echo "  oc logs -f deployment/dashboard -n $NAMESPACE"
 echo ""
-echo "  # Access ChatUI through Dashboard"
-echo "  DASHBOARD_URL=\$(oc get route dashboard -n $NAMESPACE -o jsonpath='{.spec.host}')"
-echo "  echo \"HuggingChat: https://\$DASHBOARD_URL/huggingchat\""

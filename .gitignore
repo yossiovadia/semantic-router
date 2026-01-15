@@ -49,6 +49,7 @@ Thumbs.db
 
 # Project specific
 bin/
+tools/bin/
 
 # Model files (too large for git)
 *.pt
@@ -73,7 +74,7 @@ bin/
 # Allow README files in model directories
 !*/trained_model/README.md
 !*/models/README.md
-models/
+models
 
 # Training data
 wikipedia_data/
@@ -166,6 +167,8 @@ FactCHD_dataset/
 **/lora_*_model/
 **/lora_*_model_rust/
 *.safetensors
+
+.vllm-sr/
 
 # AWS deployment files (contain instance IPs and IDs)
 src/training/cache_embeddings/aws/vllm-instance-*.txt

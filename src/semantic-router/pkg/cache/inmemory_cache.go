@@ -56,12 +56,11 @@ type InMemoryCache struct {
 	optimizedFIFO  *FIFOPolicy
 	expirationHeap *ExpirationHeap
 
-	hnswIndex          *HNSWIndex
-	useHNSW            bool
-	hnswNeedsRebuild   bool   // true while the HNSW graph is stale relative to entries
-	hnswEfSearch       int    // Search-time ef parameter
-	embeddingModel     string // "bert", "qwen3", or "gemma" (ignored if embeddingModelPath is set)
-	embeddingModelPath string // Custom path to domain-specific embedding model (overrides embeddingModel)
+	hnswIndex        *HNSWIndex
+	useHNSW          bool
+	hnswNeedsRebuild bool   // true while the HNSW graph is stale relative to entries
+	hnswEfSearch     int    // Search-time ef parameter
+	embeddingModel   string // "bert", "qwen3", or "gemma"
 }
 
 // InMemoryCacheOptions contains configuration parameters for the in-memory cache
@@ -75,8 +74,7 @@ type InMemoryCacheOptions struct {
 	HNSWM               int    // Number of bi-directional links (default: 16)
 	HNSWEfConstruction  int    // Size of dynamic candidate list during construction (default: 200)
 	HNSWEfSearch        int    // Size of dynamic candidate list during search (default: 50)
-	EmbeddingModel      string // "bert", "qwen3", or "gemma" (ignored if EmbeddingModelPath is set)
-	EmbeddingModelPath  string // Custom path to domain-specific embedding model (overrides EmbeddingModel)
+	EmbeddingModel      string // "bert", "qwen3", or "gemma"
 }
 
 // NewInMemoryCache initializes a new in-memory semantic cache instance
@@ -96,12 +94,7 @@ func NewInMemoryCache(options InMemoryCacheOptions) *InMemoryCache {
 		embeddingModel = "bert" // Default: BERT (fastest, lowest memory)
 	}
 
-	embeddingModelPath := strings.TrimSpace(options.EmbeddingModelPath)
-	if embeddingModelPath != "" {
-		logging.Debugf("Semantic cache using custom embedding model path: %s", embeddingModelPath)
-	} else {
-		logging.Debugf("Semantic cache embedding model: %s", embeddingModel)
-	}
+	logging.Debugf("Semantic cache embedding model: %s", embeddingModel)
 
 	cache := &InMemoryCache{
 		entries:             []CacheEntry{},
@@ -115,7 +108,6 @@ func NewInMemoryCache(options InMemoryCacheOptions) *InMemoryCache {
 		useHNSW:             options.UseHNSW,
 		hnswEfSearch:        efSearch,
 		embeddingModel:      embeddingModel,
-		embeddingModelPath:  embeddingModelPath,
 	}
 
 	// Initialize O(1) eviction policy
@@ -165,19 +157,6 @@ func (c *InMemoryCache) CheckConnection() error {
 
 // generateEmbedding generates an embedding using the configured model
 func (c *InMemoryCache) generateEmbedding(text string) ([]float32, error) {
-	// If custom model path is specified, use it as the model identifier
-	// This allows domain-specific models like "models/math-cache-model"
-	if c.embeddingModelPath != "" {
-		// Custom model path specified - use GetEmbeddingWithModelType
-		// The model must be pre-loaded using InitEmbeddingModels or similar
-		// User is responsible for initializing custom models before use
-		output, err := candle_binding.GetEmbeddingWithModelType(text, c.embeddingModelPath, 0)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate embedding with custom model '%s': %w", c.embeddingModelPath, err)
-		}
-		return output.Embedding, nil
-	}
-
 	// Normalize to lowercase for case-insensitive comparison
 	modelName := strings.ToLower(strings.TrimSpace(c.embeddingModel))
 
@@ -206,11 +185,29 @@ func (c *InMemoryCache) generateEmbedding(text string) ([]float32, error) {
 }
 
 // AddPendingRequest stores a request that is awaiting its response
-func (c *InMemoryCache) AddPendingRequest(requestID string, namespace string, model string, query string, requestBody []byte) error {
+func (c *InMemoryCache) AddPendingRequest(
+	requestID string,
+	model string,
+	query string,
+	requestBody []byte,
+	ttlSeconds int,
+) error {
 	start := time.Now()
 
 	if !c.enabled {
 		return nil
+	}
+
+	// Handle TTL=0: skip caching entirely
+	if ttlSeconds == 0 {
+		logging.Debugf("InMemoryCache.AddPendingRequest: skipping cache (ttl_seconds=0)")
+		return nil
+	}
+
+	// Determine effective TTL: use provided value or fall back to cache default
+	effectiveTTL := ttlSeconds
+	if ttlSeconds == -1 {
+		effectiveTTL = c.ttlSeconds
 	}
 
 	// Generate semantic embedding using the configured model
@@ -235,7 +232,6 @@ func (c *InMemoryCache) AddPendingRequest(requestID string, namespace string, mo
 	now := time.Now()
 	entry := CacheEntry{
 		RequestID:    requestID,
-		Namespace:    namespace,
 		RequestBody:  requestBody,
 		Model:        model,
 		Query:        query,
@@ -243,6 +239,12 @@ func (c *InMemoryCache) AddPendingRequest(requestID string, namespace string, mo
 		Timestamp:    now,
 		LastAccessAt: now,
 		HitCount:     0,
+		TTLSeconds:   ttlSeconds,
+	}
+
+	// Calculate expiration time if TTL is set
+	if effectiveTTL > 0 {
+		entry.ExpiresAt = now.Add(time.Duration(effectiveTTL) * time.Second)
 	}
 
 	c.entries = append(c.entries, entry)
@@ -253,15 +255,15 @@ func (c *InMemoryCache) AddPendingRequest(requestID string, namespace string, mo
 	c.registerEntryWithEvictionPolicy(entryIndex, requestID)
 
 	// Register with expiration heap for efficient TTL cleanup
-	if c.ttlSeconds > 0 {
-		c.expirationHeap.Add(requestID, entryIndex, now.Add(time.Duration(c.ttlSeconds)*time.Second))
+	if effectiveTTL > 0 {
+		c.expirationHeap.Add(requestID, entryIndex, entry.ExpiresAt)
 	}
 
 	// Add to HNSW index if enabled. Do not call c.hnswIndex.addNode directly to keep in sync with entries slice when evictions/cleanups occurred.
 	c.addEntryToHNSWIndex(entryIndex, embedding)
 
-	logging.Debugf("InMemoryCache.AddPendingRequest: added pending entry (total entries: %d, embedding_dim: %d, useHNSW: %t)",
-		len(c.entries), len(embedding), c.useHNSW)
+	logging.Debugf("InMemoryCache.AddPendingRequest: added pending entry (total entries: %d, embedding_dim: %d, useHNSW: %t, ttl=%d)",
+		len(c.entries), len(embedding), c.useHNSW, effectiveTTL)
 
 	// Record metrics
 	metrics.RecordCacheOperation("memory", "add_pending", "success", time.Since(start).Seconds())
@@ -271,7 +273,7 @@ func (c *InMemoryCache) AddPendingRequest(requestID string, namespace string, mo
 }
 
 // UpdateWithResponse completes a pending request by adding the response
-func (c *InMemoryCache) UpdateWithResponse(requestID string, responseBody []byte) error {
+func (c *InMemoryCache) UpdateWithResponse(requestID string, responseBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !c.enabled {
@@ -285,14 +287,32 @@ func (c *InMemoryCache) UpdateWithResponse(requestID string, responseBody []byte
 	c.cleanupExpiredEntries()
 
 	// Locate the pending request and complete it
+	now := time.Now()
 	for i, entry := range c.entries {
 		if entry.RequestID == requestID && entry.ResponseBody == nil {
 			// Complete the cache entry with the response
 			c.entries[i].ResponseBody = responseBody
-			c.entries[i].Timestamp = time.Now()
-			c.entries[i].LastAccessAt = time.Now()
-			logging.Debugf("InMemoryCache.UpdateWithResponse: updated entry with response (response_size: %d bytes)",
-				len(responseBody))
+			c.entries[i].Timestamp = now
+			c.entries[i].LastAccessAt = now
+
+			// Update TTL if provided (ttlSeconds != -1)
+			// If ttlSeconds == 0, this means we shouldn't cache - but entry already exists, so just mark as complete
+			if ttlSeconds != -1 {
+				c.entries[i].TTLSeconds = ttlSeconds
+				// Recalculate expiration time
+				effectiveTTL := ttlSeconds
+				if ttlSeconds == -1 {
+					effectiveTTL = c.ttlSeconds
+				}
+				if effectiveTTL > 0 {
+					c.entries[i].ExpiresAt = now.Add(time.Duration(effectiveTTL) * time.Second)
+					// Update expiration heap with new expiration time
+					c.expirationHeap.UpdateExpiration(requestID, c.entries[i].ExpiresAt)
+				}
+			}
+
+			logging.Debugf("InMemoryCache.UpdateWithResponse: updated entry with response (response_size: %d bytes, ttl=%d)",
+				len(responseBody), c.entries[i].TTLSeconds)
 
 			// Record successful completion
 			metrics.RecordCacheOperation("memory", "update_response", "success", time.Since(start).Seconds())
@@ -306,11 +326,28 @@ func (c *InMemoryCache) UpdateWithResponse(requestID string, responseBody []byte
 }
 
 // AddEntry stores a complete request-response pair in the cache
-func (c *InMemoryCache) AddEntry(requestID string, namespace string, model string, query string, requestBody, responseBody []byte) error {
+func (c *InMemoryCache) AddEntry(
+	requestID string,
+	model string,
+	query string,
+	requestBody []byte,
+	responseBody []byte,
+	ttlSeconds int,
+) error {
 	start := time.Now()
 
 	if !c.enabled {
 		return nil
+	}
+
+	if ttlSeconds == 0 {
+		logging.Debugf("InMemoryCache.AddEntry: skipping cache (ttl_seconds=0)")
+		return nil
+	}
+
+	effectiveTTL := ttlSeconds
+	if ttlSeconds == -1 {
+		effectiveTTL = c.ttlSeconds
 	}
 
 	// Generate semantic embedding using the configured model
@@ -334,7 +371,6 @@ func (c *InMemoryCache) AddEntry(requestID string, namespace string, model strin
 	now := time.Now()
 	entry := CacheEntry{
 		RequestID:    requestID,
-		Namespace:    namespace,
 		RequestBody:  requestBody,
 		ResponseBody: responseBody,
 		Model:        model,
@@ -343,6 +379,12 @@ func (c *InMemoryCache) AddEntry(requestID string, namespace string, model strin
 		Timestamp:    now,
 		LastAccessAt: now,
 		HitCount:     0,
+		TTLSeconds:   ttlSeconds,
+	}
+
+	// Calculate expiration time if TTL is set
+	if effectiveTTL > 0 {
+		entry.ExpiresAt = now.Add(time.Duration(effectiveTTL) * time.Second)
 	}
 
 	c.entries = append(c.entries, entry)
@@ -353,15 +395,15 @@ func (c *InMemoryCache) AddEntry(requestID string, namespace string, model strin
 	c.registerEntryWithEvictionPolicy(entryIndex, requestID)
 
 	// Register with expiration heap for efficient TTL cleanup
-	if c.ttlSeconds > 0 {
-		c.expirationHeap.Add(requestID, entryIndex, now.Add(time.Duration(c.ttlSeconds)*time.Second))
+	if effectiveTTL > 0 {
+		c.expirationHeap.Add(requestID, entryIndex, entry.ExpiresAt)
 	}
 
 	// Add to HNSW index if enabled. Do not call c.hnswIndex.addNode directly to keep in sync with entries slice when evictions/cleanups occurred.
 	c.addEntryToHNSWIndex(entryIndex, embedding)
 
-	logging.Debugf("InMemoryCache.AddEntry: added complete entry (total entries: %d, request_size: %d, response_size: %d, useHNSW: %t)",
-		len(c.entries), len(requestBody), len(responseBody), c.useHNSW)
+	logging.Debugf("InMemoryCache.AddEntry: added complete entry (total entries: %d, request_size: %d, response_size: %d, useHNSW: %t, ttl=%d)",
+		len(c.entries), len(requestBody), len(responseBody), c.useHNSW, effectiveTTL)
 	logging.LogEvent("cache_entry_added", map[string]interface{}{
 		"backend": "memory",
 		"query":   query,
@@ -377,14 +419,12 @@ func (c *InMemoryCache) AddEntry(requestID string, namespace string, model strin
 }
 
 // FindSimilar searches for semantically similar cached requests using the default threshold
-// Uses default "general" namespace for backward compatibility
 func (c *InMemoryCache) FindSimilar(model string, query string) ([]byte, bool, error) {
-	defaultNamespace := "general"
-	return c.FindSimilarWithThreshold(defaultNamespace, model, query, c.similarityThreshold)
+	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold)
 }
 
 // FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-func (c *InMemoryCache) FindSimilarWithThreshold(namespace string, model string, query string, threshold float32) ([]byte, bool, error) {
+func (c *InMemoryCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !c.enabled {
@@ -395,8 +435,8 @@ func (c *InMemoryCache) FindSimilarWithThreshold(namespace string, model string,
 	if len(query) > 50 {
 		queryPreview = query[:50] + "..."
 	}
-	logging.Debugf("InMemoryCache.FindSimilarWithThreshold: searching for namespace='%s', model='%s', query='%s' (len=%d chars), threshold=%.4f",
-		namespace, model, queryPreview, len(query), threshold)
+	logging.Debugf("InMemoryCache.FindSimilarWithThreshold: searching for model='%s', query='%s' (len=%d chars), threshold=%.4f",
+		model, queryPreview, len(query), threshold)
 
 	// Generate semantic embedding using the configured model
 	queryEmbedding, err := c.generateEmbedding(query)
@@ -434,7 +474,7 @@ func (c *InMemoryCache) FindSimilarWithThreshold(namespace string, model string,
 		// Search using HNSW index with configured ef parameter
 		candidateIndices := c.hnswIndex.searchKNN(queryEmbedding, 10, c.hnswEfSearch, c.entries)
 
-		// Filter candidates by namespace, model, and expiration, then find best match
+		// Filter candidates by model and expiration, then find best match
 		for _, entryIndex := range candidateIndices {
 			if entryIndex < 0 || entryIndex >= len(c.entries) {
 				continue
@@ -444,11 +484,6 @@ func (c *InMemoryCache) FindSimilarWithThreshold(namespace string, model string,
 
 			// Skip incomplete entries
 			if entry.ResponseBody == nil {
-				continue
-			}
-
-			// Only consider entries in the same namespace (domain isolation)
-			if entry.Namespace != namespace {
 				continue
 			}
 
@@ -482,11 +517,6 @@ func (c *InMemoryCache) FindSimilarWithThreshold(namespace string, model string,
 		for entryIndex, entry := range c.entries {
 			// Skip incomplete entries
 			if entry.ResponseBody == nil {
-				continue
-			}
-
-			// Only consider entries in the same namespace (domain isolation)
-			if entry.Namespace != namespace {
 				continue
 			}
 
@@ -711,6 +741,12 @@ func (c *InMemoryCache) cleanupExpiredEntriesInternal(deferRebuild bool) {
 
 // isExpired checks if a cache entry has expired based on its last access time
 func (c *InMemoryCache) isExpired(entry CacheEntry, now time.Time) bool {
+	// Check per-entry expiration first
+	if !entry.ExpiresAt.IsZero() {
+		return now.After(entry.ExpiresAt)
+	}
+
+	// Fall back to global TTL for backward compatibility
 	if c.ttlSeconds <= 0 {
 		return false
 	}
@@ -731,8 +767,15 @@ func (c *InMemoryCache) updateAccessInfo(entryIndex int, target CacheEntry) {
 		c.notifyAccessToEvictionPolicy(entryIndex, target.RequestID)
 
 		// Extend TTL in expiration heap (sliding window TTL)
-		if c.ttlSeconds > 0 {
-			c.expirationHeap.UpdateExpiration(target.RequestID, now.Add(time.Duration(c.ttlSeconds)*time.Second))
+		// Use per-entry TTL if set, otherwise use global TTL
+		effectiveTTL := c.ttlSeconds
+		if c.entries[entryIndex].TTLSeconds > 0 {
+			effectiveTTL = c.entries[entryIndex].TTLSeconds
+		}
+		if effectiveTTL > 0 {
+			newExpiresAt := now.Add(time.Duration(effectiveTTL) * time.Second)
+			c.entries[entryIndex].ExpiresAt = newExpiresAt
+			c.expirationHeap.UpdateExpiration(target.RequestID, newExpiresAt)
 		}
 		return
 	}
@@ -747,8 +790,15 @@ func (c *InMemoryCache) updateAccessInfo(entryIndex int, target CacheEntry) {
 			c.notifyAccessToEvictionPolicy(i, target.RequestID)
 
 			// Extend TTL in expiration heap (sliding window TTL)
-			if c.ttlSeconds > 0 {
-				c.expirationHeap.UpdateExpiration(target.RequestID, now.Add(time.Duration(c.ttlSeconds)*time.Second))
+			// Use per-entry TTL if set, otherwise use global TTL
+			effectiveTTL := c.ttlSeconds
+			if c.entries[i].TTLSeconds > 0 {
+				effectiveTTL = c.entries[i].TTLSeconds
+			}
+			if effectiveTTL > 0 {
+				newExpiresAt := now.Add(time.Duration(effectiveTTL) * time.Second)
+				c.entries[i].ExpiresAt = newExpiresAt
+				c.expirationHeap.UpdateExpiration(target.RequestID, newExpiresAt)
 			}
 			break
 		}

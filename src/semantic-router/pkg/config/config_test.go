@@ -169,6 +169,7 @@ tools:
 				Expect(cfg.Tools.Enabled).To(BeTrue())
 				Expect(cfg.Tools.TopK).To(Equal(5))
 				Expect(*cfg.Tools.SimilarityThreshold).To(Equal(float32(0.8)))
+				Expect(cfg.Tools.AdvancedFiltering).To(BeNil())
 
 				// Verify vLLM endpoints config
 				Expect(cfg.VLLMEndpoints).To(HaveLen(2))
@@ -194,6 +195,118 @@ tools:
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cfg1).To(BeIdenticalTo(cfg2))
+			})
+		})
+
+		Context("with advanced tool filtering configuration", func() {
+			BeforeEach(func() {
+				configContent := `
+bert_model:
+  model_id: "test-bert-model"
+  threshold: 0.8
+  use_cpu: true
+
+decisions:
+  - name: "general"
+    priority: 100
+    rules:
+      operator: AND
+      conditions:
+        - type: keyword
+          name: general_keywords
+    modelRefs:
+      - model: "model-a"
+        use_reasoning: true
+
+default_model: "model-b"
+
+tools:
+  enabled: true
+  top_k: 5
+  similarity_threshold: 0.8
+  tools_db_path: "/path/to/tools.json"
+  fallback_to_empty: true
+  advanced_filtering:
+    enabled: true
+    candidate_pool_size: 20
+    min_lexical_overlap: 1
+    min_combined_score: 0.35
+    weights:
+      embed: 0.7
+      lexical: 0.2
+      tag: 0.05
+      name: 0.05
+      category: 0.1
+    use_category_filter: true
+    category_confidence_threshold: 0.6
+    allow_tools: ["get_weather"]
+    block_tools: ["send_email"]
+`
+				err := os.WriteFile(configFile, []byte(configContent), 0o644)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should parse advanced tool filtering settings", func() {
+				cfg, err := Load(configFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cfg).NotTo(BeNil())
+
+				Expect(cfg.Tools.AdvancedFiltering).NotTo(BeNil())
+				advanced := cfg.Tools.AdvancedFiltering
+				Expect(advanced.Enabled).To(BeTrue())
+				Expect(*advanced.CandidatePoolSize).To(Equal(20))
+				Expect(*advanced.MinLexicalOverlap).To(Equal(1))
+				Expect(*advanced.MinCombinedScore).To(BeNumerically("~", 0.35, 0.0001))
+				Expect(advanced.UseCategoryFilter).NotTo(BeNil())
+				Expect(*advanced.UseCategoryFilter).To(BeTrue())
+				Expect(*advanced.CategoryConfidenceThreshold).To(BeNumerically("~", 0.6, 0.0001))
+
+				Expect(advanced.Weights.Embed).NotTo(BeNil())
+				Expect(*advanced.Weights.Embed).To(BeNumerically("~", 0.7, 0.0001))
+				Expect(*advanced.Weights.Lexical).To(BeNumerically("~", 0.2, 0.0001))
+				Expect(*advanced.Weights.Tag).To(BeNumerically("~", 0.05, 0.0001))
+				Expect(*advanced.Weights.Name).To(BeNumerically("~", 0.05, 0.0001))
+				Expect(*advanced.Weights.Category).To(BeNumerically("~", 0.1, 0.0001))
+
+				Expect(advanced.AllowTools).To(ContainElement("get_weather"))
+				Expect(advanced.BlockTools).To(ContainElement("send_email"))
+			})
+		})
+
+		Context("with invalid advanced tool filtering configuration", func() {
+			BeforeEach(func() {
+				configContent := `
+decisions:
+  - name: "general"
+    priority: 100
+    rules:
+      operator: AND
+      conditions:
+        - type: keyword
+          name: general_keywords
+    modelRefs:
+      - model: "model-a"
+        use_reasoning: true
+
+default_model: "model-b"
+
+tools:
+  enabled: true
+  top_k: 5
+  tools_db_path: "/path/to/tools.json"
+  fallback_to_empty: true
+  advanced_filtering:
+    enabled: true
+    min_combined_score: 1.5
+`
+				err := os.WriteFile(configFile, []byte(configContent), 0o644)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should reject out-of-range values", func() {
+				_, err := Load(configFile)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("min_combined_score must be between 0.0 and 1.0"))
 			})
 		})
 
@@ -1003,10 +1116,8 @@ default_model: "test-model"
 					Expect(err).NotTo(HaveOccurred())
 					Expect(cfg.VLLMEndpoints[0].Address).To(Equal("::1"))
 				})
-			})
 
-			Context("with invalid address formats", func() {
-				It("should reject domain names", func() {
+				It("should accept domain names", func() {
 					configContent := `
 vllm_endpoints:
   - name: "endpoint1"
@@ -1030,175 +1141,9 @@ default_model: "test-model"
 					err := os.WriteFile(configFile, []byte(configContent), 0o644)
 					Expect(err).NotTo(HaveOccurred())
 
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("endpoint1"))
-					Expect(err.Error()).To(ContainSubstring("address validation failed"))
-					Expect(err.Error()).To(ContainSubstring("invalid IP address format"))
-				})
-
-				It("should reject protocol prefixes", func() {
-					configContent := `
-vllm_endpoints:
-  - name: "endpoint1"
-    address: "http://127.0.0.1"
-    port: 8000
-    weight: 1
-
-model_config:
-  "test-model":
-    preferred_endpoints: ["endpoint1"]
-
-categories:
-  - name: "test"
-    model_scores:
-      - model: "test-model"
-        score: 0.9
-        use_reasoning: true
-
-default_model: "test-model"
-`
-					err := os.WriteFile(configFile, []byte(configContent), 0o644)
+					cfg, err := Load(configFile)
 					Expect(err).NotTo(HaveOccurred())
-
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("protocol prefixes"))
-					Expect(err.Error()).To(ContainSubstring("are not supported"))
-				})
-
-				It("should reject addresses with paths", func() {
-					configContent := `
-vllm_endpoints:
-  - name: "endpoint1"
-    address: "127.0.0.1/api"
-    port: 8000
-    weight: 1
-
-model_config:
-  "test-model":
-    preferred_endpoints: ["endpoint1"]
-
-categories:
-  - name: "test"
-    model_scores:
-      - model: "test-model"
-        score: 0.9
-        use_reasoning: true
-
-default_model: "test-model"
-`
-					err := os.WriteFile(configFile, []byte(configContent), 0o644)
-					Expect(err).NotTo(HaveOccurred())
-
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("paths are not supported"))
-				})
-
-				It("should reject addresses with port numbers", func() {
-					configContent := `
-vllm_endpoints:
-  - name: "endpoint1"
-    address: "127.0.0.1:8080"
-    port: 8000
-    weight: 1
-
-model_config:
-  "test-model":
-    preferred_endpoints: ["endpoint1"]
-
-categories:
-  - name: "test"
-    model_scores:
-      - model: "test-model"
-        score: 0.9
-        use_reasoning: true
-
-default_model: "test-model"
-`
-					err := os.WriteFile(configFile, []byte(configContent), 0o644)
-					Expect(err).NotTo(HaveOccurred())
-
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("port numbers in address are not supported"))
-					Expect(err.Error()).To(ContainSubstring("use 'port' field instead"))
-				})
-
-				It("should provide comprehensive error messages", func() {
-					configContent := `
-vllm_endpoints:
-  - name: "test-endpoint"
-    address: "https://example.com"
-    port: 8000
-    weight: 1
-
-model_config:
-  "test-model":
-    preferred_endpoints: ["test-endpoint"]
-
-categories:
-  - name: "test"
-    model_scores:
-      - model: "test-model"
-        score: 0.9
-        use_reasoning: true
-
-default_model: "test-model"
-`
-					err := os.WriteFile(configFile, []byte(configContent), 0o644)
-					Expect(err).NotTo(HaveOccurred())
-
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-
-					errorMsg := err.Error()
-					Expect(errorMsg).To(ContainSubstring("test-endpoint"))
-					Expect(errorMsg).To(ContainSubstring("Supported formats"))
-					Expect(errorMsg).To(ContainSubstring("IPv4: 192.168.1.1"))
-					Expect(errorMsg).To(ContainSubstring("IPv6: ::1"))
-					Expect(errorMsg).To(ContainSubstring("Unsupported formats"))
-					Expect(errorMsg).To(ContainSubstring("Domain names: example.com"))
-					Expect(errorMsg).To(ContainSubstring("Protocol prefixes: http://"))
-				})
-			})
-
-			Context("with multiple endpoints", func() {
-				It("should validate all endpoints", func() {
-					configContent := `
-vllm_endpoints:
-  - name: "endpoint1"
-    address: "127.0.0.1"
-    port: 8000
-    weight: 1
-  - name: "endpoint2"
-    address: "example.com"
-    port: 8001
-    weight: 1
-
-model_config:
-  "test-model1":
-    preferred_endpoints: ["endpoint1"]
-  "test-model2":
-    preferred_endpoints: ["endpoint2"]
-
-categories:
-  - name: "test"
-    model_scores:
-      - model: "test-model1"
-        score: 0.9
-        use_reasoning: true
-
-default_model: "test-model1"
-`
-					err := os.WriteFile(configFile, []byte(configContent), 0o644)
-					Expect(err).NotTo(HaveOccurred())
-
-					_, err = Load(configFile)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("endpoint2"))
-					Expect(err.Error()).To(ContainSubstring("invalid IP address format"))
+					Expect(cfg.VLLMEndpoints[0].Address).To(Equal("example.com"))
 				})
 			})
 		})
@@ -2057,69 +2002,6 @@ var _ = Describe("IP Address Validation", func() {
 					Expect(err).To(HaveOccurred(), "Expected %s to be rejected", format)
 					Expect(err.Error()).To(ContainSubstring("invalid IP address format"))
 				}
-			})
-		})
-	})
-
-	Describe("validateVLLMEndpoints", func() {
-		Context("with valid endpoints", func() {
-			It("should accept endpoints with valid IP addresses", func() {
-				endpoints := []VLLMEndpoint{
-					{
-						Name:    "endpoint1",
-						Address: "127.0.0.1",
-						Port:    8000,
-					},
-					{
-						Name:    "endpoint2",
-						Address: "::1",
-						Port:    8001,
-					},
-				}
-
-				err := validateVLLMEndpoints(endpoints)
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		Context("with invalid endpoints", func() {
-			It("should reject endpoints with domain names", func() {
-				endpoints := []VLLMEndpoint{
-					{
-						Name:    "invalid-endpoint",
-						Address: "example.com",
-						Port:    8000,
-					},
-				}
-
-				err := validateVLLMEndpoints(endpoints)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid-endpoint"))
-				Expect(err.Error()).To(ContainSubstring("address validation failed"))
-				Expect(err.Error()).To(ContainSubstring("Supported formats"))
-				Expect(err.Error()).To(ContainSubstring("IPv4: 192.168.1.1"))
-				Expect(err.Error()).To(ContainSubstring("IPv6: ::1"))
-				Expect(err.Error()).To(ContainSubstring("Unsupported formats"))
-			})
-
-			It("should provide detailed error messages", func() {
-				endpoints := []VLLMEndpoint{
-					{
-						Name:    "test-endpoint",
-						Address: "http://127.0.0.1",
-						Port:    8000,
-					},
-				}
-
-				err := validateVLLMEndpoints(endpoints)
-				Expect(err).To(HaveOccurred())
-
-				errorMsg := err.Error()
-				Expect(errorMsg).To(ContainSubstring("test-endpoint"))
-				Expect(errorMsg).To(ContainSubstring("protocol prefixes"))
-				Expect(errorMsg).To(ContainSubstring("Domain names: example.com, localhost"))
-				Expect(errorMsg).To(ContainSubstring("Protocol prefixes: http://, https://"))
-				Expect(errorMsg).To(ContainSubstring("use 'port' field instead"))
 			})
 		})
 	})

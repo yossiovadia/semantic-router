@@ -25,54 +25,32 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 	ctx.RequestModel = requestModel
 	ctx.RequestQuery = requestQuery
 
-	// Determine domain from category (default to "general" if no category)
-	domain := categoryName
-	if domain == "" {
-		domain = "general"
+	// Check if caching is enabled for this decision
+	cacheEnabled := r.Config.SemanticCache.Enabled
+	if categoryName != "" {
+		cacheEnabled = r.Config.IsCacheEnabledForDecision(categoryName)
 	}
 
-	// Check if caching is enabled for this domain
-	cacheEnabled := r.CacheManager.IsEnabled(domain)
-	if !cacheEnabled {
-		logging.Debugf("Caching is disabled for domain '%s'", domain)
-		return nil, false
-	}
+	logging.Infof("handleCaching: requestQuery='%s' (len=%d), cacheEnabled=%v, r.Cache.IsEnabled()=%v",
+		requestQuery, len(requestQuery), cacheEnabled, r.Cache.IsEnabled())
 
-	// Get domain-specific cache
-	domainCache, err := r.CacheManager.GetCache(domain)
-	if err != nil {
-		logging.Errorf("Failed to get cache for domain '%s': %v", domain, err)
-		// Try fallback to general cache
-		domainCache, err = r.CacheManager.GetCache("general")
-		if err != nil {
-			logging.Errorf("Failed to get fallback general cache: %v", err)
-			return nil, false
-		}
-		logging.Infof("Using fallback general cache for domain '%s'", domain)
-	}
-
-	logging.Infof("handleCaching: requestQuery='%s' (len=%d), domain='%s', cacheEnabled=%v",
-		requestQuery, len(requestQuery), domain, cacheEnabled)
-
-	if requestQuery != "" && domainCache.IsEnabled() {
+	if requestQuery != "" && r.Cache.IsEnabled() && cacheEnabled {
 		// Get decision-specific threshold
 		threshold := r.Config.GetCacheSimilarityThreshold()
 		if categoryName != "" {
 			threshold = r.Config.GetCacheSimilarityThresholdForDecision(categoryName)
 		}
 
-		logging.Infof("handleCaching: Performing cache lookup - domain=%s, model=%s, query='%s', threshold=%.2f",
-			domain, requestModel, requestQuery, threshold)
+		logging.Infof("handleCaching: Performing cache lookup - model=%s, query='%s', threshold=%.2f",
+			requestModel, requestQuery, threshold)
 
 		// Start cache lookup span
 		spanCtx, span := tracing.StartSpan(ctx.TraceContext, tracing.SpanCacheLookup)
 		defer span.End()
 
 		startTime := time.Now()
-		// Use domain as namespace for cache isolation
-		namespace := domain
-		// Try to find a similar cached response using category-specific threshold and namespace
-		cachedResponse, found, cacheErr := domainCache.FindSimilarWithThreshold(namespace, requestModel, requestQuery, threshold)
+		// Try to find a similar cached response using category-specific threshold
+		cachedResponse, found, cacheErr := r.Cache.FindSimilarWithThreshold(requestModel, requestQuery, threshold)
 		lookupTime := time.Since(startTime).Milliseconds()
 
 		logging.Infof("FindSimilarWithThreshold returned: found=%v, error=%v, lookupTime=%dms", found, cacheErr, lookupTime)
@@ -82,7 +60,6 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 			attribute.Bool(tracing.AttrCacheHit, found),
 			attribute.Int64(tracing.AttrCacheLookupTimeMs, lookupTime),
 			attribute.String(tracing.AttrCategoryName, categoryName),
-			attribute.String("cache.domain", domain),
 			attribute.Float64("cache.threshold", float64(threshold)))
 
 		if cacheErr != nil {
@@ -91,26 +68,37 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 		} else if found {
 			// Mark this request as a cache hit
 			ctx.VSRCacheHit = true
+
+			// Set VSR decision context even for cache hits so headers are populated
+			// The categoryName passed here is the decision name from classification
+			if categoryName != "" {
+				ctx.VSRSelectedDecisionName = categoryName
+			}
+
+			// Start router replay capture if enabled, even when serving from cache
+			r.startRouterReplay(ctx, requestModel, requestModel, categoryName)
 			// Log cache hit
 			logging.LogEvent("cache_hit", map[string]interface{}{
 				"request_id": ctx.RequestID,
 				"model":      requestModel,
 				"query":      requestQuery,
 				"category":   categoryName,
-				"domain":     domain,
 				"threshold":  threshold,
 			})
 			// Return immediate response from cache
-			response := http.CreateCacheHitResponse(cachedResponse, ctx.ExpectStreamingResponse, categoryName, ctx.VSRSelectedDecisionName)
+			response := http.CreateCacheHitResponse(cachedResponse, ctx.ExpectStreamingResponse, categoryName, ctx.VSRSelectedDecisionName, ctx.VSRMatchedKeywords)
+			r.updateRouterReplayStatus(ctx, 200, ctx.ExpectStreamingResponse)
+			r.attachRouterReplayResponse(ctx, cachedResponse, true)
 			ctx.TraceContext = spanCtx
 			return response, true
 		}
 		ctx.TraceContext = spanCtx
 	}
 
-	// Cache miss, store the request for later with namespace
-	namespace := domain
-	err = domainCache.AddPendingRequest(ctx.RequestID, namespace, requestModel, requestQuery, ctx.OriginalRequestBody)
+	// Cache miss, store the request for later
+	// Get decision-specific TTL
+	ttlSeconds := r.Config.GetCacheTTLSecondsForDecision(categoryName)
+	err = r.Cache.AddPendingRequest(ctx.RequestID, requestModel, requestQuery, ctx.OriginalRequestBody, ttlSeconds)
 	if err != nil {
 		logging.Errorf("Error adding pending request to cache: %v", err)
 		// Continue without caching

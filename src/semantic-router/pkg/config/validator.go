@@ -50,46 +50,16 @@ func validateIPAddress(address string) error {
 	return nil
 }
 
-// validateVLLMEndpoints validates the address format of all vLLM endpoints
-func validateVLLMEndpoints(endpoints []VLLMEndpoint) error {
-	for _, endpoint := range endpoints {
-		if err := validateIPAddress(endpoint.Address); err != nil {
-			return fmt.Errorf("vLLM endpoint '%s' address validation failed: %w\n\nSupported formats:\n- IPv4: 192.168.1.1, 127.0.0.1\n- IPv6: ::1, 2001:db8::1\n\nUnsupported formats:\n- Domain names: example.com, localhost\n- Protocol prefixes: http://, https://\n- Paths: /api/v1, /health\n- Ports in address: use 'port' field instead", endpoint.Name, err)
-		}
-	}
-	return nil
-}
-
-// validateClassifierVLLMEndpoint validates a classifier vLLM endpoint configuration
-func validateClassifierVLLMEndpoint(endpoint ClassifierVLLMEndpoint) error {
-	if endpoint.Address == "" {
-		return fmt.Errorf("classifier_vllm_endpoint.address is required")
-	}
-	if err := validateIPAddress(endpoint.Address); err != nil {
-		return fmt.Errorf("classifier_vllm_endpoint address validation failed: %w", err)
-	}
-	if endpoint.Port < 1 || endpoint.Port > 65535 {
-		return fmt.Errorf("classifier_vllm_endpoint.port must be between 1 and 65535, got: %d", endpoint.Port)
-	}
-	return nil
-}
-
 // validateVLLMClassifierConfig validates vLLM classifier configuration when use_vllm is true
+// Note: vLLM configuration is now in external_models, not in PromptGuardConfig
+// This function is kept for backward compatibility but does minimal validation
 func validateVLLMClassifierConfig(cfg *PromptGuardConfig) error {
 	if !cfg.UseVLLM {
 		return nil // Skip validation if not using vLLM
 	}
 
-	// Validate endpoint
-	if err := validateClassifierVLLMEndpoint(cfg.ClassifierVLLMEndpoint); err != nil {
-		return fmt.Errorf("prompt_guard vLLM configuration validation failed: %w", err)
-	}
-
-	// Validate model name
-	if cfg.VLLMModelName == "" {
-		return fmt.Errorf("prompt_guard.vllm_model_name is required when use_vllm is true")
-	}
-
+	// When use_vllm is true, external_models with model_role="guardrail" is required
+	// This will be validated in the main config validation
 	return nil
 }
 
@@ -149,14 +119,61 @@ func validateConfigStructure(cfg *RouterConfig) error {
 		}
 	}
 
-	// Validate vLLM endpoints address formats
-	if err := validateVLLMEndpoints(cfg.VLLMEndpoints); err != nil {
-		return err
-	}
-
 	// Validate vLLM classifier configurations
 	if err := validateVLLMClassifierConfig(&cfg.PromptGuard); err != nil {
 		return err
+	}
+
+	// Validate advanced tool filtering configuration (opt-in)
+	if err := validateAdvancedToolFilteringConfig(cfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAdvancedToolFilteringConfig(cfg *RouterConfig) error {
+	if cfg == nil || cfg.Tools.AdvancedFiltering == nil {
+		return nil
+	}
+
+	advanced := cfg.Tools.AdvancedFiltering
+	if !advanced.Enabled {
+		return nil
+	}
+
+	if advanced.CandidatePoolSize != nil && *advanced.CandidatePoolSize < 0 {
+		return fmt.Errorf("tools.advanced_filtering.candidate_pool_size must be >= 0")
+	}
+
+	if advanced.MinLexicalOverlap != nil && *advanced.MinLexicalOverlap < 0 {
+		return fmt.Errorf("tools.advanced_filtering.min_lexical_overlap must be >= 0")
+	}
+
+	if advanced.MinCombinedScore != nil &&
+		(*advanced.MinCombinedScore < 0.0 || *advanced.MinCombinedScore > 1.0) {
+		return fmt.Errorf("tools.advanced_filtering.min_combined_score must be between 0.0 and 1.0")
+	}
+
+	if advanced.CategoryConfidenceThreshold != nil &&
+		(*advanced.CategoryConfidenceThreshold < 0.0 || *advanced.CategoryConfidenceThreshold > 1.0) {
+		return fmt.Errorf("tools.advanced_filtering.category_confidence_threshold must be between 0.0 and 1.0")
+	}
+
+	weightFields := []struct {
+		name  string
+		value *float32
+	}{
+		{"embed", advanced.Weights.Embed},
+		{"lexical", advanced.Weights.Lexical},
+		{"tag", advanced.Weights.Tag},
+		{"name", advanced.Weights.Name},
+		{"category", advanced.Weights.Category},
+	}
+	for _, field := range weightFields {
+		if field.value != nil && (*field.value < 0.0 || *field.value > 1.0) {
+			return fmt.Errorf("tools.advanced_filtering.weights.%s must be between 0.0 and 1.0", field.name)
+		}
 	}
 
 	return nil

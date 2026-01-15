@@ -389,23 +389,24 @@ config:
 
   # Classifier configuration
   bert_model:
-    model_id: models/all-MiniLM-L12-v2
+    model_id: models/mom-embedding-light
     threshold: 0.6
     use_cpu: true
 
   classifier:
     category_model:
-      model_id: "models/category_classifier_modernbert-base_model"
+      model_id: "models/mom-domain-classifier"
       use_modernbert: true
       threshold: 0.6
       use_cpu: true
-      category_mapping_path: "models/category_classifier_modernbert-base_model/category_mapping.json"
+      category_mapping_path: "models/mom-domain-classifier/category_mapping.json"
     pii_model:
-      model_id: "models/pii_classifier_modernbert-base_presidio_token_model"
-      use_modernbert: true
+      # Use registered model path for auto-download support
+      model_id: "models/mom-pii-classifier"
+      use_modernbert: false  # mom-pii-classifier uses BERT with LoRA, not ModernBERT
       threshold: 0.7
       use_cpu: true
-      pii_mapping_path: "models/pii_classifier_modernbert-base_presidio_token_model/pii_type_mapping.json"
+      pii_mapping_path: "models/mom-pii-classifier/pii_type_mapping.json"
 
   # Semantic cache for performance testing
   semantic_cache:
@@ -431,11 +432,11 @@ config:
   # Prompt guard
   prompt_guard:
     enabled: true
-    use_modernbert: true
-    model_id: "models/jailbreak_classifier_modernbert-base_model"
+    use_modernbert: false
+    model_id: "models/mom-jailbreak-classifier"
     threshold: 0.7
     use_cpu: true
-    jailbreak_mapping_path: "models/jailbreak_classifier_modernbert-base_model/jailbreak_type_mapping.json"
+    jailbreak_mapping_path: "models/mom-jailbreak-classifier/jailbreak_type_mapping.json"
 
   # Router configuration
   router:
@@ -443,9 +444,12 @@ config:
     low_latency_threshold_ms: 2000
 
   # Embedding models
+  # NOTE: mom-embedding-flash (google/embeddinggemma-300m) is gated and requires HF token
+  # Using mom-embedding-pro for qwen3 path (public, high quality)
+  # Using mom-embedding-light for gemma path (public fallback)
   embedding_models:
-    qwen3_model_path: "models/Qwen3-Embedding-0.6B"
-    gemma_model_path: "models/embeddinggemma-300m"
+    qwen3_model_path: "models/mom-embedding-pro"
+    gemma_model_path: "models/mom-embedding-light"
     use_cpu: true
 
   # API Configuration

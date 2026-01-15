@@ -23,14 +23,14 @@ docker-build-extproc: ## Build extproc Docker image
 docker-build-extproc:
 	@$(LOG_TARGET)
 	@echo "Building extproc Docker image..."
-	@$(CONTAINER_RUNTIME) build -f Dockerfile.extproc -t $(DOCKER_REGISTRY)/extproc:$(DOCKER_TAG) .
+	@$(CONTAINER_RUNTIME) build -f tools/docker/Dockerfile.extproc -t $(DOCKER_REGISTRY)/extproc:$(DOCKER_TAG) .
 
 # Build llm-katan Docker image
 docker-build-llm-katan: ## Build llm-katan Docker image
 docker-build-llm-katan:
 	@$(LOG_TARGET)
 	@echo "Building llm-katan Docker image..."
-	@$(CONTAINER_RUNTIME) build -f e2e-tests/llm-katan/Dockerfile -t $(DOCKER_REGISTRY)/llm-katan:$(DOCKER_TAG) e2e-tests/llm-katan/
+	@$(CONTAINER_RUNTIME) build -f e2e/testing/llm-katan/Dockerfile -t $(DOCKER_REGISTRY)/llm-katan:$(DOCKER_TAG) e2e/testing/llm-katan/
 
 # Build dashboard Docker image
 docker-build-dashboard: ## Build dashboard Docker image
@@ -44,7 +44,7 @@ docker-build-precommit: ## Build precommit Docker image
 docker-build-precommit:
 	@$(LOG_TARGET)
 	@echo "Building precommit Docker image..."
-	@$(CONTAINER_RUNTIME) build -f Dockerfile.precommit -t $(DOCKER_REGISTRY)/precommit:$(DOCKER_TAG) .
+	@$(CONTAINER_RUNTIME) build -f tools/docker/Dockerfile.precommit -t $(DOCKER_REGISTRY)/precommit:$(DOCKER_TAG) .
 
 # Test llm-katan Docker image locally
 docker-test-llm-katan: ## Test llm-katan Docker image locally
@@ -184,11 +184,11 @@ docker-compose-down-llm-katan:
 # CI compose file path
 CI_COMPOSE_FILE ?= deploy/docker-compose/docker-compose.ci.yml
 
-docker-compose-up-ci: ## Start minimal CI services (semantic-router, envoy, llm-katan)
+docker-compose-up-ci: ## Start minimal CI services (semantic-router, envoy, llm-katan) with local build
 docker-compose-up-ci:
 	@$(LOG_TARGET)
-	@echo "Starting CI services with $(COMPOSE_CMD) (minimal for CI)..."
-	@$(COMPOSE_CMD) -f $(CI_COMPOSE_FILE) up -d
+	@echo "Building and starting CI services with $(COMPOSE_CMD) (minimal for CI)..."
+	@$(COMPOSE_CMD) -f $(CI_COMPOSE_FILE) up -d --build
 
 docker-compose-down-ci: ## Stop CI services
 docker-compose-down-ci:
@@ -214,3 +214,59 @@ docker-help: ## Show help for Docker-related make targets and environment variab
 	@echo "  DOCKER_REGISTRY   - Docker registry (default: ghcr.io/vllm-project/semantic-router)"
 	@echo "  DOCKER_TAG        - Docker tag (default: latest)"
 	@echo "  SERVED_NAME       - Served model name for custom runs"
+
+##@ vLLM-SR (Semantic Router CLI)
+
+# vLLM-SR specific variables
+VLLM_SR_IMAGE ?= ghcr.io/vllm-project/semantic-router/vllm-sr:latest
+VLLM_SR_CONTAINER ?= vllm-sr-container
+
+vllm-sr-dev: ## Rebuild vLLM Semantic Router image and install CLI
+vllm-sr-dev:
+	@$(LOG_TARGET)
+	@echo "=========================================="
+	@echo "vLLM Semantic Router Development Setup"
+	@echo "=========================================="
+	@echo ""
+	@echo "This will:"
+	@echo "  1. Clean up old containers"
+	@echo "  2. Rebuild Docker image with all dependencies"
+	@echo "  3. Install vLLM-SR CLI in development mode"
+	@echo ""
+	@echo "1. Cleaning up old containers..."
+	@$(CONTAINER_RUNTIME) rm -f $(VLLM_SR_CONTAINER) 2>/dev/null || echo "  No container to remove"
+	@echo ""
+	@echo "2. Rebuilding Docker image..."
+	@echo "  Building from: $(PWD)"
+	@echo "  Image: $(VLLM_SR_IMAGE)"
+	@echo ""
+	@$(CONTAINER_RUNTIME) build -t $(VLLM_SR_IMAGE) -f src/vllm-sr/Dockerfile .
+	@echo ""
+	@echo "✓ Image built: $(VLLM_SR_IMAGE)"
+	@echo ""
+	@echo "3. Installing vLLM-SR CLI in development mode..."
+	@pip install -e src/vllm-sr
+	@echo "✓ vLLM-SR CLI installed"
+	@echo ""
+	@echo "=========================================="
+	@echo "✓ Development Setup Complete"
+	@echo "=========================================="
+	@echo ""
+	@echo "Next steps:"
+	@echo "  Start service: cd src/vllm-sr && vllm-sr serve config.yaml"
+	@echo "  Or use:        make vllm-sr-start"
+	@echo ""
+
+vllm-sr-build: ## Build vLLM Semantic Router Docker image
+vllm-sr-build:
+	@$(LOG_TARGET)
+	@echo "Building vLLM Semantic Router Docker image..."
+	@$(CONTAINER_RUNTIME) build -t $(VLLM_SR_IMAGE) -f src/vllm-sr/Dockerfile .
+	@echo "✓ Image built: $(VLLM_SR_IMAGE)"
+
+vllm-sr-start: ## Start vLLM Semantic Router service
+vllm-sr-start: vllm-sr-dev
+	@$(LOG_TARGET)
+	@echo "Starting vLLM Semantic Router service..."
+	@vllm-sr serve --image-pull-policy=ifnotpresent --image $(VLLM_SR_IMAGE)
+	@vllm-sr dashboard

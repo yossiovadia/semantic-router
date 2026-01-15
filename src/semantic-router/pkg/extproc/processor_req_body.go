@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/config"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/headers"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/observability/logging"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/observability/metrics"
@@ -84,21 +85,28 @@ func (r *OpenAIRouter) handleRequestBody(v *ext_proc.ProcessingRequest_RequestBo
 		ctx.RequestModel = originalModel
 	}
 
+	// Check if this is a looper internal request - if so, skip all plugin processing
+	// and route directly to the specified model (looper already did decision evaluation)
+	if r.isLooperRequest(ctx) {
+		logging.Infof("[Looper] Internal request detected, skipping plugin processing, routing to model: %s", originalModel)
+		ctx.RequestModel = originalModel
+		ctx.VSRSelectedModel = originalModel
+		return r.handleLooperInternalRequest(originalModel, ctx)
+	}
+
 	// Get content from messages
 	userContent, nonUserMessages := extractUserAndNonUserContent(openAIRequest)
 
-	// Perform fact-check classification for hallucination mitigation
-	r.performFactCheckClassification(ctx, userContent)
-
-	// Check if request has tools that can provide context for fact-checking
-	r.checkRequestHasTools(ctx)
+	// Store user content for later use in hallucination detection
+	ctx.UserContent = userContent
 
 	// Perform decision evaluation and model selection once at the beginning
 	// Use decision-based routing if decisions are configured, otherwise fall back to category-based
-	decisionName, classificationConfidence, reasoningDecision, selectedModel := r.performDecisionEvaluationAndModelSelection(originalModel, userContent, nonUserMessages, ctx)
+	// This also evaluates fact-check signal as part of the signal evaluation
+	decisionName, classificationConfidence, reasoningDecision, selectedModel := r.performDecisionEvaluation(originalModel, userContent, nonUserMessages, ctx)
 
 	// Perform security checks with decision-specific settings
-	if response, shouldReturn := r.performSecurityChecks(ctx, userContent, nonUserMessages, decisionName); shouldReturn {
+	if response, shouldReturn := r.performJailbreaks(ctx, userContent, nonUserMessages, decisionName); shouldReturn {
 		return response, nil
 	}
 
@@ -110,7 +118,6 @@ func (r *OpenAIRouter) handleRequestBody(v *ext_proc.ProcessingRequest_RequestBo
 	}
 
 	// Handle caching with decision-specific settings
-	logging.Infof("About to call handleCaching - decisionName=%s, cacheEnabled=%v", decisionName, r.Config.SemanticCache.Enabled)
 	if response, shouldReturn := r.handleCaching(ctx, decisionName); shouldReturn {
 		logging.Infof("handleCaching returned a response, returning immediately")
 		return response, nil
@@ -135,6 +142,14 @@ func (r *OpenAIRouter) handleModelRouting(openAIRequest *openai.ChatCompletionNe
 	}
 
 	isAutoModel := r.Config != nil && r.Config.IsAutoModelName(originalModel)
+
+	// Check if looper should be used for this decision
+	// Looper handles multi-model execution strategies (confidence, concurrent, etc.)
+	if isAutoModel && r.shouldUseLooper(ctx.VSRSelectedDecision) {
+		logging.Infof("Using Looper for decision %s with algorithm %s",
+			ctx.VSRSelectedDecision.Name, ctx.VSRSelectedDecision.Algorithm.Type)
+		return r.handleLooperExecution(ctx.TraceContext, openAIRequest, ctx.VSRSelectedDecision, ctx)
+	}
 
 	if isAutoModel && selectedModel != "" {
 		return r.handleAutoModelRouting(openAIRequest, originalModel, decisionName, reasoningDecision, selectedModel, ctx, response)
@@ -164,7 +179,7 @@ func (r *OpenAIRouter) handleAutoModelRouting(openAIRequest *openai.ChatCompleti
 	r.recordRoutingDecision(ctx, decisionName, originalModel, matchedModel, reasoningDecision)
 
 	// Track VSR decision information
-	// categoryName is already set in ctx.VSRSelectedCategory by performDecisionEvaluationAndModelSelection
+	// categoryName is already set in ctx.VSRSelectedCategory by performDecisionEvaluation
 	r.trackVSRDecision(ctx, ctx.VSRSelectedCategory, decisionName, matchedModel, reasoningDecision.UseReasoning)
 
 	// Track model routing metrics
@@ -192,6 +207,9 @@ func (r *OpenAIRouter) handleAutoModelRouting(openAIRequest *openai.ChatCompleti
 
 	// Save the actual model for token tracking
 	ctx.RequestModel = matchedModel
+
+	// Capture router replay information if enabled
+	r.startRouterReplay(ctx, originalModel, matchedModel, decisionName)
 
 	// Handle tool selection
 	r.handleToolSelectionForRequest(openAIRequest, response, ctx)
@@ -251,8 +269,6 @@ func (r *OpenAIRouter) selectEndpointForModel(ctx *RequestContext, model string)
 				attribute.String(tracing.AttrEndpointName, endpoints[0].Name),
 				attribute.String(tracing.AttrEndpointAddress, endpointAddress))
 		}
-	} else {
-		logging.Warnf("No endpoint found for model %s, using fallback", model)
 	}
 
 	backendSpan.End()
@@ -357,6 +373,17 @@ func (r *OpenAIRouter) createRoutingResponse(model string, endpoint string, modi
 	traceContextHeaders := r.startUpstreamSpanAndInjectHeaders(model, endpoint, ctx)
 	setHeaders = append(setHeaders, traceContextHeaders...)
 
+	// Add Authorization header if model has access_key configured
+	if accessKey := r.getModelAccessKey(model); accessKey != "" {
+		setHeaders = append(setHeaders, &core.HeaderValueOption{
+			Header: &core.HeaderValue{
+				Key:      "Authorization",
+				RawValue: []byte(fmt.Sprintf("Bearer %s", accessKey)),
+			},
+		})
+		logging.Infof("Added Authorization header for model %s", model)
+	}
+
 	// Add standard routing headers
 	if endpoint != "" {
 		setHeaders = append(setHeaders, &core.HeaderValueOption{
@@ -426,6 +453,17 @@ func (r *OpenAIRouter) createSpecifiedModelResponse(model string, endpoint strin
 	traceContextHeaders := r.startUpstreamSpanAndInjectHeaders(model, endpoint, ctx)
 	setHeaders = append(setHeaders, traceContextHeaders...)
 
+	// Add Authorization header if model has access_key configured
+	if accessKey := r.getModelAccessKey(model); accessKey != "" {
+		setHeaders = append(setHeaders, &core.HeaderValueOption{
+			Header: &core.HeaderValue{
+				Key:      "Authorization",
+				RawValue: []byte(fmt.Sprintf("Bearer %s", accessKey)),
+			},
+		})
+		logging.Infof("Added Authorization header for model %s", model)
+	}
+
 	if endpoint != "" {
 		setHeaders = append(setHeaders, &core.HeaderValueOption{
 			Header: &core.HeaderValue{
@@ -478,4 +516,28 @@ func (r *OpenAIRouter) createSpecifiedModelResponse(model string, endpoint strin
 			},
 		},
 	}
+}
+
+// getModelAccessKey retrieves the access_key for a given model from the config
+// Returns empty string if model not found or access_key not configured
+func (r *OpenAIRouter) getModelAccessKey(modelName string) string {
+	if r.Config == nil || r.Config.ModelConfig == nil {
+		return ""
+	}
+
+	modelConfig, ok := r.Config.ModelConfig[modelName]
+	if !ok {
+		return ""
+	}
+
+	return modelConfig.AccessKey
+}
+
+// getModelParams returns a map of model names to their ModelParams
+// This is used by looper to access model-specific configuration like access_key and param_size
+func (r *OpenAIRouter) getModelParams() map[string]config.ModelParams {
+	if r.Config == nil || r.Config.ModelConfig == nil {
+		return nil
+	}
+	return r.Config.ModelConfig
 }

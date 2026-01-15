@@ -84,11 +84,13 @@ func (c *CRDConverter) ConvertIntelligentRoute(route *v1alpha1.IntelligentRoute)
 	}
 
 	intelligentRouting := &config.IntelligentRouting{
-		KeywordRules:   make([]config.KeywordRule, 0),
-		EmbeddingRules: make([]config.EmbeddingRule, 0),
-		Categories:     make([]config.Category, 0),
-		Decisions:      make([]config.Decision, 0),
-		Strategy:       "priority", // Always use priority strategy
+		Signals: config.Signals{
+			KeywordRules:   make([]config.KeywordRule, 0),
+			EmbeddingRules: make([]config.EmbeddingRule, 0),
+			Categories:     make([]config.Category, 0),
+		},
+		Decisions: make([]config.Decision, 0),
+		Strategy:  "priority", // Always use priority strategy
 	}
 
 	// Convert keyword signals
@@ -259,6 +261,20 @@ func validatePluginConfiguration(pluginType string, rawConfig []byte) error {
 			if h.Name == "" {
 				return fmt.Errorf("header_mutation update: header name cannot be empty")
 			}
+		}
+
+	case "router_replay":
+		var cfg config.RouterReplayPluginConfig
+		decoder := json.NewDecoder(bytes.NewReader(rawConfig))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&cfg); err != nil {
+			return fmt.Errorf("failed to unmarshal router_replay config: %w", err)
+		}
+		if cfg.MaxRecords < 0 {
+			return fmt.Errorf("router_replay max_records cannot be negative")
+		}
+		if cfg.MaxBodyBytes < 0 {
+			return fmt.Errorf("router_replay max_body_bytes cannot be negative")
 		}
 
 	default:

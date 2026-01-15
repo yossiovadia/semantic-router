@@ -139,17 +139,10 @@ jobs:
       - name: Build Rust library (CPU-only, no CUDA)
         run: make rust-ci
 
-      - name: Install Model Manager dependencies
+      - name: Install HuggingFace CLI
         run: |
-          pip install -r src/model_manager/requirements.txt
+          pip install -U "huggingface_hub[cli]" hf_transfer
 
-      - name: Download models (minimal on PRs)
-        env:
-          CI_MINIMAL_MODELS: ${{ github.event_name == 'pull_request' }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_HUB_ENABLE_HF_TRANSFER: 1
-          HF_HUB_DISABLE_TELEMETRY: 1
-        run: make download-models
 
       - name: Start Milvus service
         run: |
@@ -191,6 +184,10 @@ jobs:
           MILVUS_URI: localhost:19530
           SKIP_MILVUS_TESTS: false
           SKIP_REDIS_TESTS: false
+          # HF_TOKEN is required for downloading gated models (e.g., embeddinggemma-300m)
+          # For PRs from forks, this will be empty and gated models will gracefully skip
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HUGGINGFACE_HUB_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Clean Redis service
         if: always()

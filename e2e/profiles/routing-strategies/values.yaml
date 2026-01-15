@@ -1,7 +1,7 @@
 # Semantic Router Configuration for Routing Strategies E2E Tests
 config:
   bert_model:
-    model_id: models/all-MiniLM-L12-v2
+    model_id: models/mom-embedding-light
     threshold: 0.6
     use_cpu: true
 
@@ -31,26 +31,26 @@ config:
 
   prompt_guard:
     enabled: true  # Global default - can be overridden per category with jailbreak_enabled
-    use_modernbert: true
-    model_id: "models/jailbreak_classifier_modernbert-base_model"
+    use_modernbert: false
+    model_id: "models/mom-jailbreak-classifier"
     threshold: 0.7
     use_cpu: true
-    jailbreak_mapping_path: "models/jailbreak_classifier_modernbert-base_model/jailbreak_type_mapping.json"
+    jailbreak_mapping_path: "models/mom-jailbreak-classifier/jailbreak_type_mapping.json"
 
   # Classifier configuration
   classifier:
     category_model:
-      model_id: "models/category_classifier_modernbert-base_model"
-      use_modernbert: true
+      model_id: "models/mom-domain-classifier"
+      use_modernbert: false  # MoM uses LoRA-based model
       threshold: 0.6
       use_cpu: true
-      category_mapping_path: "models/category_classifier_modernbert-base_model/category_mapping.json"
+      category_mapping_path: "models/mom-domain-classifier/category_mapping.json"
     pii_model:
-      model_id: "models/lora_pii_detector_bert-base-uncased_model"
+      model_id: "models/mom-pii-classifier"
       use_modernbert: false  # Use LoRA PII model
       threshold: 0.7
       use_cpu: true
-      pii_mapping_path: "models/pii_classifier_modernbert-base_presidio_token_model/pii_type_mapping.json"
+      pii_mapping_path: "models/mom-pii-classifier/pii_type_mapping.json"
 
   keyword_rules:
     - name: "urgent_request"
@@ -59,11 +59,7 @@ config:
       case_sensitive: false
     - name: "sensitive_data"
       operator: "AND"
-      keywords: ["SSN", "social security number", "credit card"]
-      case_sensitive: false
-    - name: "exclude_spam"
-      operator: "NOR"
-      keywords: ["buy now", "free money"]
+      keywords: ["SSN", "credit card"]
       case_sensitive: false
 
   # Categories define domain metadata only (no routing logic)
@@ -74,9 +70,6 @@ config:
     - name: sensitive_data
       description: "Requests involving sensitive personal data"
       mmlu_categories: ["sensitive_data"]
-    - name: exclude_spam
-      description: "Potential spam or suspicious requests"
-      mmlu_categories: ["exclude_spam"]
     - name: business
       description: "Business and management related queries"
       mmlu_categories: ["business"]
@@ -168,26 +161,6 @@ config:
           configuration:
             enabled: true
             threshold: 0.6
-        - type: "pii"
-          configuration:
-            enabled: true
-            pii_types_allowed: []
-
-    - name: "exclude_spam_decision"
-      description: "Potential spam or suspicious requests"
-      priority: 150
-      rules:
-        operator: "AND"
-        conditions:
-          - type: "keyword"
-            name: "exclude_spam"
-      modelRefs:
-        - model: "base-model"
-          use_reasoning: false
-      plugins:
-        - type: "system_prompt"
-          configuration:
-            system_prompt: "You are a content moderation assistant. This request has been flagged as potential spam. Please verify the legitimacy of the request before proceeding."
         - type: "pii"
           configuration:
             enabled: true
@@ -294,8 +267,8 @@ config:
 
   # Embedding Models Configuration
   embedding_models:
-    qwen3_model_path: "models/Qwen3-Embedding-0.6B"
-    gemma_model_path: "models/embeddinggemma-300m"
+    qwen3_model_path: "models/mom-embedding-pro"
+    # gemma_model_path: "models/mom-embedding-flash"
     use_cpu: true
 
   # Observability Configuration

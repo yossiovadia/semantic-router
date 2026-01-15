@@ -3,6 +3,7 @@ package extproc
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ext_proc "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
@@ -14,6 +15,7 @@ import (
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/config"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/observability/logging"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/responsestore"
+	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/routerreplay"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/services"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/tools"
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/utils/pii"
@@ -25,9 +27,10 @@ type OpenAIRouter struct {
 	CategoryDescriptions []string
 	Classifier           *classification.Classifier
 	PIIChecker           *pii.PolicyChecker
-	CacheManager         *cache.CacheManager
+	Cache                cache.CacheBackend
 	ToolsDatabase        *tools.ToolsDatabase
 	ResponseAPIFilter    *ResponseAPIFilter
+	ReplayRecorder       *routerreplay.Recorder
 }
 
 // Ensure OpenAIRouter implements the ext_proc calls
@@ -85,146 +88,54 @@ func NewOpenAIRouter(configPath string) (*OpenAIRouter, error) {
 		logging.Infof("Loaded jailbreak mapping with %d jailbreak types", jailbreakMapping.GetJailbreakTypeCount())
 	}
 
-	// Initialize the BERT model for similarity search
-	if initErr := candle_binding.InitModel(cfg.BertModel.ModelID, cfg.BertModel.UseCPU); initErr != nil {
-		return nil, fmt.Errorf("failed to initialize BERT model: %w", initErr)
+	// Initialize the BERT model for similarity search (only if configured)
+	if cfg.BertModel.ModelID != "" {
+		if initErr := candle_binding.InitModel(cfg.BertModel.ModelID, cfg.BertModel.UseCPU); initErr != nil {
+			return nil, fmt.Errorf("failed to initialize BERT model: %w", initErr)
+		}
+		logging.Infof("BERT similarity model initialized: %s", cfg.BertModel.ModelID)
+	} else {
+		logging.Infof("BERT model not configured, skipping initialization")
 	}
 
 	categoryDescriptions := cfg.GetCategoryDescriptions()
-	logging.Infof("Category descriptions: %v", categoryDescriptions)
+	logging.Debugf("Category descriptions: %v", categoryDescriptions)
 
-	// Create semantic cache manager for per-domain caching
-	var cacheManager *cache.CacheManager
+	// Create semantic cache with config options
+	cacheConfig := cache.CacheConfig{
+		BackendType:         cache.CacheBackendType(cfg.SemanticCache.BackendType),
+		Enabled:             cfg.SemanticCache.Enabled,
+		SimilarityThreshold: cfg.GetCacheSimilarityThreshold(),
+		MaxEntries:          cfg.SemanticCache.MaxEntries,
+		TTLSeconds:          cfg.SemanticCache.TTLSeconds,
+		EvictionPolicy:      cache.EvictionPolicyType(cfg.SemanticCache.EvictionPolicy),
+		BackendConfigPath:   cfg.SemanticCache.BackendConfigPath,
+		EmbeddingModel:      cfg.SemanticCache.EmbeddingModel,
+	}
 
-	// Check if per-domain caching is configured
-	if len(cfg.SemanticCache.Domains) > 0 || cfg.SemanticCache.GlobalCache != nil {
-		logging.Infof("Initializing CacheManager with per-domain configurations")
+	// Use default backend type if not specified
+	if cacheConfig.BackendType == "" {
+		cacheConfig.BackendType = cache.InMemoryCacheType
+	}
 
-		// Convert config.DomainCacheConfig to cache.CacheConfig
-		domainCacheConfigs := make(map[string]cache.CacheConfig)
-		for domain, domainConfig := range cfg.SemanticCache.Domains {
-			cacheConfig := cache.CacheConfig{
-				BackendType:         cache.CacheBackendType(domainConfig.BackendType),
-				Enabled:             domainConfig.Enabled,
-				SimilarityThreshold: cfg.GetCacheSimilarityThreshold(),
-				MaxEntries:          domainConfig.MaxEntries,
-				TTLSeconds:          domainConfig.TTLSeconds,
-				EvictionPolicy:      cache.EvictionPolicyType(domainConfig.EvictionPolicy),
-				BackendConfigPath:   domainConfig.BackendConfigPath,
-				EmbeddingModel:      domainConfig.EmbeddingModel,
-				EmbeddingModelPath:  domainConfig.EmbeddingModelPath,
-				UseHNSW:             domainConfig.UseHNSW,
-				HNSWM:               domainConfig.HNSWM,
-				HNSWEfConstruction:  domainConfig.HNSWEfConstruction,
-				MaxMemoryEntries:    domainConfig.MaxMemoryEntries,
-			}
+	semanticCache, err := cache.NewCacheBackend(cacheConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create semantic cache: %w", err)
+	}
 
-			// Override with domain-specific threshold if set
-			if domainConfig.SimilarityThreshold != nil {
-				cacheConfig.SimilarityThreshold = *domainConfig.SimilarityThreshold
-			}
-
-			// Inherit from global semantic_cache config when not specified at domain level
-			if cacheConfig.BackendType == "" {
-				if cfg.SemanticCache.BackendType != "" {
-					cacheConfig.BackendType = cache.CacheBackendType(cfg.SemanticCache.BackendType)
-				} else {
-					cacheConfig.BackendType = cache.InMemoryCacheType
-				}
-			}
-
-			// Inherit backend_config_path from global if not specified
-			if cacheConfig.BackendConfigPath == "" && cfg.SemanticCache.BackendConfigPath != "" {
-				cacheConfig.BackendConfigPath = cfg.SemanticCache.BackendConfigPath
-			}
-
-			// Inherit embedding_model from global if not specified (and no custom path)
-			if cacheConfig.EmbeddingModel == "" && cacheConfig.EmbeddingModelPath == "" && cfg.SemanticCache.EmbeddingModel != "" {
-				cacheConfig.EmbeddingModel = cfg.SemanticCache.EmbeddingModel
-			}
-
-			domainCacheConfigs[domain] = cacheConfig
-			logging.Debugf("Configured cache for domain '%s': backend=%s, threshold=%.2f, embedding=%s, custom_model=%s",
-				domain, cacheConfig.BackendType, cacheConfig.SimilarityThreshold, cacheConfig.EmbeddingModel, cacheConfig.EmbeddingModelPath)
-		}
-
-		// Convert global cache config if present
-		var globalCacheConfig *cache.CacheConfig
-		if cfg.SemanticCache.GlobalCache != nil {
-			gc := cfg.SemanticCache.GlobalCache
-			globalCacheConfig = &cache.CacheConfig{
-				BackendType:         cache.CacheBackendType(gc.BackendType),
-				Enabled:             gc.Enabled,
-				SimilarityThreshold: cfg.GetCacheSimilarityThreshold(),
-				MaxEntries:          gc.MaxEntries,
-				TTLSeconds:          gc.TTLSeconds,
-				EvictionPolicy:      cache.EvictionPolicyType(gc.EvictionPolicy),
-				BackendConfigPath:   gc.BackendConfigPath,
-				EmbeddingModel:      gc.EmbeddingModel,
-				EmbeddingModelPath:  gc.EmbeddingModelPath,
-			}
-
-			// Override with global threshold if set
-			if gc.SimilarityThreshold != nil {
-				globalCacheConfig.SimilarityThreshold = *gc.SimilarityThreshold
-			}
-
-			// Use default backend type if not specified
-			if globalCacheConfig.BackendType == "" {
-				globalCacheConfig.BackendType = cache.InMemoryCacheType
-			}
-
-			logging.Infof("Configured global cache fallback: backend=%s, threshold=%.2f, embedding=%s, custom_model=%s",
-				globalCacheConfig.BackendType, globalCacheConfig.SimilarityThreshold, globalCacheConfig.EmbeddingModel, globalCacheConfig.EmbeddingModelPath)
-		}
-
-		// Create cache manager
-		cacheManager, err = cache.NewCacheManager(&cache.CacheManagerConfig{
-			Domains:     domainCacheConfigs,
-			GlobalCache: globalCacheConfig,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cache manager: %w", err)
-		}
-
-		logging.Infof("CacheManager initialized with %d domain configurations", len(domainCacheConfigs))
-	} else {
-		// Backward compatibility: create single-cache manager with global config
-		logging.Infof("Using legacy single-cache configuration (backward compatibility)")
-
-		cacheConfig := cache.CacheConfig{
-			BackendType:         cache.CacheBackendType(cfg.SemanticCache.BackendType),
-			Enabled:             cfg.SemanticCache.Enabled,
-			SimilarityThreshold: cfg.GetCacheSimilarityThreshold(),
-			MaxEntries:          cfg.SemanticCache.MaxEntries,
-			TTLSeconds:          cfg.SemanticCache.TTLSeconds,
-			EvictionPolicy:      cache.EvictionPolicyType(cfg.SemanticCache.EvictionPolicy),
-			BackendConfigPath:   cfg.SemanticCache.BackendConfigPath,
-			EmbeddingModel:      cfg.SemanticCache.EmbeddingModel,
-		}
-
-		// Use default backend type if not specified
-		if cacheConfig.BackendType == "" {
-			cacheConfig.BackendType = cache.InMemoryCacheType
-		}
-
-		// Create cache manager with single global cache
-		cacheManager, err = cache.NewCacheManager(&cache.CacheManagerConfig{
-			Domains:     make(map[string]cache.CacheConfig),
-			GlobalCache: &cacheConfig,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cache manager: %w", err)
-		}
-
-		logging.Infof("Semantic cache enabled (backend: %s) with threshold: %.4f, TTL: %d seconds",
+	if semanticCache.IsEnabled() {
+		logging.Infof("Semantic cache enabled with backend: %s with threshold: %.4f, TTL: %d s",
 			cacheConfig.BackendType, cacheConfig.SimilarityThreshold, cacheConfig.TTLSeconds)
 		if cacheConfig.BackendType == cache.InMemoryCacheType {
 			logging.Infof("In-memory cache max entries: %d", cacheConfig.MaxEntries)
 		}
+	} else {
+		logging.Infof("Semantic cache is disabled")
 	}
 
-	// Create tools database with config options
+	// Create tools database with config options (but don't load tools yet)
+	// Tools will be loaded after embedding models are initialized to avoid
+	// "ModelFactory not initialized" errors
 	toolsThreshold := cfg.BertModel.Threshold // Default to BERT threshold
 	if cfg.Tools.SimilarityThreshold != nil {
 		toolsThreshold = *cfg.Tools.SimilarityThreshold
@@ -235,11 +146,8 @@ func NewOpenAIRouter(configPath string) (*OpenAIRouter, error) {
 	}
 	toolsDatabase := tools.NewToolsDatabase(toolsOptions)
 
-	// Load tools from file if enabled and path is provided
-	if toolsDatabase.IsEnabled() && cfg.Tools.ToolsDBPath != "" {
-		if loadErr := toolsDatabase.LoadToolsFromFile(cfg.Tools.ToolsDBPath); loadErr != nil {
-			logging.Warnf("Failed to load tools from file %s: %v", cfg.Tools.ToolsDBPath, loadErr)
-		}
+	// Note: Tools will be loaded later via LoadToolsDatabase() after embedding models init
+	if toolsDatabase.IsEnabled() {
 		logging.Infof("Tools database enabled with threshold: %.4f, top-k: %d",
 			toolsThreshold, cfg.Tools.TopK)
 	} else {
@@ -278,17 +186,73 @@ func NewOpenAIRouter(configPath string) (*OpenAIRouter, error) {
 		}
 	}
 
+	replayMax := routerreplay.DefaultMaxRecords
+	for _, d := range cfg.Decisions {
+		if replayCfg := d.GetRouterReplayConfig(); replayCfg != nil && replayCfg.Enabled {
+			if replayCfg.MaxRecords > replayMax {
+				replayMax = replayCfg.MaxRecords
+			}
+		}
+	}
+	replayRecorder := routerreplay.NewRecorder(replayMax)
+
 	router := &OpenAIRouter{
 		Config:               cfg,
 		CategoryDescriptions: categoryDescriptions,
 		Classifier:           classifier,
 		PIIChecker:           piiChecker,
-		CacheManager:         cacheManager,
+		Cache:                semanticCache,
 		ToolsDatabase:        toolsDatabase,
 		ResponseAPIFilter:    responseAPIFilter,
+		ReplayRecorder:       replayRecorder,
 	}
 
 	return router, nil
+}
+
+// handleRouterReplayAPI serves read-only endpoints for router replay records.
+func (r *OpenAIRouter) handleRouterReplayAPI(method string, path string) *ext_proc.ProcessingResponse {
+	// If recorder is not initialized, the feature is effectively disabled.
+	if r.ReplayRecorder == nil {
+		return nil
+	}
+
+	// Strip query string
+	if idx := strings.Index(path, "?"); idx != -1 {
+		path = path[:idx]
+	}
+
+	base := "/v1/router_replay"
+	if path == base || path == base+"/" {
+		if method != "GET" {
+			return r.createErrorResponse(405, "method not allowed")
+		}
+
+		records := r.ReplayRecorder.ListAllRecords()
+		payload := map[string]interface{}{
+			"object": "router_replay.list",
+			"count":  len(records),
+			"data":   records,
+		}
+		return r.createJSONResponse(200, payload)
+	}
+
+	if strings.HasPrefix(path, base+"/") {
+		if method != "GET" {
+			return r.createErrorResponse(405, "method not allowed")
+		}
+		replayID := strings.TrimPrefix(path, base+"/")
+		if replayID == "" {
+			return r.createErrorResponse(400, "replay id is required")
+		}
+
+		if rec, ok := r.ReplayRecorder.GetRecord(replayID); ok {
+			return r.createJSONResponse(200, rec)
+		}
+		return r.createErrorResponse(404, "replay record not found")
+	}
+
+	return nil
 }
 
 // createJSONResponseWithBody creates a direct response with pre-marshaled JSON body
@@ -369,4 +333,23 @@ func createResponseStore(cfg *config.RouterConfig) (responsestore.ResponseStore,
 		},
 	}
 	return responsestore.NewStore(storeConfig)
+}
+
+// LoadToolsDatabase loads tools from file after embedding models are initialized
+func (r *OpenAIRouter) LoadToolsDatabase() error {
+	if !r.ToolsDatabase.IsEnabled() {
+		return nil
+	}
+
+	if r.Config.Tools.ToolsDBPath == "" {
+		logging.Warnf("Tools database enabled but no tools file path configured")
+		return nil
+	}
+
+	if err := r.ToolsDatabase.LoadToolsFromFile(r.Config.Tools.ToolsDBPath); err != nil {
+		return fmt.Errorf("failed to load tools from file %s: %w", r.Config.Tools.ToolsDBPath, err)
+	}
+
+	logging.Infof("Tools database loaded successfully from: %s", r.Config.Tools.ToolsDBPath)
+	return nil
 }

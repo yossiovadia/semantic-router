@@ -5,7 +5,6 @@ import "time"
 // CacheEntry represents a complete cached request-response pair with associated metadata
 type CacheEntry struct {
 	RequestID    string
-	Namespace    string    // Domain namespace (e.g., "coding", "medical", "general")
 	RequestBody  []byte
 	ResponseBody []byte
 	Model        string
@@ -14,6 +13,8 @@ type CacheEntry struct {
 	Timestamp    time.Time // Creation time (when the entry was added or completed with a response)
 	LastAccessAt time.Time // Last access time
 	HitCount     int64     // Access count
+	TTLSeconds   int       // Per-entry TTL in seconds (0 = not cached, -1 = use cache default, >0 = specific TTL)
+	ExpiresAt    time.Time // Calculated expiration time based on TTL
 }
 
 // CacheBackend defines the interface for semantic cache implementations
@@ -27,15 +28,13 @@ type CacheBackend interface {
 	CheckConnection() error
 
 	// AddPendingRequest stores a request awaiting its response
-	// namespace: domain namespace (e.g., "coding", "medical", "general")
-	AddPendingRequest(requestID string, namespace string, model string, query string, requestBody []byte) error
+	AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error
 
 	// UpdateWithResponse completes a pending request with the received response
-	UpdateWithResponse(requestID string, responseBody []byte) error
+	UpdateWithResponse(requestID string, responseBody []byte, ttlSeconds int) error
 
 	// AddEntry stores a complete request-response pair in the cache
-	// namespace: domain namespace (e.g., "coding", "medical", "general")
-	AddEntry(requestID string, namespace string, model string, query string, requestBody, responseBody []byte) error
+	AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error
 
 	// FindSimilar searches for semantically similar cached requests
 	// Returns the cached response, match status, and any error
@@ -43,9 +42,8 @@ type CacheBackend interface {
 
 	// FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
 	// This allows category-specific similarity thresholds
-	// namespace: domain namespace to search within (e.g., "coding", "medical")
 	// Returns the cached response, match status, and any error
-	FindSimilarWithThreshold(namespace string, model string, query string, threshold float32) ([]byte, bool, error)
+	FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error)
 
 	// Close releases all resources held by the cache backend
 	Close() error
@@ -131,11 +129,5 @@ type CacheConfig struct {
 
 	// EmbeddingModel specifies which embedding model to use
 	// Options: "bert" (default), "qwen3", "gemma"
-	// If EmbeddingModelPath is specified, this field is ignored
 	EmbeddingModel string `yaml:"embedding_model,omitempty"`
-
-	// EmbeddingModelPath specifies a custom path to a domain-specific embedding model
-	// When specified, overrides EmbeddingModel setting
-	// Example: "models/math-cache-model", "models/finance-cache-model"
-	EmbeddingModelPath string `yaml:"embedding_model_path,omitempty"`
 }

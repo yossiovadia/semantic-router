@@ -163,9 +163,11 @@ func (c *RouterConfig) IsPromptGuardEnabled() bool {
 
 	// Check configuration based on whether using vLLM or Candle
 	if c.PromptGuard.UseVLLM {
-		// For vLLM: need endpoint address and model name
-		return c.PromptGuard.ClassifierVLLMEndpoint.Address != "" &&
-			c.PromptGuard.VLLMModelName != ""
+		// For vLLM: need external model with role="guardrail"
+		externalCfg := c.FindExternalModelByRole(ModelRoleGuardrail)
+		return externalCfg != nil &&
+			externalCfg.ModelEndpoint.Address != "" &&
+			externalCfg.ModelName != ""
 	}
 
 	// For Candle: need model ID
@@ -381,6 +383,21 @@ func (c *RouterConfig) GetCacheSimilarityThresholdForDecision(decisionName strin
 	return c.GetCacheSimilarityThreshold()
 }
 
+// GetCacheTTLSecondsForDecision returns the effective TTL for a decision
+// Returns 0 if caching should be skipped for this decision
+// Returns -1 to use the global default TTL when not specified at decision level
+func (c *RouterConfig) GetCacheTTLSecondsForDecision(decisionName string) int {
+	decision := c.GetDecisionByName(decisionName)
+	if decision != nil {
+		config := decision.GetSemanticCacheConfig()
+		if config != nil && config.TTLSeconds != nil {
+			return *config.TTLSeconds
+		}
+	}
+	// Return -1 to indicate "use global default"
+	return -1
+}
+
 // IsJailbreakEnabledForDecision returns whether jailbreak detection is enabled for a specific decision
 func (c *RouterConfig) IsJailbreakEnabledForDecision(decisionName string) bool {
 	decision := c.GetDecisionByName(decisionName)
@@ -521,4 +538,10 @@ func (c *RouterConfig) GetHallucinationAction() string {
 	}
 	// Only "warn" is supported now
 	return "warn"
+}
+
+// IsFeedbackDetectorEnabled checks if feedback detection is enabled
+func (c *RouterConfig) IsFeedbackDetectorEnabled() bool {
+	return c.InlineModels.FeedbackDetector.Enabled &&
+		c.InlineModels.FeedbackDetector.ModelID != ""
 }

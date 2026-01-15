@@ -5,6 +5,7 @@ _run:
 	@$(MAKE) --warn-undefined-variables \
 		-f tools/make/common.mk \
 		-f tools/make/envs.mk \
+		-f tools/make/deps.mk \
 		-f tools/make/envoy.mk \
 		-f tools/make/golang.mk \
 		-f tools/make/rust.mk \
@@ -17,6 +18,7 @@ _run:
 		-f tools/make/models.mk \
 		-f tools/make/pre-commit.mk \
 		-f tools/make/docker.mk \
+		-f tools/make/dockerless.mk \
 		-f tools/make/kube.mk \
 		-f tools/make/helm.mk \
 		-f tools/make/observability.mk \

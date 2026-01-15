@@ -284,10 +284,16 @@ func (h *HybridCache) RebuildFromMilvus(ctx context.Context) error {
 }
 
 // AddPendingRequest stores a request awaiting its response
-func (h *HybridCache) AddPendingRequest(requestID string, namespace string, model string, query string, requestBody []byte) error {
+func (h *HybridCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !h.enabled {
+		return nil
+	}
+
+	// Handle TTL=0: skip caching entirely
+	if ttlSeconds == 0 {
+		logging.Debugf("HybridCache.AddPendingRequest: skipping cache (ttl_seconds=0)")
 		return nil
 	}
 
@@ -299,7 +305,7 @@ func (h *HybridCache) AddPendingRequest(requestID string, namespace string, mode
 	}
 
 	// Store in Milvus (write-through)
-	if err := h.milvusCache.AddPendingRequest(requestID, namespace, model, query, requestBody); err != nil {
+	if err := h.milvusCache.AddPendingRequest(requestID, model, query, requestBody, ttlSeconds); err != nil {
 		metrics.RecordCacheOperation("hybrid", "add_pending", "error", time.Since(start).Seconds())
 		return fmt.Errorf("milvus add pending failed: %w", err)
 	}
@@ -319,8 +325,8 @@ func (h *HybridCache) AddPendingRequest(requestID string, namespace string, mode
 	h.idMap[entryIndex] = requestID
 	h.addNodeHybrid(entryIndex, embedding)
 
-	logging.Debugf("HybridCache.AddPendingRequest: added to HNSW index=%d, milvusID=%s",
-		entryIndex, requestID)
+	logging.Debugf("HybridCache.AddPendingRequest: added to HNSW index=%d, milvusID=%s, ttl=%d",
+		entryIndex, requestID, ttlSeconds)
 
 	metrics.RecordCacheOperation("hybrid", "add_pending", "success", time.Since(start).Seconds())
 	metrics.UpdateCacheEntries("hybrid", len(h.embeddings))
@@ -329,7 +335,7 @@ func (h *HybridCache) AddPendingRequest(requestID string, namespace string, mode
 }
 
 // UpdateWithResponse completes a pending request with its response
-func (h *HybridCache) UpdateWithResponse(requestID string, responseBody []byte) error {
+func (h *HybridCache) UpdateWithResponse(requestID string, responseBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !h.enabled {
@@ -337,24 +343,30 @@ func (h *HybridCache) UpdateWithResponse(requestID string, responseBody []byte) 
 	}
 
 	// Update in Milvus
-	if err := h.milvusCache.UpdateWithResponse(requestID, responseBody); err != nil {
+	if err := h.milvusCache.UpdateWithResponse(requestID, responseBody, ttlSeconds); err != nil {
 		metrics.RecordCacheOperation("hybrid", "update_response", "error", time.Since(start).Seconds())
 		return fmt.Errorf("milvus update failed: %w", err)
 	}
 
 	// HNSW index already has the embedding, no update needed there
 
-	logging.Debugf("HybridCache.UpdateWithResponse: updated milvusID=%s", requestID)
+	logging.Debugf("HybridCache.UpdateWithResponse: updated milvusID=%s, ttl=%d", requestID, ttlSeconds)
 	metrics.RecordCacheOperation("hybrid", "update_response", "success", time.Since(start).Seconds())
 
 	return nil
 }
 
 // AddEntry stores a complete request-response pair
-func (h *HybridCache) AddEntry(requestID string, namespace string, model string, query string, requestBody, responseBody []byte) error {
+func (h *HybridCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !h.enabled {
+		return nil
+	}
+
+	// Handle TTL=0: skip caching entirely
+	if ttlSeconds == 0 {
+		logging.Debugf("HybridCache.AddEntry: skipping cache (ttl_seconds=0)")
 		return nil
 	}
 
@@ -366,7 +378,7 @@ func (h *HybridCache) AddEntry(requestID string, namespace string, model string,
 	}
 
 	// Store in Milvus (write-through)
-	if err := h.milvusCache.AddEntry(requestID, namespace, model, query, requestBody, responseBody); err != nil {
+	if err := h.milvusCache.AddEntry(requestID, model, query, requestBody, responseBody, ttlSeconds); err != nil {
 		metrics.RecordCacheOperation("hybrid", "add_entry", "error", time.Since(start).Seconds())
 		return fmt.Errorf("milvus add entry failed: %w", err)
 	}
@@ -386,8 +398,8 @@ func (h *HybridCache) AddEntry(requestID string, namespace string, model string,
 	h.idMap[entryIndex] = requestID
 	h.addNodeHybrid(entryIndex, embedding)
 
-	logging.Debugf("HybridCache.AddEntry: added to HNSW index=%d, milvusID=%s",
-		entryIndex, requestID)
+	logging.Debugf("HybridCache.AddEntry: added to HNSW index=%d, milvusID=%s, ttl=%d",
+		entryIndex, requestID, ttlSeconds)
 	logging.LogEvent("hybrid_cache_entry_added", map[string]interface{}{
 		"backend": "hybrid",
 		"query":   query,
@@ -474,14 +486,7 @@ func (h *HybridCache) Flush() error {
 }
 
 // FindSimilar searches for semantically similar cached requests
-// Uses default "general" namespace for backward compatibility
 func (h *HybridCache) FindSimilar(model string, query string) ([]byte, bool, error) {
-	defaultNamespace := "general"
-	return h.FindSimilarWithThreshold(defaultNamespace, model, query, h.similarityThreshold)
-}
-
-// FindSimilarWithThreshold delegates to Milvus for namespace-aware search
-func (h *HybridCache) FindSimilarWithThreshold(namespace string, model string, query string, threshold float32) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !h.enabled {
@@ -492,33 +497,241 @@ func (h *HybridCache) FindSimilarWithThreshold(namespace string, model string, q
 	if len(query) > 50 {
 		queryPreview = query[:50] + "..."
 	}
-	logging.Debugf("HybridCache.FindSimilarWithThreshold: searching for namespace='%s', model='%s', query='%s', threshold=%.3f",
-		namespace, model, queryPreview, threshold)
+	logging.Debugf("HybridCache.FindSimilar: searching for model='%s', query='%s'",
+		model, queryPreview)
 
-	// Delegate to Milvus for namespace-aware search
-	// This ensures proper namespace isolation at the cost of bypassing HNSW optimization
-	response, found, err := h.milvusCache.FindSimilarWithThreshold(namespace, model, query, threshold)
-
+	// Generate query embedding
+	queryEmbedding, err := candle_binding.GetEmbedding(query, 0)
 	if err != nil {
-		metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "error", time.Since(start).Seconds())
-		return nil, false, err
+		metrics.RecordCacheOperation("hybrid", "find_similar", "error", time.Since(start).Seconds())
+		return nil, false, fmt.Errorf("failed to generate embedding: %w", err)
 	}
 
-	if found {
-		atomic.AddInt64(&h.hitCount, 1)
-		metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "hit", time.Since(start).Seconds())
-		metrics.RecordCacheHit()
-		return response, true, nil
+	// Search HNSW index for candidates above similarity threshold
+	// For semantic cache, we only need the first match, so search with k=1
+	// and stop early when finding a match above threshold
+	h.mu.RLock()
+	candidates := h.searchKNNHybridWithThreshold(queryEmbedding, 1, 20, h.similarityThreshold)
+	threshold := h.similarityThreshold
+	h.mu.RUnlock()
+
+	// Filter by similarity threshold before fetching from Milvus
+	var qualifiedCandidates []searchResult
+	for _, candidate := range candidates {
+		if candidate.similarity >= threshold {
+			qualifiedCandidates = append(qualifiedCandidates, candidate)
+		}
 	}
 
+	// Map qualified candidates to Milvus IDs (need lock for idMap access)
+	type candidateWithID struct {
+		milvusID   string
+		similarity float32
+		index      int
+	}
+
+	h.mu.RLock()
+	candidatesWithIDs := make([]candidateWithID, 0, len(qualifiedCandidates))
+	for _, candidate := range qualifiedCandidates {
+		if milvusID, ok := h.idMap[candidate.index]; ok {
+			candidatesWithIDs = append(candidatesWithIDs, candidateWithID{
+				milvusID:   milvusID,
+				similarity: candidate.similarity,
+				index:      candidate.index,
+			})
+		}
+	}
+	h.mu.RUnlock()
+
+	if len(candidatesWithIDs) == 0 {
+		atomic.AddInt64(&h.missCount, 1)
+		if len(candidates) > 0 {
+			logging.Debugf("HybridCache.FindSimilar: %d candidates found but none above threshold %.3f",
+				len(candidates), h.similarityThreshold)
+		} else {
+			logging.Debugf("HybridCache.FindSimilar: no candidates found in HNSW")
+		}
+		metrics.RecordCacheOperation("hybrid", "find_similar", "miss", time.Since(start).Seconds())
+		metrics.RecordCacheMiss()
+		return nil, false, nil
+	}
+
+	logging.Debugf("HybridCache.FindSimilar: HNSW returned %d candidates, %d above threshold",
+		len(candidates), len(candidatesWithIDs))
+
+	// Fetch document from Milvus for qualified candidates
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Try candidates in order (already sorted by similarity from HNSW)
+	for _, candidate := range candidatesWithIDs {
+		// Fetch document from Milvus by ID (direct lookup by primary key)
+		fetchCtx, fetchCancel := context.WithTimeout(ctx, 2*time.Second)
+		responseBody, err := h.milvusCache.GetByID(fetchCtx, candidate.milvusID)
+		fetchCancel()
+
+		if err != nil {
+			logging.Debugf("HybridCache.FindSimilar: Milvus GetByID failed for %s: %v",
+				candidate.milvusID, err)
+			continue
+		}
+
+		if responseBody != nil {
+			atomic.AddInt64(&h.hitCount, 1)
+			logging.Debugf("HybridCache.FindSimilar: MILVUS HIT - similarity=%.4f (threshold=%.3f)",
+				candidate.similarity, h.similarityThreshold)
+			logging.LogEvent("hybrid_cache_hit", map[string]interface{}{
+				"backend":    "hybrid",
+				"source":     "milvus",
+				"similarity": candidate.similarity,
+				"threshold":  h.similarityThreshold,
+				"model":      model,
+				"latency_ms": time.Since(start).Milliseconds(),
+			})
+			metrics.RecordCacheOperation("hybrid", "find_similar", "hit_milvus", time.Since(start).Seconds())
+			metrics.RecordCacheHit()
+			return responseBody, true, nil
+		}
+	}
+
+	// No match found above threshold
 	atomic.AddInt64(&h.missCount, 1)
-	metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "miss", time.Since(start).Seconds())
+	logging.Debugf("HybridCache.FindSimilar: CACHE MISS - no match above threshold")
+	logging.LogEvent("hybrid_cache_miss", map[string]interface{}{
+		"backend":    "hybrid",
+		"threshold":  h.similarityThreshold,
+		"model":      model,
+		"candidates": len(candidatesWithIDs),
+	})
+	metrics.RecordCacheOperation("hybrid", "find_similar", "miss", time.Since(start).Seconds())
 	metrics.RecordCacheMiss()
+
 	return nil, false, nil
 }
 
-// Note: Old HNSW-based search implementation removed to support namespace isolation
-// HybridCache now delegates to Milvus for namespace-aware search
+// FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
+func (h *HybridCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
+	start := time.Now()
+
+	if !h.enabled {
+		return nil, false, nil
+	}
+
+	queryPreview := query
+	if len(query) > 50 {
+		queryPreview = query[:50] + "..."
+	}
+	logging.Debugf("HybridCache.FindSimilarWithThreshold: searching for model='%s', query='%s', threshold=%.3f",
+		model, queryPreview, threshold)
+
+	// Generate query embedding
+	queryEmbedding, err := candle_binding.GetEmbedding(query, 0)
+	if err != nil {
+		metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "error", time.Since(start).Seconds())
+		return nil, false, fmt.Errorf("failed to generate embedding: %w", err)
+	}
+
+	// Search HNSW index for candidates above similarity threshold
+	// For semantic cache, we only need the first match, so search with k=1
+	// and stop early when finding a match above threshold
+	h.mu.RLock()
+	candidates := h.searchKNNHybridWithThreshold(queryEmbedding, 1, 20, threshold)
+	h.mu.RUnlock()
+
+	// Filter by similarity threshold before fetching from Milvus
+	var qualifiedCandidates []searchResult
+	for _, candidate := range candidates {
+		if candidate.similarity >= threshold {
+			qualifiedCandidates = append(qualifiedCandidates, candidate)
+		}
+	}
+
+	// Map qualified candidates to Milvus IDs (need lock for idMap access)
+	type candidateWithID struct {
+		milvusID   string
+		similarity float32
+		index      int
+	}
+
+	h.mu.RLock()
+	candidatesWithIDs := make([]candidateWithID, 0, len(qualifiedCandidates))
+	for _, candidate := range qualifiedCandidates {
+		if milvusID, ok := h.idMap[candidate.index]; ok {
+			candidatesWithIDs = append(candidatesWithIDs, candidateWithID{
+				milvusID:   milvusID,
+				similarity: candidate.similarity,
+				index:      candidate.index,
+			})
+		}
+	}
+	h.mu.RUnlock()
+
+	if len(candidatesWithIDs) == 0 {
+		atomic.AddInt64(&h.missCount, 1)
+		if len(candidates) > 0 {
+			logging.Debugf("HybridCache.FindSimilarWithThreshold: %d candidates found but none above threshold %.3f",
+				len(candidates), threshold)
+		} else {
+			logging.Debugf("HybridCache.FindSimilarWithThreshold: no candidates found in HNSW")
+		}
+		metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "miss", time.Since(start).Seconds())
+		metrics.RecordCacheMiss()
+		return nil, false, nil
+	}
+
+	logging.Debugf("HybridCache.FindSimilarWithThreshold: HNSW returned %d candidates, %d above threshold",
+		len(candidates), len(candidatesWithIDs))
+
+	// Fetch document from Milvus for qualified candidates
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Try candidates in order (already sorted by similarity from HNSW)
+	for _, candidate := range candidatesWithIDs {
+		// Fetch document from Milvus by ID (direct lookup by primary key)
+		fetchCtx, fetchCancel := context.WithTimeout(ctx, 2*time.Second)
+		responseBody, err := h.milvusCache.GetByID(fetchCtx, candidate.milvusID)
+		fetchCancel()
+
+		if err != nil {
+			logging.Debugf("HybridCache.FindSimilarWithThreshold: Milvus GetByID failed for %s: %v",
+				candidate.milvusID, err)
+			continue
+		}
+
+		if responseBody != nil {
+			atomic.AddInt64(&h.hitCount, 1)
+			logging.Debugf("HybridCache.FindSimilarWithThreshold: MILVUS HIT - similarity=%.4f (threshold=%.3f)",
+				candidate.similarity, threshold)
+			logging.LogEvent("hybrid_cache_hit", map[string]interface{}{
+				"backend":    "hybrid",
+				"source":     "milvus",
+				"similarity": candidate.similarity,
+				"threshold":  threshold,
+				"model":      model,
+				"latency_ms": time.Since(start).Milliseconds(),
+			})
+			metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "hit_milvus", time.Since(start).Seconds())
+			metrics.RecordCacheHit()
+			return responseBody, true, nil
+		}
+	}
+
+	// No match found above threshold
+	atomic.AddInt64(&h.missCount, 1)
+	logging.Debugf("HybridCache.FindSimilarWithThreshold: CACHE MISS - no match above threshold")
+	logging.LogEvent("hybrid_cache_miss", map[string]interface{}{
+		"backend":    "hybrid",
+		"threshold":  threshold,
+		"model":      model,
+		"candidates": len(candidatesWithIDs),
+	})
+	metrics.RecordCacheOperation("hybrid", "find_similar_threshold", "miss", time.Since(start).Seconds())
+	metrics.RecordCacheMiss()
+
+	return nil, false, nil
+}
+
 // Close releases all resources
 func (h *HybridCache) Close() error {
 	if !h.enabled {

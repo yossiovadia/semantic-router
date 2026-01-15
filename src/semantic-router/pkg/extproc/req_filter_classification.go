@@ -7,12 +7,12 @@ import (
 	"github.com/vllm-project/semantic-router/src/semantic-router/pkg/utils/entropy"
 )
 
-// performDecisionEvaluationAndModelSelection performs decision evaluation using DecisionEngine
+// performDecisionEvaluation performs decision evaluation using DecisionEngine
 // Returns (decisionName, confidence, reasoningDecision, selectedModel)
 // This is the new approach that uses Decision-based routing with AND/OR rule combinations
 // Decision evaluation is ALWAYS performed when decisions are configured (for plugin features like
 // hallucination detection), but model selection only happens for auto models.
-func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel string, userContent string, nonUserMessages []string, ctx *RequestContext) (string, float64, entropy.ReasoningDecision, string) {
+func (r *OpenAIRouter) performDecisionEvaluation(originalModel string, userContent string, nonUserMessages []string, ctx *RequestContext) (string, float64, entropy.ReasoningDecision, string) {
 	var decisionName string
 	var evaluationConfidence float64
 	var reasoningDecision entropy.ReasoningDecision
@@ -42,10 +42,30 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 		return "", 0.0, entropy.ReasoningDecision{}, ""
 	}
 
-	// Perform decision evaluation using DecisionEngine
+	// Evaluate all signals first to get detailed signal information
+	signals := r.Classifier.EvaluateAllSignals(evaluationText)
+
+	// Store signal results in context for response headers
+	ctx.VSRMatchedKeywords = signals.MatchedKeywordRules
+	ctx.VSRMatchedEmbeddings = signals.MatchedEmbeddingRules
+	ctx.VSRMatchedDomains = signals.MatchedDomainRules
+	ctx.VSRMatchedFactCheck = signals.MatchedFactCheckRules
+	ctx.VSRMatchedUserFeedback = signals.MatchedUserFeedbackRules
+	ctx.VSRMatchedPreference = signals.MatchedPreferenceRules
+
+	// Set fact-check context fields from signal results
+	// This replaces the old performFactCheckClassification call to avoid duplicate computation
+	r.setFactCheckFromSignals(ctx, signals.MatchedFactCheckRules)
+
+	// Log signal evaluation results
+	logging.Infof("Signal evaluation results: keyword=%v, embedding=%v, domain=%v, fact_check=%v, user_feedback=%v, preference=%v",
+		signals.MatchedKeywordRules, signals.MatchedEmbeddingRules, signals.MatchedDomainRules,
+		signals.MatchedFactCheckRules, signals.MatchedUserFeedbackRules, signals.MatchedPreferenceRules)
+
+	// Perform decision evaluation using pre-computed signals
 	// This is ALWAYS done when decisions are configured, regardless of model type,
 	// because plugins (e.g., hallucination detection) depend on the matched decision
-	result, err := r.Classifier.EvaluateDecisionWithEngine(evaluationText)
+	result, err := r.Classifier.EvaluateDecisionWithEngine(signals)
 	if err != nil {
 		logging.Errorf("Decision evaluation error: %v", err)
 		if r.Config.IsAutoModelName(originalModel) {
@@ -55,7 +75,6 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 	}
 
 	if result == nil || result.Decision == nil {
-		logging.Warnf("No decision matched")
 		if r.Config.IsAutoModelName(originalModel) {
 			return "", 0.0, entropy.ReasoningDecision{}, r.Config.DefaultModel
 		}
@@ -65,6 +84,11 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 	// Store the selected decision in context for later use (e.g., plugins, header mutations)
 	// This is critical for hallucination detection and other per-decision plugins
 	ctx.VSRSelectedDecision = result.Decision
+
+	if replayCfg := result.Decision.GetRouterReplayConfig(); replayCfg != nil && replayCfg.Enabled {
+		cfgCopy := *replayCfg
+		ctx.RouterReplayConfig = &cfgCopy
+	}
 
 	// Extract domain category from matched rules (for VSRSelectedCategory header)
 	// MatchedRules contains rule names like "domain:math", "keyword:thinking", etc.
@@ -78,6 +102,10 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 	}
 	// Store category in context for response headers
 	ctx.VSRSelectedCategory = categoryName
+	ctx.VSRSelectedDecisionConfidence = evaluationConfidence
+
+	// Store matched keywords in context for response headers
+	ctx.VSRMatchedKeywords = result.MatchedKeywords
 
 	decisionName = result.Decision.Name
 	evaluationConfidence = result.Confidence
@@ -104,6 +132,7 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 		} else {
 			logging.Infof("Selected model from decision %s: %s", decisionName, selectedModel)
 		}
+		ctx.VSRSelectedModel = selectedModel
 
 		// Determine reasoning mode from the best model's configuration
 		if result.Decision.ModelRefs[0].UseReasoning != nil {
@@ -119,6 +148,11 @@ func (r *OpenAIRouter) performDecisionEvaluationAndModelSelection(originalModel 
 						Probability: float32(evaluationConfidence),
 					},
 				},
+			}
+			if useReasoning {
+				ctx.VSRReasoningMode = "on"
+			} else {
+				ctx.VSRReasoningMode = "off"
 			}
 			// Note: ReasoningEffort is handled separately in req_filter_reason.go
 		}

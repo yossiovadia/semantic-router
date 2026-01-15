@@ -126,21 +126,9 @@ oc get route semantic-router-metrics -n vllm-semantic-router-system -o jsonpath=
 
 # Observability (if deployed)
 oc get route dashboard -n vllm-semantic-router-system -o jsonpath='{.spec.host}'
-oc get route openwebui -n vllm-semantic-router-system -o jsonpath='{.spec.host}'
 oc get route grafana -n vllm-semantic-router-system -o jsonpath='{.spec.host}'
 oc get route prometheus -n vllm-semantic-router-system -o jsonpath='{.spec.host}'
 ```
-
-### Dashboard Playground
-
-Access the OpenWebUI playground through the dashboard:
-
-```bash
-DASHBOARD_URL=$(oc get route dashboard -n vllm-semantic-router-system -o jsonpath='{.spec.host}')
-echo "Playground: https://$DASHBOARD_URL/playground"
-```
-
-The playground automatically detects the OpenWebUI URL by replacing `dashboard` with `openwebui` in the hostname - no configuration needed!
 
 ### Example Usage
 
@@ -149,12 +137,20 @@ The playground automatically detects the OpenWebUI URL by replacing `dashboard` 
 API_ROUTE=$(oc get route semantic-router-api -n vllm-semantic-router-system -o jsonpath='{.spec.host}')
 
 # Test health endpoint
-curl https://$API_ROUTE/health
+curl -k https://$API_ROUTE/health
 
 # Test classification
-curl -X POST https://$API_ROUTE/api/v1/classify/intent \
+curl -k -X POST https://$API_ROUTE/api/v1/classify/intent \
   -H "Content-Type: application/json" \
   -d '{"text": "What is machine learning?"}'
+
+# Get the Envoy route (for chat completions endpoint)
+ENVOY_ROUTE=$(oc get route envoy-http -n vllm-semantic-router-system -o jsonpath='{.spec.host}')
+
+# Test auto routing (hits a model backend via Envoy)
+curl -k -X POST https://$ENVOY_ROUTE/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","messages":[{"role":"user","content":"What is 2+2?"}]}'
 ```
 
 ## Architecture Differences from Kubernetes

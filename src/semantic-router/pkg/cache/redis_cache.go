@@ -302,10 +302,6 @@ func (c *RedisCache) createIndex() error {
 			FieldType: redis.SearchFieldTypeText,
 		},
 		&redis.FieldSchema{
-			FieldName: "namespace",
-			FieldType: redis.SearchFieldTypeTag, // TAG for exact matching and filtering
-		},
-		&redis.FieldSchema{
 			FieldName: "model",
 			FieldType: redis.SearchFieldTypeTag,
 		},
@@ -371,15 +367,21 @@ func (c *RedisCache) CheckConnection() error {
 }
 
 // AddPendingRequest stores a request that is awaiting its response
-func (c *RedisCache) AddPendingRequest(requestID string, namespace string, model string, query string, requestBody []byte) error {
+func (c *RedisCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !c.enabled {
 		return nil
 	}
 
+	// Handle TTL=0: skip caching entirely
+	if ttlSeconds == 0 {
+		logging.Debugf("RedisCache.AddPendingRequest: skipping cache (ttl_seconds=0)")
+		return nil
+	}
+
 	// Store incomplete entry for later completion with response
-	err := c.addEntry("", requestID, namespace, model, query, requestBody, nil)
+	err := c.addEntry("", requestID, model, query, requestBody, nil, ttlSeconds)
 
 	if err != nil {
 		metrics.RecordCacheOperation("redis", "add_pending", "error", time.Since(start).Seconds())
@@ -391,15 +393,15 @@ func (c *RedisCache) AddPendingRequest(requestID string, namespace string, model
 }
 
 // UpdateWithResponse completes a pending request by adding the response
-func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte) error {
+func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !c.enabled {
 		return nil
 	}
 
-	logging.Debugf("RedisCache.UpdateWithResponse: updating pending entry (request_id: %s, response_size: %d)",
-		requestID, len(responseBody))
+	logging.Debugf("RedisCache.UpdateWithResponse: updating pending entry (request_id: %s, response_size: %d, ttl_seconds=%d)",
+		requestID, len(responseBody), ttlSeconds)
 
 	// Find the pending entry by request_id
 	ctx := context.Background()
@@ -414,7 +416,6 @@ func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte) e
 		query,
 		&redis.FTSearchOptions{
 			Return: []redis.FTSearchReturn{
-				{FieldName: "namespace"},
 				{FieldName: "model"},
 				{FieldName: "query"},
 				{FieldName: "request_body"},
@@ -438,7 +439,6 @@ func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte) e
 	logging.Infof("UpdateWithResponse: found %d result(s) for request_id=%s", results.Total, requestID)
 
 	doc := results.Docs[0]
-	namespace := fmt.Sprint(doc.Fields["namespace"])
 	model := fmt.Sprint(doc.Fields["model"])
 	queryStr := fmt.Sprint(doc.Fields["query"])
 	requestBodyStr := fmt.Sprint(doc.Fields["request_body"])
@@ -446,10 +446,10 @@ func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte) e
 	// Extract document ID from the result
 	docID := doc.ID
 
-	logging.Debugf("RedisCache.UpdateWithResponse: found pending entry, updating (id: %s, namespace: %s, model: %s)", docID, namespace, model)
+	logging.Debugf("RedisCache.UpdateWithResponse: found pending entry, updating (id: %s, model: %s)", docID, model)
 
-	// Update the document with response body
-	err = c.addEntry(docID, requestID, namespace, model, queryStr, []byte(requestBodyStr), responseBody)
+	// Update the document with response body and TTL
+	err = c.addEntry(docID, requestID, model, queryStr, []byte(requestBodyStr), responseBody, ttlSeconds)
 	if err != nil {
 		metrics.RecordCacheOperation("redis", "update_response", "error", time.Since(start).Seconds())
 		return fmt.Errorf("failed to update entry: %w", err)
@@ -462,14 +462,20 @@ func (c *RedisCache) UpdateWithResponse(requestID string, responseBody []byte) e
 }
 
 // AddEntry stores a complete request-response pair in the cache
-func (c *RedisCache) AddEntry(requestID string, namespace string, model string, query string, requestBody, responseBody []byte) error {
+func (c *RedisCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error {
 	start := time.Now()
 
 	if !c.enabled {
 		return nil
 	}
 
-	err := c.addEntry("", requestID, namespace, model, query, requestBody, responseBody)
+	// Handle TTL=0: skip caching entirely
+	if ttlSeconds == 0 {
+		logging.Debugf("RedisCache.AddEntry: skipping cache (ttl_seconds=0)")
+		return nil
+	}
+
+	err := c.addEntry("", requestID, model, query, requestBody, responseBody, ttlSeconds)
 
 	if err != nil {
 		metrics.RecordCacheOperation("redis", "add_entry", "error", time.Since(start).Seconds())
@@ -503,9 +509,15 @@ func escapeRedisTagValue(value string) string {
 }
 
 // addEntry handles the internal logic for storing entries in Redis
-func (c *RedisCache) addEntry(id string, requestID string, namespace string, model string, query string, requestBody, responseBody []byte) error {
-	logging.Infof("addEntry called: id='%s', requestID='%s', namespace='%s', requestBody_len=%d, responseBody_len=%d",
-		id, requestID, namespace, len(requestBody), len(responseBody))
+func (c *RedisCache) addEntry(id string, requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error {
+	logging.Infof("addEntry called: id='%s', requestID='%s', requestBody_len=%d, responseBody_len=%d, ttl_seconds=%d",
+		id, requestID, len(requestBody), len(responseBody), ttlSeconds)
+
+	// Determine effective TTL: use provided value or fall back to cache default
+	effectiveTTL := ttlSeconds
+	if ttlSeconds == -1 {
+		effectiveTTL = c.ttlSeconds
+	}
 
 	// Generate semantic embedding for the query
 	embedding, err := candle_binding.GetEmbedding(query, 0)
@@ -536,32 +548,32 @@ func (c *RedisCache) addEntry(id string, requestID string, namespace string, mod
 	responseBodyStr := string(responseBody)
 	logging.Infof("Setting response_body field: len=%d, isEmpty=%v", len(responseBodyStr), responseBodyStr == "")
 
+	// Prepare hash fields including ttl_seconds
+	hashFields := map[string]interface{}{
+		"request_id":                    requestID,
+		"model":                         model,
+		"query":                         query,
+		"request_body":                  string(requestBody),
+		"response_body":                 responseBodyStr,
+		c.config.Index.VectorField.Name: embeddingBytes,
+		"timestamp":                     time.Now().Unix(),
+		"ttl_seconds":                   effectiveTTL,
+	}
+
 	// Store as Redis hash
-	err = c.client.HSet(ctx,
-		docKey,
-		map[string]interface{}{
-			"request_id":                    requestID,
-			"namespace":                     namespace,
-			"model":                         model,
-			"query":                         query,
-			"request_body":                  string(requestBody),
-			"response_body":                 responseBodyStr,
-			c.config.Index.VectorField.Name: embeddingBytes,
-			"timestamp":                     time.Now().Unix(),
-		},
-	).Err()
+	err = c.client.HSet(ctx, docKey, hashFields).Err()
 	if err != nil {
 		logging.Debugf("RedisCache.addEntry: HSet failed: %v", err)
 		return fmt.Errorf("failed to store cache entry: %w", err)
 	}
 
-	// Set TTL if configured
-	if c.ttlSeconds > 0 {
-		c.client.Expire(ctx, docKey, time.Duration(c.ttlSeconds)*time.Second)
+	// Set TTL if configured (Redis native TTL)
+	if effectiveTTL > 0 {
+		c.client.Expire(ctx, docKey, time.Duration(effectiveTTL)*time.Second)
 	}
 
-	logging.Debugf("RedisCache.addEntry: successfully added entry to Redis (key: %s, embedding_dim: %d, request_size: %d, response_size: %d)",
-		docKey, len(embedding), len(requestBody), len(responseBody))
+	logging.Debugf("RedisCache.addEntry: successfully added entry to Redis (key: %s, embedding_dim: %d, request_size: %d, response_size: %d, ttl=%d)",
+		docKey, len(embedding), len(requestBody), len(responseBody), effectiveTTL)
 	logging.LogEvent("cache_entry_added", map[string]interface{}{
 		"backend":             "redis",
 		"index":               c.indexName,
@@ -574,18 +586,15 @@ func (c *RedisCache) addEntry(id string, requestID string, namespace string, mod
 }
 
 // FindSimilar searches for semantically similar cached requests
-// Uses default "general" namespace for backward compatibility
 func (c *RedisCache) FindSimilar(model string, query string) ([]byte, bool, error) {
-	// Use default namespace for backward compatibility
-	defaultNamespace := "general"
-	return c.FindSimilarWithThreshold(defaultNamespace, model, query, c.similarityThreshold)
+	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold)
 }
 
 // FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-func (c *RedisCache) FindSimilarWithThreshold(namespace string, model string, query string, threshold float32) ([]byte, bool, error) {
+func (c *RedisCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
 	start := time.Now()
 
-	logging.Infof("FindSimilarWithThreshold ENTERED: namespace=%s, model=%s, query='%s', threshold=%.2f", namespace, model, query, threshold)
+	logging.Infof("FindSimilarWithThreshold ENTERED: model=%s, query='%s', threshold=%.2f", model, query, threshold)
 
 	if !c.enabled {
 		logging.Infof("FindSimilarWithThreshold: cache disabled, returning early")
@@ -606,13 +615,10 @@ func (c *RedisCache) FindSimilarWithThreshold(namespace string, model string, qu
 	// Convert embedding to bytes for Redis query
 	embeddingBytes := floatsToBytes(queryEmbedding)
 
-	// Build KNN query with namespace and model filters (TAG fields require escaped values)
-	escapedNamespace := escapeRedisTagValue(namespace)
+	// Build KNN query with model filter (TAG fields require escaped values)
 	escapedModel := escapeRedisTagValue(model)
-	knnQuery := fmt.Sprintf("(@namespace:{%s} @model:{%s})=>[KNN %d @%s $vec AS vector_distance]",
-		escapedNamespace, escapedModel, c.config.Search.TopK, c.config.Index.VectorField.Name)
-
-	logging.Infof("Redis search query: %s (namespace=%s, model=%s)", knnQuery, namespace, model)
+	knnQuery := fmt.Sprintf("(@model:{%s})=>[KNN %d @%s $vec AS vector_distance]",
+		escapedModel, c.config.Search.TopK, c.config.Index.VectorField.Name)
 
 	// Execute vector search
 	searchResult, err := c.client.FTSearchWithArgs(ctx,

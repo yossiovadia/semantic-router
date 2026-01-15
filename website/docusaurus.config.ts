@@ -7,7 +7,7 @@ const darkCodeTheme = themes.vsDark
 
 const config: Config = {
   title: 'vLLM Semantic Router',
-  tagline: 'Intelligent Auto Reasoning Router for Efficient LLM Inference on Mixture-of-Models',
+  tagline: 'System Level Intelligent Router for Mixture-of-Models',
   favicon: 'img/vllm.png',
 
   // Set the production url of your site here
@@ -21,19 +21,23 @@ const config: Config = {
   organizationName: 'vllm-project', // Usually your GitHub org/user name.
   projectName: 'semantic-router', // Usually your repo name.
 
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
-
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
-    locales: ['en'],
+    locales: ['en', 'zh-Hans'],
+    localeConfigs: {
+      'en': { label: 'English', htmlLang: 'en-US' },
+      'zh-Hans': { label: '简体中文', htmlLang: 'zh-Hans' },
+    },
   },
 
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
   themes: ['@docusaurus/theme-mermaid'],
 
@@ -43,10 +47,27 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
+          versions: {
+            'current': {
+              label: '🚧 Next',
+              path: 'next',
+              badge: true,
+            },
+            'v0.1': {
+              label: 'v0.1',
+              path: '',
+              badge: true,
+            },
+          },
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/vllm-project/semantic-router/tree/main/website/',
+          // Custom editUrl function to always point to the "current" (main) version
+          editUrl: ({ locale, docPath }) => {
+            if (locale !== 'en') {
+              return `https://github.com/vllm-project/semantic-router/edit/main/website/i18n/${locale}/docusaurus-plugin-content-docs/current/${docPath}`
+            }
+            return `https://github.com/vllm-project/semantic-router/edit/main/website/docs/${docPath}`
+          },
         },
         blog: {
           showReadingTime: true,
@@ -82,6 +103,18 @@ const config: Config = {
             from: '/docs/installation/kubernetes',
             to: '/docs/installation/k8s/ai-gateway',
           },
+          {
+            from: '/docs/cli/overview',
+            to: '/docs/installation/',
+          },
+          {
+            from: '/docs/cli/commands-reference',
+            to: '/docs/installation/',
+          },
+          {
+            from: '/docs/cli/troubleshooting',
+            to: '/docs/troubleshooting/common-errors',
+          },
         ],
       },
     ],
@@ -90,16 +123,16 @@ const config: Config = {
   themeConfig: {
     image: 'img/docusaurus-social-card.jpg',
     metadata: [
-      { name: 'description', content: 'Intelligent Auto Reasoning Router for Efficient LLM Inference on Mixture-of-Models' },
+      { name: 'description', content: 'System Level Intelligent Router for Mixture-of-Models' },
       { name: 'keywords', content: 'LLM, Semantic Router, Mixture of Models, vLLM, Routing, AI Gateway, Envoy, ExtProc' },
       { name: 'author', content: 'vLLM Semantic Router Team' },
       { property: 'og:title', content: 'vLLM Semantic Router' },
-      { property: 'og:description', content: 'Intelligent Auto Reasoning Router for Efficient LLM Inference on Mixture-of-Models' },
+      { property: 'og:description', content: 'System Level Intelligent Router for Mixture-of-Models' },
       { property: 'og:type', content: 'website' },
       { property: 'og:site_name', content: 'vLLM Semantic Router' },
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: 'vLLM Semantic Router' },
-      { name: 'twitter:description', content: 'Intelligent Auto Reasoning Router for Efficient LLM Inference on Mixture-of-Models' },
+      { name: 'twitter:description', content: 'System Level Intelligent Router for Mixture-of-Models' },
 
       // GEO metadata config
       { name: 'geo.region', content: 'US-CA' },
@@ -116,6 +149,15 @@ const config: Config = {
       },
       items: [
         {
+          type: 'localeDropdown',
+          position: 'right',
+        },
+        {
+          type: 'docsVersionDropdown',
+          position: 'right',
+          dropdownActiveClassDisabled: true,
+        },
+        {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
           position: 'left',
@@ -131,15 +173,11 @@ const config: Config = {
           label: 'Blog',
           position: 'left',
         },
-        {
-          to: '/news',
-          label: 'News',
-          position: 'left',
-        },
+
         {
           type: 'dropdown',
           label: 'Community',
-          position: 'right',
+          position: 'left',
           items: [
             {
               label: 'vLLM-SR Team',
@@ -161,13 +199,10 @@ const config: Config = {
               label: 'Code of Conduct',
               to: '/community/code-of-conduct',
             },
+
             {
               type: 'html',
               value: '<hr style="margin: 0.3rem 0;">',
-            },
-            {
-              label: 'GitHub Discussions',
-              href: 'https://github.com/vllm-project/semantic-router/discussions',
             },
             {
               label: 'GitHub Issues',
@@ -176,24 +211,13 @@ const config: Config = {
           ],
         },
         {
-          type: 'dropdown',
-          label: 'Roadmap',
-          position: 'right',
-          items: [
-            {
-              label: 'v0.1',
-              to: '/roadmap/v0.1',
-            },
-          ],
-        },
-        {
           href: 'https://github.com/vllm-project/semantic-router',
-          label: 'GitHub',
+          className: 'header-github-link',
           position: 'right',
         },
         {
           href: 'https://huggingface.co/LLM-Semantic-Router',
-          label: '🤗 Hugging Face',
+          className: 'header-hf-link',
           position: 'right',
         },
       ],
@@ -205,16 +229,28 @@ const config: Config = {
           title: 'Documentation',
           items: [
             {
+              label: 'Quick Start',
+              to: '/docs/intro',
+            },
+            {
               label: 'Installation',
               to: '/docs/installation',
             },
             {
-              label: 'Architecture',
-              to: '/docs/overview/architecture/system-architecture',
+              label: 'Tutorials',
+              to: '/docs/tutorials/intelligent-route/embedding-routing',
             },
             {
               label: 'API Reference',
               to: '/docs/api/router',
+            },
+            {
+              label: 'CRD Reference',
+              to: '/docs/api/crd-reference',
+            },
+            {
+              label: 'Troubleshooting',
+              to: '/docs/troubleshooting/common-errors',
             },
           ],
         },
@@ -229,18 +265,35 @@ const config: Config = {
               label: 'Hugging Face',
               href: 'https://huggingface.co/LLM-Semantic-Router',
             },
+            {
+              label: 'GitHub Discussions',
+              href: 'https://github.com/vllm-project/semantic-router/discussions',
+            },
+            {
+              label: 'Team',
+              to: '/community/team',
+            },
+            {
+              label: 'Contributing',
+              to: '/community/contributing',
+            },
           ],
         },
         {
           title: 'More',
           items: [
             {
-              label: 'License',
-              href: 'https://github.com/vllm-project/semantic-router/blob/main/LICENSE',
+              label: 'Blog',
+              to: '/blog',
             },
             {
-              label: 'Contributing',
-              href: 'https://github.com/vllm-project/semantic-router/blob/main/CONTRIBUTING.md',
+              label: 'Publications',
+              to: '/publications',
+            },
+
+            {
+              label: 'License',
+              href: 'https://github.com/vllm-project/semantic-router/blob/main/LICENSE',
             },
           ],
         },
@@ -268,6 +321,14 @@ const config: Config = {
       },
     },
     {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate',
+        hreflang: 'zh-Hans',
+        href: 'https://vllm-semantic-router.com/zh-Hans/',
+      },
+    },
+    {
       tagName: 'script',
       attributes: { type: 'application/ld+json' },
       innerHTML: JSON.stringify({
@@ -276,7 +337,7 @@ const config: Config = {
         'name': 'vLLM Semantic Router',
         'applicationCategory': 'AIInfrastructure',
         'operatingSystem': 'Cross-platform',
-        'description': 'Intelligent Auto Reasoning Router for Efficient LLM Inference on Mixture-of-Models',
+        'description': 'System Level Intelligent Router for Mixture-of-Models',
         'url': 'https://vllm-semantic-router.com',
         'publisher': {
           '@type': 'Organization',

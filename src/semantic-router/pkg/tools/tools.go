@@ -22,6 +22,12 @@ type ToolEntry struct {
 	Category    string                         `json:"category,omitempty"`
 }
 
+// ToolSimilarity represents a tool candidate with its similarity score.
+type ToolSimilarity struct {
+	Entry      ToolEntry
+	Similarity float32
+}
+
 // ToolsDatabase manages a collection of tools with semantic search capabilities
 type ToolsDatabase struct {
 	entries             []ToolEntry
@@ -73,19 +79,20 @@ func (db *ToolsDatabase) LoadToolsFromFile(filePath string) error {
 
 	// Generate embeddings for each tool and add to database
 	for _, entry := range toolEntries {
-		// Generate embedding for the description
-		embedding, err := candle_binding.GetEmbedding(entry.Description, 512)
+		// Generate embedding for the description using Qwen3/Gemma with automatic routing
+		// qualityPriority=0.5, latencyPriority=0.5 for balanced performance
+		output, err := candle_binding.GetEmbeddingWithMetadata(entry.Description, 0.5, 0.5, 0)
 		if err != nil {
 			logging.Warnf("Failed to generate embedding for tool %s: %v", entry.Tool.Function.Name, err)
 			continue
 		}
 
 		// Set the embedding
-		entry.Embedding = embedding
+		entry.Embedding = output.Embedding
 
 		// Add to the database
 		db.entries = append(db.entries, entry)
-		logging.Infof("Loaded tool: %s - %s", entry.Tool.Function.Name, entry.Description)
+		logging.Debugf("Loaded tool: %s - %s (model: %s)", entry.Tool.Function.Name, entry.Description, output.ModelType)
 	}
 
 	logging.Infof("Loaded %d tools from file: %s", len(toolEntries), filePath)
@@ -98,45 +105,58 @@ func (db *ToolsDatabase) AddTool(tool openai.ChatCompletionToolParam, descriptio
 		return nil
 	}
 
-	// Generate embedding for the description
-	embedding, err := candle_binding.GetEmbedding(description, 512)
+	// Generate embedding for the description using Qwen3/Gemma with automatic routing
+	// qualityPriority=0.5, latencyPriority=0.5 for balanced performance
+	output, err := candle_binding.GetEmbeddingWithMetadata(description, 0.5, 0.5, 0)
 	if err != nil {
 		return fmt.Errorf("failed to generate embedding for tool %s: %w", tool.Function.Name, err)
 	}
 
-	entry := ToolEntry{Tool: tool, Description: description, Embedding: embedding, Category: category, Tags: tags}
+	entry := ToolEntry{Tool: tool, Description: description, Embedding: output.Embedding, Category: category, Tags: tags}
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	db.entries = append(db.entries, entry)
-	logging.Infof("Added tool: %s (%s)", tool.Function.Name, description)
+	logging.Infof("Added tool: %s (%s) using model: %s", tool.Function.Name, description, output.ModelType)
 
 	return nil
 }
 
 // FindSimilarTools finds the most similar tools based on the query
 func (db *ToolsDatabase) FindSimilarTools(query string, topK int) ([]openai.ChatCompletionToolParam, error) {
-	if !db.enabled {
-		return []openai.ChatCompletionToolParam{}, nil
+	results, err := db.FindSimilarToolsWithScores(query, topK)
+	if err != nil {
+		return nil, err
 	}
 
-	// Generate embedding for the query
-	queryEmbedding, err := candle_binding.GetEmbedding(query, 512)
+	selectedTools := make([]openai.ChatCompletionToolParam, len(results))
+	for i, result := range results {
+		selectedTools[i] = result.Entry.Tool
+	}
+
+	return selectedTools, nil
+}
+
+// FindSimilarToolsWithScores finds the most similar tools based on the query and returns scores.
+func (db *ToolsDatabase) FindSimilarToolsWithScores(query string, topK int) ([]ToolSimilarity, error) {
+	if !db.enabled {
+		return []ToolSimilarity{}, nil
+	}
+
+	// Generate embedding for the query using Qwen3/Gemma with automatic routing
+	// qualityPriority=0.5, latencyPriority=0.5 for balanced performance
+	output, err := candle_binding.GetEmbeddingWithMetadata(query, 0.5, 0.5, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate embedding for query: %w", err)
 	}
+	queryEmbedding := output.Embedding
 
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	type SimilarityResult struct {
-		Entry      ToolEntry
-		Similarity float32
-	}
-
 	// Calculate similarities
-	results := make([]SimilarityResult, 0, len(db.entries))
+	results := make([]ToolSimilarity, 0, len(db.entries))
 	for _, entry := range db.entries {
 		// Calculate similarity
 		var dotProduct float32
@@ -150,7 +170,7 @@ func (db *ToolsDatabase) FindSimilarTools(query string, topK int) ([]openai.Chat
 
 		// Only consider if above threshold
 		if dotProduct >= db.similarityThreshold {
-			results = append(results, SimilarityResult{
+			results = append(results, ToolSimilarity{
 				Entry:      entry,
 				Similarity: dotProduct,
 			})
@@ -159,7 +179,7 @@ func (db *ToolsDatabase) FindSimilarTools(query string, topK int) ([]openai.Chat
 
 	// No results found
 	if len(results) == 0 {
-		return []openai.ChatCompletionToolParam{}, nil
+		return []ToolSimilarity{}, nil
 	}
 
 	// Sort by similarity (highest first)
@@ -167,17 +187,19 @@ func (db *ToolsDatabase) FindSimilarTools(query string, topK int) ([]openai.Chat
 		return results[i].Similarity > results[j].Similarity
 	})
 
-	// Select top-k tools that meet the threshold
-	limit := min(topK, len(results))
-	selectedTools := make([]openai.ChatCompletionToolParam, 0, limit)
-	for i := range limit {
-		selectedTools = append(selectedTools, results[i].Entry.Tool)
-		logging.Infof("Selected tool: %s (similarity=%.4f)",
-			results[i].Entry.Tool.Function.Name, results[i].Similarity)
+	limit := topK
+	if limit <= 0 || limit > len(results) {
+		limit = len(results)
 	}
 
-	logging.Infof("Found %d similar tools for query: %s", len(selectedTools), query)
-	return selectedTools, nil
+	selected := results[:limit]
+	for _, result := range selected {
+		logging.Infof("Selected tool: %s (similarity=%.4f)",
+			result.Entry.Tool.Function.Name, result.Similarity)
+	}
+
+	logging.Infof("Found %d similar tools for query: %s", len(selected), query)
+	return selected, nil
 }
 
 // GetAllTools returns all tools in the database

@@ -12,6 +12,161 @@ import (
 	"github.com/vllm-project/semantic-router/dashboard/backend/proxy"
 )
 
+// serviceNotConfiguredHTML generates a user-friendly HTML page for unconfigured services
+func serviceNotConfiguredHTML(serviceName, envVar, exampleValue string) string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>` + serviceName + ` Not Configured</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 480px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            background: rgba(245, 158, 11, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: #f59e0b;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        p {
+            color: #a0a0a0;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .config-box {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: left;
+        }
+        .config-box h2 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .config-box .hint {
+            font-size: 13px;
+            color: #808080;
+            margin-bottom: 12px;
+        }
+        code {
+            display: block;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            color: #60a5fa;
+            word-break: break-all;
+        }
+        .example {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+        .example-label {
+            font-size: 12px;
+            color: #606060;
+            margin-bottom: 6px;
+        }
+        .example code {
+            font-size: 12px;
+            color: #808080;
+        }
+        .docs-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 12px 24px;
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 8px;
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .docs-link:hover {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: rgba(96, 165, 250, 0.5);
+            transform: translateY(-2px);
+        }
+        .docs-link svg {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        </div>
+        <h1>` + serviceName + ` Not Configured</h1>
+        <p>` + serviceName + ` is not configured for this dashboard. Please set the required environment variable to enable this service.</p>
+        <div class="config-box">
+            <h2>Configuration Required</h2>
+            <p class="hint">Set the following environment variable:</p>
+            <code>` + envVar + `</code>
+            <div class="example">
+                <p class="example-label">Example:</p>
+                <code>` + envVar + `=` + exampleValue + `</code>
+            </div>
+        </div>
+        <a href="https://vllm-semantic-router.com/docs/tutorials/observability/dashboard" target="_blank" rel="noopener noreferrer" class="docs-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            View Documentation
+        </a>
+    </div>
+</body>
+</html>`
+}
+
 // Setup configures all routes and returns the configured mux
 func Setup(cfg *config.Config) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -19,16 +174,43 @@ func Setup(cfg *config.Config) *http.ServeMux {
 	// Health check endpoint
 	mux.HandleFunc("/healthz", handlers.HealthCheck)
 
-	// Config endpoints
+	// Config endpoints - MUST be registered BEFORE proxy to take precedence
+	// In Go's ServeMux, exact path matches registered first take precedence over prefix handlers
 	mux.HandleFunc("/api/router/config/all", handlers.ConfigHandler(cfg.AbsConfigPath))
 	mux.HandleFunc("/api/router/config/update", handlers.UpdateConfigHandler(cfg.AbsConfigPath))
 	log.Printf("Config API endpoints registered: /api/router/config/all, /api/router/config/update")
+
+	// Router defaults endpoints (for .vllm-sr/router-defaults.yaml)
+	mux.HandleFunc("/api/router/config/defaults", handlers.RouterDefaultsHandler(cfg.ConfigDir))
+	mux.HandleFunc("/api/router/config/defaults/update", handlers.UpdateRouterDefaultsHandler(cfg.ConfigDir))
+	log.Printf("Router defaults API endpoints registered: /api/router/config/defaults, /api/router/config/defaults/update")
 
 	// Tools DB endpoint
 	mux.HandleFunc("/api/tools-db", handlers.ToolsDBHandler(cfg.ConfigDir))
 	log.Printf("Tools DB API endpoint registered: /api/tools-db")
 
+	// Status endpoint - shows service health status (aligns with vllm-sr status)
+	mux.HandleFunc("/api/status", handlers.StatusHandler(cfg.RouterAPIURL))
+	log.Printf("Status API endpoint registered: /api/status")
+
+	// Logs endpoint - shows service logs (aligns with vllm-sr logs)
+	mux.HandleFunc("/api/logs", handlers.LogsHandler(cfg.RouterAPIURL))
+	log.Printf("Logs API endpoint registered: /api/logs")
+
+	// Envoy proxy for chat completions (if configured)
+	// Chat completions must go through Envoy's ext_proc pipeline
+	var envoyProxy *httputil.ReverseProxy
+	if cfg.EnvoyURL != "" {
+		ep, err := proxy.NewReverseProxy(cfg.EnvoyURL, "", false)
+		if err != nil {
+			log.Fatalf("envoy proxy error: %v", err)
+		}
+		envoyProxy = ep
+		log.Printf("Envoy proxy configured: %s → /api/router/v1/chat/completions", cfg.EnvoyURL)
+	}
+
 	// Router API proxy (forward Authorization) - MUST be registered before Grafana
+	// Use HandleFunc to explicitly exclude config endpoints
 	var routerAPIProxy *httputil.ReverseProxy
 	if cfg.RouterAPIURL != "" {
 		rp, err := proxy.NewReverseProxy(cfg.RouterAPIURL, "/api/router", true)
@@ -36,8 +218,28 @@ func Setup(cfg *config.Config) *http.ServeMux {
 			log.Fatalf("router API proxy error: %v", err)
 		}
 		routerAPIProxy = rp
-		mux.Handle("/api/router/", rp)
-		log.Printf("Router API proxy configured: %s", cfg.RouterAPIURL)
+		// Explicitly exclude config endpoints from proxy
+		// Route chat completions to Envoy if configured
+		mux.HandleFunc("/api/router/", func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/router/config/") {
+				// Config endpoints are handled by specific handlers above
+				http.NotFound(w, r)
+				return
+			}
+			// Route chat completions to Envoy proxy
+			if envoyProxy != nil && strings.HasPrefix(r.URL.Path, "/api/router/v1/chat/completions") {
+				// Strip /api/router prefix and forward to Envoy
+				r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/router")
+				log.Printf("Proxying chat completions to Envoy: %s %s", r.Method, r.URL.Path)
+				if middleware.HandleCORSPreflight(w, r) {
+					return
+				}
+				envoyProxy.ServeHTTP(w, r)
+				return
+			}
+			rp.ServeHTTP(w, r)
+		})
+		log.Printf("Router API proxy configured: %s (excluding /api/router/config/*)", cfg.RouterAPIURL)
 	}
 
 	// Grafana proxy and static assets
@@ -82,45 +284,43 @@ func Setup(cfg *config.Config) *http.ServeMux {
 			}
 			grafanaStaticProxy.ServeHTTP(w, r)
 		})
+		mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+			if middleware.HandleCORSPreflight(w, r) {
+				return
+			}
+			if grafanaStaticProxy == nil {
+				w.Header().Set("Content-Type", "application/json")
+				http.Error(w, `{"error":"Service not available","message":"Grafana proxy not configured"}`, http.StatusBadGateway)
+				return
+			}
+			grafanaStaticProxy.ServeHTTP(w, r)
+		})
 
 		if grafanaStaticProxy != nil {
 			log.Printf("Grafana proxy configured: %s", cfg.GrafanaURL)
-			log.Printf("Grafana static assets proxied: /public/, /avatar/")
+			log.Printf("Grafana static assets proxied: /public/, /avatar/, /login")
 		} else {
 			log.Printf("Grafana proxy configured: %s (static proxy failed to initialize)", cfg.GrafanaURL)
 		}
 	} else {
 		mux.HandleFunc("/embedded/grafana/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"Grafana not configured","message":"TARGET_GRAFANA_URL environment variable is not set"}`))
+			_, _ = w.Write([]byte(serviceNotConfiguredHTML("Grafana", "TARGET_GRAFANA_URL", "http://localhost:3000")))
 		})
 		log.Printf("Warning: Grafana URL not configured")
 	}
 
-	// OpenWebUI static proxy (needs to be set up early for the smart /api/ router below)
-	var openwebuiStaticProxy *httputil.ReverseProxy
-	if cfg.OpenWebUIURL != "" {
-		var err error
-		openwebuiStaticProxy, err = proxy.NewReverseProxy(cfg.OpenWebUIURL, "", false)
-		if err != nil {
-			log.Printf("Warning: failed to create OpenWebUI static proxy: %v", err)
-			openwebuiStaticProxy = nil
-		}
-	}
-
-	// Jaeger API proxy (needs to be set up early for the smart router below)
+	// Jaeger API proxy
 	var jaegerAPIProxy *httputil.ReverseProxy
 	var jaegerStaticProxy *httputil.ReverseProxy
 	if cfg.JaegerURL != "" {
-		// Create proxy for Jaeger API (no prefix stripping for /api/*)
 		var err error
 		jaegerAPIProxy, err = proxy.NewReverseProxy(cfg.JaegerURL, "", false)
 		if err != nil {
 			log.Printf("Warning: failed to create Jaeger API proxy: %v", err)
 			jaegerAPIProxy = nil
 		}
-		// Create proxy for Jaeger static assets (reused in handlers)
 		jaegerStaticProxy, err = proxy.NewReverseProxy(cfg.JaegerURL, "", false)
 		if err != nil {
 			log.Printf("Warning: failed to create Jaeger static proxy: %v", err)
@@ -128,258 +328,18 @@ func Setup(cfg *config.Config) *http.ServeMux {
 		}
 	}
 
-	// Chat UI proxy (exposed early for smart /api routing and root-level assets)
-	// Uses the same approach as Grafana to solve CORS and iframe embedding issues
-	var chatUIProxy *httputil.ReverseProxy
-	if cfg.ChatUIURL != "" {
-		// Root-level proxy (no prefix stripping) for assets and API
-		var err error
-		chatUIProxy, err = proxy.NewReverseProxy(cfg.ChatUIURL, "", false)
-		if err != nil {
-			log.Printf("Warning: failed to create ChatUI proxy: %v", err)
-			chatUIProxy = nil
-		}
-		// Main UI under /embedded/chatui with prefix stripping
-		cup, err := proxy.NewReverseProxy(cfg.ChatUIURL, "/embedded/chatui", false)
-		if err != nil {
-			log.Fatalf("chatui proxy error: %v", err)
-		}
-		mux.HandleFunc("/embedded/chatui", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			cup.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/embedded/chatui/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			cup.ServeHTTP(w, r)
-		})
-		// Note: /_app/ is also used by OpenWebUI, so it's handled by OpenWebUI's handler
-		// (registered later) which checks referer and routes to ChatUI if needed
-		// SvelteKit static assets
-		mux.HandleFunc("/_next/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI Next.js asset: %s", r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		// Common web assets
-		mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			chatUIProxy.ServeHTTP(w, r)
-		})
-
-		// HuggingFace Chat UI API endpoints (these are NOT under /api/)
-		// These need to be proxied when the iframe makes requests
-		mux.HandleFunc("/conversation", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI conversation API: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		// Handle /conversation/{id} for sending messages to a specific conversation
-		mux.HandleFunc("/conversation/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI conversation API: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/conversations", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI conversations API: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/conversations/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI conversations API: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI settings: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/settings/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI settings: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			// Check if this is a Grafana login request by:
-			// 1. Query parameter redirectTo with "goto" (GET requests)
-			// 2. Referer header containing "/embedded/grafana" or "/monitoring"
-			// 3. Content-Type: application/json (Grafana uses JSON for login POST)
-			redirectTo := r.URL.Query().Get("redirectTo")
-			referer := r.Header.Get("Referer")
-			contentType := r.Header.Get("Content-Type")
-
-			isGrafanaRequest := (redirectTo != "" && strings.Contains(redirectTo, "goto")) ||
-				strings.Contains(referer, "/embedded/grafana") ||
-				strings.Contains(referer, "/monitoring") ||
-				strings.Contains(contentType, "application/json")
-
-			if isGrafanaRequest && grafanaStaticProxy != nil {
-				log.Printf("Proxying Grafana login: %s %s (redirectTo=%s, referer=%s, contentType=%s)", r.Method, r.URL.Path, redirectTo, referer, contentType)
-				grafanaStaticProxy.ServeHTTP(w, r)
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI login: %s %s (contentType=%s)", r.Method, r.URL.Path, contentType)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI logout: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		// Shared conversation routes
-		mux.HandleFunc("/r/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI shared conversation: %s %s", r.Method, r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-		// Chat UI assets folder (logo, images, etc.)
-		mux.HandleFunc("/chatui/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			if chatUIProxy == nil {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"ChatUI proxy not configured"}`, http.StatusBadGateway)
-				return
-			}
-			log.Printf("Proxying Chat UI assets: %s", r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
-		})
-
-		log.Printf("HuggingChat proxy configured: %s → /embedded/chatui/", cfg.ChatUIURL)
-		log.Printf("HuggingChat API routes: /conversation, /conversations, /settings, /login, /logout, /r/")
-		log.Printf("HuggingChat assets proxied at: /_app/, /chatui/, /favicon.ico, /manifest.webmanifest, /robots.txt")
-	} else {
-		mux.HandleFunc("/embedded/chatui/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"HuggingChat not configured","message":"TARGET_CHATUI_URL environment variable is not set"}`))
-		})
-		log.Printf("Info: HuggingChat not configured (optional)")
-	}
-
-	// Smart /api/ router: route to Router API, Jaeger API, Chat UI API, or Grafana API based on path
+	// Smart /api/ router: route to Router API, Jaeger API, or Grafana API based on path
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		if middleware.HandleCORSPreflight(w, r) {
 			return
 		}
 
-		// Log all API requests for debugging
+		// Exclude config endpoints - they're handled by specific handlers registered earlier
+		if strings.HasPrefix(r.URL.Path, "/api/router/config/") {
+			http.NotFound(w, r)
+			return
+		}
+
 		log.Printf("API request: %s %s (from: %s)", r.Method, r.URL.Path, r.Header.Get("Referer"))
 
 		// If path starts with /api/router/, use Router API proxy
@@ -388,33 +348,13 @@ func Setup(cfg *config.Config) *http.ServeMux {
 			routerAPIProxy.ServeHTTP(w, r)
 			return
 		}
-		// If path is Jaeger API (services, traces, operations, dependencies, etc.), use Jaeger proxy
+		// If path is Jaeger API, use Jaeger proxy
 		if jaegerAPIProxy != nil && (strings.HasPrefix(r.URL.Path, "/api/services") ||
 			strings.HasPrefix(r.URL.Path, "/api/traces") ||
 			strings.HasPrefix(r.URL.Path, "/api/operations") ||
 			strings.HasPrefix(r.URL.Path, "/api/dependencies")) {
 			log.Printf("Routing to Jaeger API: %s", r.URL.Path)
 			jaegerAPIProxy.ServeHTTP(w, r)
-			return
-		}
-		// Check if request is from OpenWebUI (by referer) and route to OpenWebUI API
-		referer := r.Header.Get("Referer")
-		if openwebuiStaticProxy != nil && referer != "" && strings.Contains(referer, "/embedded/openwebui") {
-			log.Printf("Routing to OpenWebUI API: %s (referer: %s)", r.URL.Path, referer)
-			openwebuiStaticProxy.ServeHTTP(w, r)
-			return
-		}
-		// Check if path is a known OpenWebUI API endpoint (even without referer)
-		// OpenWebUI uses /api/config for configuration
-		if openwebuiStaticProxy != nil && strings.HasPrefix(r.URL.Path, "/api/config") {
-			log.Printf("Routing to OpenWebUI API: %s (by path pattern)", r.URL.Path)
-			openwebuiStaticProxy.ServeHTTP(w, r)
-			return
-		}
-		// Prefer Chat UI API when available (to avoid returning HTML from other backends)
-		if chatUIProxy != nil {
-			log.Printf("Routing to Chat UI API: %s", r.URL.Path)
-			chatUIProxy.ServeHTTP(w, r)
 			return
 		}
 		// Otherwise, if Grafana is configured, proxy to Grafana API
@@ -455,20 +395,19 @@ func Setup(cfg *config.Config) *http.ServeMux {
 		log.Printf("Prometheus proxy configured: %s", cfg.PrometheusURL)
 	} else {
 		mux.HandleFunc("/embedded/prometheus/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"Prometheus not configured","message":"TARGET_PROMETHEUS_URL environment variable is not set"}`))
+			_, _ = w.Write([]byte(serviceNotConfiguredHTML("Prometheus", "TARGET_PROMETHEUS_URL", "http://localhost:9090")))
 		})
 		log.Printf("Warning: Prometheus URL not configured")
 	}
 
-	// Jaeger proxy (optional) - expose full UI under /embedded/jaeger and its static assets under /static/
+	// Jaeger proxy (optional)
 	if cfg.JaegerURL != "" {
 		jp, err := proxy.NewReverseProxy(cfg.JaegerURL, "/embedded/jaeger", false)
 		if err != nil {
 			log.Fatalf("jaeger proxy error: %v", err)
 		}
-		// Jaeger UI (root UI under /embedded/jaeger)
 		mux.HandleFunc("/embedded/jaeger", func(w http.ResponseWriter, r *http.Request) {
 			if middleware.HandleCORSPreflight(w, r) {
 				return
@@ -482,12 +421,15 @@ func Setup(cfg *config.Config) *http.ServeMux {
 			jp.ServeHTTP(w, r)
 		})
 
-		// Jaeger static assets are typically served under /static/* from the same origin
-		// Note: /static/ is shared with OpenWebUI, so we handle it in OpenWebUI section with referer-based routing
-
-		// Jaeger /dependencies page (accessible directly, not under /embedded/jaeger)
-		// Use the pre-created jaegerStaticProxy
+		// Jaeger static assets
 		if jaegerStaticProxy != nil {
+			mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+				if middleware.HandleCORSPreflight(w, r) {
+					return
+				}
+				log.Printf("Proxying Jaeger /static/ asset: %s", r.URL.Path)
+				jaegerStaticProxy.ServeHTTP(w, r)
+			})
 			mux.HandleFunc("/dependencies", func(w http.ResponseWriter, r *http.Request) {
 				if middleware.HandleCORSPreflight(w, r) {
 					return
@@ -497,105 +439,14 @@ func Setup(cfg *config.Config) *http.ServeMux {
 			})
 		}
 
-		log.Printf("Jaeger proxy configured: %s; static assets proxied at /static/, /dependencies", cfg.JaegerURL)
+		log.Printf("Jaeger proxy configured: %s", cfg.JaegerURL)
 	} else {
 		mux.HandleFunc("/embedded/jaeger/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"Jaeger not configured","message":"TARGET_JAEGER_URL environment variable is not set"}`))
+			_, _ = w.Write([]byte(serviceNotConfiguredHTML("Jaeger", "TARGET_JAEGER_URL", "http://localhost:16686")))
 		})
 		log.Printf("Info: Jaeger URL not configured (optional)")
-	}
-
-	// Open WebUI proxy (optional) - MUST handle /static/ with referer-based routing for Jaeger compatibility
-	if cfg.OpenWebUIURL != "" {
-		op, err := proxy.NewReverseProxy(cfg.OpenWebUIURL, "/embedded/openwebui", true)
-		if err != nil {
-			log.Fatalf("openwebui proxy error: %v", err)
-		}
-		mux.HandleFunc("/embedded/openwebui", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			op.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("/embedded/openwebui/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			op.ServeHTTP(w, r)
-		})
-
-		// Static assets for OpenWebUI and Jaeger - route based on referer
-		mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			// Check referer to determine if request is from Jaeger or OpenWebUI
-			referer := r.Header.Get("Referer")
-			if referer != "" && strings.Contains(referer, "/embedded/jaeger") {
-				// Route to Jaeger if referer indicates Jaeger
-				if jaegerStaticProxy != nil {
-					log.Printf("Proxying Jaeger /static/ asset: %s (referer: %s)", r.URL.Path, referer)
-					jaegerStaticProxy.ServeHTTP(w, r)
-					return
-				}
-			}
-			// Default to OpenWebUI when it's configured
-			if openwebuiStaticProxy != nil {
-				log.Printf("Proxying OpenWebUI /static/ asset: %s (referer: %s)", r.URL.Path, referer)
-				openwebuiStaticProxy.ServeHTTP(w, r)
-			} else {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"OpenWebUI static proxy not configured"}`, http.StatusBadGateway)
-			}
-		})
-
-		// OpenWebUI also uses /_app/ for its main JS/CSS bundles
-		mux.HandleFunc("/_app/", func(w http.ResponseWriter, r *http.Request) {
-			if middleware.HandleCORSPreflight(w, r) {
-				return
-			}
-			// Check Referer to determine if request is from OpenWebUI or ChatUI
-			referer := r.Header.Get("Referer")
-			isOpenWebUIRequest := referer != "" && strings.Contains(referer, "/embedded/openwebui")
-			isChatUIRequest := referer != "" && strings.Contains(referer, "/embedded/chatui")
-
-			// If referer indicates OpenWebUI, route to OpenWebUI
-			if isOpenWebUIRequest && openwebuiStaticProxy != nil {
-				log.Printf("Proxying OpenWebUI /_app/ asset: %s (referer: %s)", r.URL.Path, referer)
-				openwebuiStaticProxy.ServeHTTP(w, r)
-				return
-			}
-			// If referer indicates ChatUI, route to ChatUI (if configured)
-			if isChatUIRequest && chatUIProxy != nil {
-				log.Printf("Proxying Chat UI /_app/ asset: %s (referer: %s)", r.URL.Path, referer)
-				chatUIProxy.ServeHTTP(w, r)
-				return
-			}
-			// If no referer or unclear, try OpenWebUI first (since it's configured)
-			if openwebuiStaticProxy != nil {
-				log.Printf("Proxying /_app/ asset to OpenWebUI (no clear referer): %s (referer: %s)", r.URL.Path, referer)
-				openwebuiStaticProxy.ServeHTTP(w, r)
-			} else {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"Service not available","message":"No handler available for /_app/"}`, http.StatusBadGateway)
-			}
-		})
-
-		log.Printf("Open WebUI proxy configured: %s", cfg.OpenWebUIURL)
-		if openwebuiStaticProxy != nil {
-			log.Printf("Open WebUI static assets proxied at: /static/, /_app/")
-		} else {
-			log.Printf("Open WebUI static assets proxy failed to initialize")
-		}
-	} else {
-		mux.HandleFunc("/embedded/openwebui/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"Open WebUI not configured","message":"TARGET_OPENWEBUI_URL environment variable is not set or empty"}`))
-		})
-		log.Printf("Info: Open WebUI not configured (optional)")
 	}
 
 	// Static frontend - MUST be registered last
