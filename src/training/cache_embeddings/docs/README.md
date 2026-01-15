@@ -4,86 +4,48 @@
 
 Based on: [arXiv:2504.02268v1](https://arxiv.org/pdf/2504.02268v1)
 
-## The Problem We're Solving
+## Overview
 
-Semantic caching relies on embedding similarity to detect duplicate queries. Generic embedding models (like `all-MiniLM-L12-v2`) work reasonably well across many domains, but they:
+This pipeline fine-tunes lightweight LoRA adapters for semantic caching using LLM-generated training data. A single multi-domain LoRA adapter achieves **+19.4% average improvement** across 4 validated domains (Medical, Law, Programming, Psychology) while adding only 0.6MB to the base model.
 
-1. **Lack domain-specific knowledge** - Medical terms like "hypertension" vs "high blood pressure" may not be recognized as semantic duplicates
-2. **Miss subtle paraphrasing patterns** - "How do I diagnose X?" vs "What are diagnostic methods for X?" should match
-3. **Struggle with hard negatives** - Related but distinct queries like "symptoms of diabetes" vs "treatment for diabetes" should NOT match
+### Multi-Domain Results
 
-**Our Solution:** Fine-tune lightweight LoRA adapters on domain-specific data using LLM-generated paraphrases (positives) and hard negatives.
+| Domain | Improvement | Triplets | Notes |
+|--------|-------------|----------|-------|
+| **Medical** | **+14.6%** | 112,737 | Healthcare, clinical terms |
+| **Law** | **+16.9%** | 127,739 | Case law, legal concepts |
+| **Programming** | **+11.3%** | 208,620 | Code, technical documentation |
+| **Psychology** | **+34.9%** | ~169,000 | Mental health, theories |
+| **Average** | **+19.4%** | ~618,096 total | Single 582KB adapter |
 
-## What We Accomplish
+**Key Benefits:**
+- ✅ One adapter works across all domains
+- ✅ Memory: Base (584MB) + adapter (0.6MB) = 585MB total
+- ✅ No domain switching logic needed
+- ✅ Simpler deployment than per-domain models
 
-Given unlabeled domain queries (e.g., 44K medical questions), we:
-
-1. **Generate synthetic training triplets** using an LLM to create:
-   - **Positive pairs**: Paraphrases that preserve semantic meaning
-   - **Hard negatives**: Related queries with different intents
-
-2. **Train LoRA adapters** (~147K params, 0.44% of base model) using Multiple Negatives Ranking (MNR) loss with contrastive learning
-
-3. **Produce specialized models** (582KB) that significantly outperform generic embeddings for domain-specific semantic caching
-
-## Methodology: Triplet-Based Contrastive Learning
-
-The paper specifies that each training sample must be a **triplet** containing:
-
-- **Anchor**: LLM-generated paraphrase (semantically identical to positive)
-- **Positive**: Original unlabeled query
-- **Negative**: LLM-generated related but distinct query (different intent/focus)
-
-This format enables proper Multiple Negatives Ranking (MNR) loss:
-```
-MNR Loss = -log(exp(sim(anchor, positive) / τ) / Σ exp(sim(anchor, negative_i) / τ))
-```
-
-Where `τ` (temperature) controls the hardness of the contrastive objective.
-
-### Example Triplet
-
-**Original query:** "How to diagnose Pertussis?"
-
-**Generated triplet:**
-```json
-{
-  "anchor": "What are the diagnostic methods for whooping cough?",
-  "positive": "How to diagnose Pertussis?",
-  "negative": "What are the symptoms and signs of Pertussis?",
-  "is_duplicate": 1
-}
-```
-
-- **Anchor ↔ Positive**: Semantically identical (different wording) → should have HIGH similarity
-- **Anchor ↔ Negative**: Related topic but different question type → should have LOW similarity
+**Training Data:**
+- Pre-generated triplets available at: https://huggingface.co/datasets/llm-semantic-router/semantic-router-cache-triplets (private)
+- Includes all 4 domains + merged multi-domain triplets (~618K total)
 
 ## Quick Start
 
 ### Prerequisites
 
-**For GPU (Recommended for production):**
-- AWS EC2 instance with NVIDIA GPUs (e.g., g5.12xlarge for 4x A10G)
+**For production (GPU with vLLM):**
+- AWS EC2 with NVIDIA GPUs (e.g., g5.12xlarge with 4x A10G)
 - Python 3.11+ with: `vllm`, `transformers`, `torch`, `peft`, `sentence-transformers`
 
-**For CPU (Local testing):**
-- Ollama installed locally with a model (e.g., `qwen2.5:1.5b`)
+**For local testing (CPU with Ollama):**
+- Ollama installed with a model (e.g., `qwen2.5:1.5b`)
 - Python 3.11+ with: `transformers`, `torch`, `peft`, `sentence-transformers`
 
-**For AWS Deployment:**
-- See [QUICK_START_AWS.md](QUICK_START_AWS.md) for one-command deployment
+### Single-Domain Training (Two-Step Pipeline)
 
-### Complete Workflow (Medical Domain Example)
+**Step 1: Generate training triplets** (~1.5-2 hours on 4x A10G for 44K queries)
 
 ```bash
-# 1. Prepare unlabeled queries (44K medical queries provided)
-ls data/cache_embeddings/medical/unlabeled_queries.jsonl
-
-# 2. Generate training triplets using LLM
-# Production (GPU with vLLM - RECOMMENDED):
-#   ~1.5-2 hours for 44K queries on 4x A10G GPUs
-#   Outputs: ~130K training triplets with proper anchor/positive/negative format
-python3 src/training/cache_embeddings/generate_training_data.py \
+python3 generate_training_data.py \
   --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
   --output data/cache_embeddings/medical/triplets.jsonl \
   --backend vllm \
@@ -91,24 +53,13 @@ python3 src/training/cache_embeddings/generate_training_data.py \
   --paraphrases 3 \
   --negatives 2 \
   --batch-size 32 \
-  --gpu-memory 0.9 \
   --tensor-parallel 4
+```
 
-# Local testing (CPU with Ollama):
-#   ~12 min for 500 queries → ~1,500 triplets
-python3 src/training/cache_embeddings/generate_training_data.py \
-  --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
-  --output data/cache_embeddings/medical/triplets.jsonl \
-  --backend ollama \
-  --model qwen2.5:1.5b \
-  --paraphrases 3 \
-  --negatives 2 \
-  --workers 10 \
-  --max-queries 500
+**Step 2: Train LoRA adapter** (~5 minutes on GPU for 130K triplets)
 
-# 3. Train LoRA model
-#    ~2 hours for 130K triplets on GPU, ~8 hours on CPU
-python3 src/training/cache_embeddings/lora_trainer.py \
+```bash
+python3 lora_trainer.py \
   --train-data data/cache_embeddings/medical/triplets.jsonl \
   --base-model sentence-transformers/all-MiniLM-L12-v2 \
   --output models/medical-cache-lora \
@@ -116,54 +67,103 @@ python3 src/training/cache_embeddings/lora_trainer.py \
   --batch-size 32 \
   --lr 2e-5 \
   --temperature 0.05
-
-# 4. Model ready! (582KB LoRA adapter)
-ls models/medical-cache-lora/
 ```
 
-## Data Generation Details
+**Result:** 582KB LoRA adapter ready for deployment.
 
-### Input Format
-Unlabeled domain queries (one per line):
-```json
-{"query": "How to diagnose Pertussis?"}
-{"query": "What are the symptoms of diabetes?"}
+For AWS deployment automation, see [QUICK_START_AWS.md](QUICK_START_AWS.md).
+
+### Multi-Domain Training (Recommended)
+
+**Important Concept**: You merge **triplets** (training data), not adapters. Each time you add a new domain, you retrain from scratch on the combined triplet dataset.
+
+#### The Multi-Domain Flow
+
+```
+Domain A queries → Generate triplets → medical_triplets.jsonl
+Domain B queries → Generate triplets → law_triplets.jsonl
+Domain C queries → Generate triplets → programming_triplets.jsonl
+                                          ↓
+                        Merge all triplets using `cat`
+                                          ↓
+                        multi-domain_triplets.jsonl
+                                          ↓
+                    Train LoRA adapter from scratch
+                                          ↓
+                    multi-domain-lora-adapter (582KB)
+                    Works on ALL domains A+B+C
 ```
 
-### LLM Prompting Strategy
+**Key Point**: When adding domain D later, merge A+B+C+D triplets and retrain. You don't "add to" the existing adapter.
 
-The LLM receives two types of prompts per query:
+#### Commands
 
-**1. Paraphrase Generation (Positives):**
+```bash
+# Step 1: Generate triplets for each domain (run separately)
+python3 generate_training_data.py \
+  --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
+  --output data/cache_embeddings/medical/triplets.jsonl \
+  ...
+
+python3 generate_training_data.py \
+  --input data/cache_embeddings/law/unlabeled_queries.jsonl \
+  --output data/cache_embeddings/law/triplets.jsonl \
+  ...
+
+# Step 2: Merge triplets from all domains
+cat data/cache_embeddings/medical/triplets.jsonl \
+    data/cache_embeddings/law/triplets.jsonl \
+    data/cache_embeddings/programming/triplets.jsonl \
+    data/cache_embeddings/psychology/triplets.jsonl \
+  > data/cache_embeddings/multi-domain/triplets.jsonl
+
+# Step 3: Train single multi-domain adapter from scratch
+python3 lora_trainer.py \
+  --train-data data/cache_embeddings/multi-domain/triplets.jsonl \
+  --base-model sentence-transformers/all-MiniLM-L12-v2 \
+  --output models/multi-domain-cache-lora \
+  --epochs 1 \
+  --batch-size 32 \
+  --lr 2e-5
 ```
-You are a helpful medical expert. Generate 3 unique paraphrases of the given query.
 
-Original Query: 'How to diagnose Pertussis?'
+**Result:** Single 582KB adapter that works across all domains with **+19.4% average improvement**.
 
-Each paraphrase should:
-1. Preserve the original meaning but use different wording or sentence structure.
-2. Avoid changing medical intent or introducing new information.
-3. Be professionally written and clear.
+#### Adding New Domains Later
+
+```bash
+# You have: medical + law + programming + psychology (618K triplets)
+# You want to add: biology (50K triplets)
+
+# 1. Generate biology triplets
+python3 generate_training_data.py \
+  --input data/cache_embeddings/biology/unlabeled_queries.jsonl \
+  --output data/cache_embeddings/biology/triplets.jsonl
+
+# 2. Merge with ALL existing triplets
+cat data/cache_embeddings/medical/triplets.jsonl \
+    data/cache_embeddings/law/triplets.jsonl \
+    data/cache_embeddings/programming/triplets.jsonl \
+    data/cache_embeddings/psychology/triplets.jsonl \
+    data/cache_embeddings/biology/triplets.jsonl \
+  > data/cache_embeddings/multi-domain-v2/triplets.jsonl
+
+# 3. Retrain from scratch on merged dataset (668K triplets now)
+python3 lora_trainer.py \
+  --train-data data/cache_embeddings/multi-domain-v2/triplets.jsonl \
+  --base-model sentence-transformers/all-MiniLM-L12-v2 \
+  --output models/multi-domain-cache-lora-v2 \
+  --epochs 1
 ```
 
-**2. Hard Negative Generation:**
-```
-You are a helpful medical expert. Given a medical query, generate 2 distinct but
-related queries that explore different aspects.
+This ensures the new adapter maintains performance on all previous domains while adding biology.
 
-Guidelines:
-1. The new queries should be related to the original but focus on different subtopics,
-   perspectives, or medical contexts.
-2. They should not be simple rewordings or slight variations of the original.
-3. Consider different patient populations, alternative diagnostic methods, treatments,
-   or physiological explanations.
+## How It Works
 
-Original Query: How to diagnose Pertussis?
-```
+### 1. Triplet-Based Training Data
 
-### Output Format
+Each training sample contains three components:
 
-Each line is a complete **triplet** ready for training:
 ```json
 {
   "anchor": "What are the diagnostic methods for whooping cough?",
@@ -173,51 +173,104 @@ Each line is a complete **triplet** ready for training:
 }
 ```
 
-### Key Parameters
+- **Anchor** ↔ **Positive**: Semantically identical (paraphrase) → HIGH similarity
+- **Anchor** ↔ **Negative**: Related but different intent → LOW similarity
 
-| Parameter | Value | Purpose |
-|-----------|-------|---------|
-| `--paraphrases 3` | 3 per query | Generate diverse positive pairs |
-| `--negatives 2` | 2 per query | Hard negatives for contrastive learning |
-| `--batch-size 32` | 32 (vLLM) | GPU batch processing |
-| `--workers 10` | 10 (Ollama) | CPU parallel processing |
-| `--tensor-parallel 4` | 4 GPUs | Multi-GPU scaling |
+### 2. LLM-Generated Synthetic Data
 
-### Augmentation Math
+Starting with unlabeled domain queries, we use an LLM (Qwen 2.5 1.5B) to generate:
+- **3 paraphrases** per query (positives that preserve meaning)
+- **2 hard negatives** per query (related but different intent)
 
-For 44K queries with `--paraphrases 3 --negatives 2`:
-- 44,000 queries × 3 paraphrases = 132,000 anchor-positive pairs
-- Each paired with negatives (round-robin) → ~130,000 complete triplets
+For 44K queries: 44K × 3 paraphrases = 132K anchor-positive pairs → ~130K complete triplets
 
-## LoRA Training Details
+### 3. LoRA Fine-Tuning
 
-### Architecture
+**Base Model:** `sentence-transformers/all-MiniLM-L12-v2` (33.5M params, 384-dim embeddings)
 
-**Base Model:** `sentence-transformers/all-MiniLM-L12-v2` (33.5M params)
-- BERT-based encoder with pooling
-- 384-dimensional embeddings
-- Strong baseline for semantic similarity
-
-**LoRA Adapter:** 147K trainable params (0.44% of base)
-- Rank: 8
-- Alpha: 32 (4x rank, standard practice)
+**LoRA Configuration:**
+- Rank: 8, Alpha: 32
 - Target modules: query, value projection layers
+- Trainable params: 147K (0.44% of base model)
 - Output: 582KB adapter file
 
-### Training Configuration
+**Training:**
+- Loss: Multiple Negatives Ranking (MNR) with temperature=0.05
+- Epochs: 1 (sufficient per paper)
+- Batch size: 32
+- Learning rate: 2e-5
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| Loss function | Multiple Negatives Ranking | Recommended by paper |
-| Temperature (τ) | 0.05 | Controls contrastive hardness |
-| Epochs | 1 | Sufficient per paper validation |
-| Batch size | 32 | Fits in memory, good convergence |
-| Learning rate | 2e-5 | Standard for BERT fine-tuning |
-| Optimizer | AdamW | Default for transformers |
+## Files
 
-### Loss Function: MNR with In-Batch Negatives
+| File | Purpose |
+|------|---------|
+| `generate_training_data.py` | **Step 1:** Creates triplets from unlabeled queries using vLLM or Ollama |
+| `lora_trainer.py` | **Step 2:** Trains LoRA adapter with MNR loss (includes loss implementation) |
+| `evaluate_multi_domain.py` | Validates multi-domain LoRA performance across domains |
+| `test_lora_model.py` | Evaluates single-domain LoRA vs baseline |
+| `common_utils.py` | Shared utilities (logging, data I/O, seeding) |
 
-While our triplets contain explicit hard negatives, the current MNR implementation uses **in-batch negatives** for efficiency:
+## Datasets
+
+Links to datasets used for training (not included in repo):
+
+- **Medical:** [MedQuAD](https://github.com/abachaa/MedQuAD) (CC BY 4.0) - 44,603 medical queries from NIH, CDC, Mayo Clinic
+- **Law:** [lex_glue](https://huggingface.co/datasets/lex_glue) - Case law and legal queries
+- **Programming:** [code_search_net](https://huggingface.co/datasets/code_search_net) - Code documentation queries
+- **Psychology:** [FaithDial](https://github.com/McGill-NLP/FaithDial) - Mental health conversations
+
+## Important: Dataset Preparation
+
+### Avoid Topic Clustering
+
+**Problem:** Ordered datasets can have topic clustering that produces narrow, repetitive training data.
+
+**Example:** The `lex_glue` law dataset had:
+- First 5,000 queries: Terms of Service (subscriptions, refunds, cancellations)
+- Next 50,000 queries: Diverse case law
+
+Testing with the first 50 queries produced poor quality negatives due to ToS contamination.
+
+**Solution:**
+1. ✅ Inspect first and last 100 samples for topic clustering
+2. ✅ Use random sampling for testing if dataset has ordering bias
+3. ✅ Skip contaminated sections: `tail -n +5210 dataset.jsonl > clean.jsonl`
+4. ✅ Test with 20-50 queries first to verify quality before full generation
+
+This saves hours of wasted GPU time.
+
+## Production Features
+
+### Streaming Writes
+- Writes samples immediately to disk (no memory accumulation)
+- Line-buffered I/O for real-time progress monitoring
+- Handles millions of samples without OOM
+
+### Checkpoint/Resume
+```bash
+# Resume from interruption
+python3 generate_training_data.py ... --resume
+```
+
+Checkpoint tracks: queries processed, samples written, timestamp.
+
+### Multi-GPU Scaling
+
+```bash
+--tensor-parallel 4  # Split model across 4 GPUs
+```
+
+Performance: 1 GPU ~6-8 hours, 4 GPUs ~1.5-2 hours for 44K queries.
+
+### Error Handling
+- Graceful LLM error recovery
+- SIGINT/SIGTERM handling (saves checkpoint on Ctrl+C)
+- Progress tracking with tqdm
+- Detailed logging
+
+## Technical Details
+
+### MNR Loss with In-Batch Negatives
 
 ```python
 # Compute similarity matrix [batch_size, batch_size]
@@ -233,142 +286,31 @@ loss = CrossEntropy(similarity, labels)
 This approach:
 - Scales quadratically with batch size (more negatives = harder task)
 - Is computationally efficient (single forward pass)
-- Still benefits from our LLM-generated hard negatives being present in batches
+- Benefits from LLM-generated hard negatives being present in batches
 
-## Pipeline Architecture
+### Pipeline Architecture
 
 ```
-Unlabeled Queries (44K medical questions)
+Unlabeled Queries (domain-specific questions)
     ↓
-LLM Augmentation (vLLM: Qwen/Qwen2.5-1.5B-Instruct)
-  • Generate 3 paraphrases per query (positives)
-  • Generate 2 hard negatives per query
+LLM Augmentation (Qwen 2.5 1.5B via vLLM)
+  • 3 paraphrases per query (positives)
+  • 2 hard negatives per query
   • Create triplets: anchor + positive + negative
     ↓
-Training Triplets (~130K complete triplets)
-  Format: {"anchor": "...", "positive": "...", "negative": "...", "is_duplicate": 1}
+Training Triplets (~3x query count)
     ↓
 LoRA Fine-Tuning (1 epoch, MNR loss, temp=0.05)
   • Base: all-MiniLM-L12-v2 (33.5M params)
   • LoRA: 147K trainable params (0.44%)
-  • Batch size: 32
-  • Learning rate: 2e-5
     ↓
-Domain-Specific Cache Model
-  • Adapter size: 582KB
-  • Inference: Base model + LoRA weights
-  • Performance: Specialized for medical semantic caching
+Domain-Specific Cache Model (582KB adapter)
 ```
-
-## Files
-
-| File | Purpose | Usage |
-|------|---------|-------|
-| `generate_training_data.py` | **Unified data generation** | Creates triplets using vLLM (GPU) or Ollama (CPU) |
-| `lora_trainer.py` | LoRA fine-tuning | Trains domain-specific adapters with MNR loss |
-| `evaluate_model.py` | Model evaluation | Compares LoRA vs baseline on test queries |
-| `losses.py` | Loss functions | MNR, Triplet, InfoNCE implementations |
-| `common_utils.py` | Shared utilities | Logging, data I/O, seeding |
-
-## Validated Dataset: Medical Domain
-
-**Source:** MedQuAD (Medical Question Answering Dataset)
-- **Queries:** 44,603 medical questions from reputable sources (NIH, CDC, Mayo Clinic)
-- **License:** CC BY 4.0
-- **Format:** `{"query": "medical question"}`
-- **File:** `data/cache_embeddings/medical/unlabeled_queries.jsonl`
-
-**Example queries:**
-- "How to diagnose Pertussis?"
-- "What are the symptoms of early-stage diabetes?"
-- "What treatments are available for hypertension?"
-- "How is rheumatoid arthritis different from osteoarthritis?"
-
-## Production Features
-
-### Streaming Writes
-- **No memory accumulation:** Writes samples immediately to disk
-- **Line-buffered I/O:** Real-time progress monitoring
-- **Safe for large datasets:** Handles millions of samples without OOM
-
-### Checkpoint/Resume
-```bash
-# Training interrupted? Resume from last checkpoint
-python3 src/training/cache_embeddings/generate_training_data.py \
-  --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
-  --output data/cache_embeddings/medical/triplets.jsonl \
-  --backend vllm \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --resume
-```
-
-Checkpoint includes:
-- Number of queries processed
-- Number of samples written
-- Timestamp for recovery
-
-### Multi-GPU Scaling
-
-**Tensor Parallelism** (vLLM):
-```bash
---tensor-parallel 4  # Split model across 4 GPUs
-```
-
-Performance scaling:
-- 1 GPU: ~6-8 hours for 44K queries
-- 4 GPUs: ~1.5-2 hours for 44K queries
-
-### Error Handling
-- Graceful LLM error recovery (skips malformed outputs)
-- SIGINT/SIGTERM handling (saves checkpoint on Ctrl+C)
-- Progress tracking with tqdm
-- Detailed logging with timestamps
-
-## Why This Approach Works
-
-### ✅ Advantages
-
-1. **No Manual Labeling:** Uses unlabeled queries + LLM generation
-2. **Domain Specialization:** Trained on real domain queries, not generic templates
-3. **Lightweight:** 582KB adapter vs 130MB full model
-4. **Scalable:** Multi-GPU support for large datasets
-5. **Proven:** Based on published research (arXiv:2504.02268v1)
-
-### ❌ Previous Approach (Deprecated)
-
-- ~~Manual template-based data~~ → Replaced with LLM generation
-- ~~Separate positive/negative samples~~ → Fixed to proper triplets
-- ~~Hardcoded topic lists~~ → Real unlabeled queries from datasets
-- ~~11 small manually-created domains~~ → Focus on quality (44K+ queries)
-
-### 🔬 Key Insight: Why Triplets Matter
-
-**Wrong format** (what we had before):
-```json
-{"anchor": "paraphrase", "positive": "query", "is_duplicate": 1}
-{"anchor": "query", "hard_negative": "negative", "is_duplicate": 0}
-```
-❌ Model never sees anchor + positive + negative together → weak contrastive signal
-
-**Correct format** (what we have now):
-```json
-{"anchor": "paraphrase", "positive": "query", "negative": "negative", "is_duplicate": 1}
-```
-✅ Model learns to push anchor-positive close while pushing anchor-negative apart → strong contrastive learning
-
-## Next Steps
-
-1. ✅ **Fixed triplet generation** - Data now matches paper specification
-2. ✅ **Training on proper triplets** - Completed on AWS with 4x A10G GPUs
-3. ✅ **Evaluation on test set** - Demonstrated 21.4% margin improvement
-4. 🚀 **Expand to other domains** - History, legal, finance, programming
-5. 🏭 **Production deployment** - Integrate with semantic router
 
 ## References
 
 - **Paper:** [Advancing Semantic Caching for LLMs with Domain-Specific Embeddings and Synthetic Data (arXiv:2504.02268v1)](https://arxiv.org/pdf/2504.02268v1)
 - **Base Model:** [all-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2)
-- **Dataset:** [MedQuAD](https://github.com/abachaa/MedQuAD) (CC BY 4.0)
 - **LoRA:** [Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
 - **MNR Loss:** [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084)
 

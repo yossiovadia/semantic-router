@@ -2,24 +2,25 @@
 """
 LoRA Training Script for Domain-Specific Cache Embedding Models
 
+Pipeline Position: Step 2 of 2
+    Input:  triplets.jsonl (from generate_training_data.py)
+    Output: LoRA adapter model files (lightweight domain-specific embeddings)
+
 Trains a domain-specific cache embedding model using LoRA (Low-Rank Adaptation)
 with Multiple Negatives Ranking (MNR) loss.
 
 Based on research: arXiv:2504.02268v1
 - Small specialized models > Large general models for cache matching
 - 1 epoch training is sufficient with good contrastive data
-- LoRA enables efficient fine-tuning (only 0.02% of parameters)
+- LoRA enables efficient fine-tuning (only 0.32-0.44% of parameters)
 
 Usage:
     python lora_trainer.py \
-        --train-data data/programming/training_50k.jsonl \
+        --train-data data/programming/triplets.jsonl \
         --val-data data/programming/val.jsonl \
         --base-model sentence-transformers/all-MiniLM-L12-v2 \
-        --output models/programming-cache-model \
+        --output models/programming-cache-lora \
         --epochs 1
-
-Author: Semantic Router Training Pipeline
-Date: 2025-01-19
 """
 
 import argparse
@@ -45,9 +46,66 @@ from training.cache_embeddings.common_utils import (
     load_jsonl,
     setup_logging,
 )
-from training.cache_embeddings.losses import MultipleNegativesRankingLoss
 
 logger = logging.getLogger(__name__)
+
+
+# === MNR Loss (Multiple Negatives Ranking) ===
+# Merged from losses.py - this is the ONLY loss we use for cache embedding training
+
+
+class MultipleNegativesRankingLoss(nn.Module):
+    """
+    Multiple Negatives Ranking (MNR) Loss.
+
+    Recommended by the research paper (arXiv:2504.02268v1) for semantic caching.
+    Uses in-batch negatives: all other positives in the batch serve as negatives.
+
+    This is efficient and effective for learning semantic similarity.
+    """
+
+    def __init__(self, temperature: float = 0.05, reduction: str = "mean"):
+        """
+        Args:
+            temperature: Temperature parameter for scaling
+            reduction: "mean", "sum", or "none"
+        """
+        super().__init__()
+        self.temperature = temperature
+        self.reduction = reduction
+
+        logger.info(f"MultipleNegativesRankingLoss initialized: temperature={temperature}")
+
+    def forward(
+        self,
+        anchor: torch.Tensor,
+        positive: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Compute MNR loss using in-batch negatives.
+
+        Args:
+            anchor: Anchor embeddings [batch_size, embedding_dim]
+            positive: Positive embeddings [batch_size, embedding_dim]
+
+        Returns:
+            Loss value
+        """
+        # Normalize embeddings
+        anchor = F.normalize(anchor, p=2, dim=-1)
+        positive = F.normalize(positive, p=2, dim=-1)
+
+        # Compute similarity matrix
+        # [batch_size, batch_size]
+        similarity_matrix = torch.matmul(anchor, positive.T) / self.temperature
+
+        # Labels: diagonal elements are positives (i matches i)
+        labels = torch.arange(anchor.size(0), device=anchor.device)
+
+        # Cross-entropy loss: maximize similarity with correct positive
+        loss = F.cross_entropy(similarity_matrix, labels, reduction=self.reduction)
+
+        return loss
 
 # Optional dependencies
 try:
@@ -374,7 +432,13 @@ def main():
     # Setup
     setup_logging()
     set_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Prefer MPS (Apple Silicon) > CUDA > CPU
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
 
     logger.info(f"Using device: {device}")
     logger.info(f"Training configuration: {vars(args)}")

@@ -699,7 +699,7 @@
     <div class="container">
 
         <!-- Domain Notice -->
-        <div style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-left: 4px solid var(--primary); padding: 1.5rem; margin-bottom: 3rem; border-radius: 8px;">
+        <div style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-left: 4px solid var(--primary); padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 8px;">
             <div style="display: flex; align-items: start; gap: 1rem;">
                 <div style="font-size: 2rem;">ℹ️</div>
                 <div>
@@ -709,6 +709,23 @@
                     <div style="color: var(--text-muted); line-height: 1.6;">
                         This document presents results specific to the <strong>medical/healthcare domain</strong> using the MedQuAD dataset (44,603 medical queries).
                         The methodology and pipeline demonstrated here are domain-agnostic and can be applied to other specialized domains such as legal, financial, programming, or scientific fields.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multi-Domain Capability Notice -->
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border-left: 4px solid var(--secondary); padding: 1.5rem; margin-bottom: 3rem; border-radius: 8px;">
+            <div style="display: flex; align-items: start; gap: 1rem;">
+                <div style="font-size: 2rem;">🚀</div>
+                <div>
+                    <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--secondary);">
+                        Multi-Domain Support & Triplet Merging
+                    </div>
+                    <div style="color: var(--text-muted); line-height: 1.6;">
+                        Beyond single-domain training, this pipeline supports <strong>multi-domain LoRA models</strong> by merging triplets from multiple domains (medical, law, programming, psychology).
+                        A single merged model achieves <strong>+19.4% average improvement</strong> across all 4 domains, providing broad coverage with simplified deployment.
+                        See <code>MULTI_DOMAIN_PSYCHOLOGY_RESULTS.md</code> for detailed multi-domain performance analysis.
                     </div>
                 </div>
             </div>
