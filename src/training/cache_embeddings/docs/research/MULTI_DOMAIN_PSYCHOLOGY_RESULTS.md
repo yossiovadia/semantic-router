@@ -28,11 +28,13 @@ Improvement:     +34.9%
 ```
 
 **Best performer!** The newly added psychology domain shows the strongest improvement, benefiting from:
+
 - Fixed NUCLEAR strategy (related topic, different aspect)
 - 60,656 high-quality triplets generated with Qwen 7B
 - Clean training data from Reddit psychology discussions
 
 **Similarity breakdown**:
+
 - Positive sim: 0.5981 → 0.6565 (+9.8%)
 - Negative sim: 0.3290 → 0.2937 (-10.7%)
 
@@ -84,6 +86,7 @@ Modest but positive improvement. Programming has inherently lower margins due to
 | **Average** | **+19.4%** | **+29.2%** | **-9.8%** |
 
 **Key findings**:
+
 1. **Law shows minimal degradation** (-1.7%) - multi-domain helps law almost as much as single-domain!
 2. **Psychology maintains strong performance** (-2.8%) - excellent transfer learning
 3. **Medical takes biggest hit** (-21.0%) - may need domain-specific tuning
@@ -92,12 +95,14 @@ Modest but positive improvement. Programming has inherently lower margins due to
 ### Single Model vs Multiple Models
 
 **Multi-domain advantage**:
+
 - **1 model** covers 4 domains (simpler deployment)
 - **75% fewer parameters** to manage (1 vs 4 LoRA adapters)
 - **Average +19.4%** improvement is still strong
 - Law and psychology maintain near-single-domain performance
 
 **Single-domain advantage**:
+
 - **Higher peak performance** per domain
 - Best for mission-critical single-domain applications
 - Medical gains most from dedicated model
@@ -168,12 +173,14 @@ Programming:  +11.3%  ████████████
 ### For Production Deployment
 
 **Use multi-domain LoRA if**:
+
 - You need coverage across multiple domains
 - Deployment simplicity matters (1 model vs 4)
 - +19.4% average improvement is sufficient
 - Law or psychology are primary use cases
 
 **Use single-domain LoRAs if**:
+
 - Maximum performance in one domain is critical
 - Medical domain is the primary focus (+35.6% vs +14.6%)
 - Resources allow managing multiple models
@@ -197,12 +204,14 @@ Programming:  +11.3%  ████████████
 ## Files Generated
 
 ### Models
+
 - **Multi-domain LoRA**: `/Users/yovadia/cache_embedding_triplets/multi-domain/multi-domain-with-psychology-lora/`
   - adapter_model.safetensors (291KB)
   - adapter_config.json
   - Training history and info
 
 ### Data
+
 - **Training data**: `multi-domain-with-psychology.jsonl` (509,752 triplets, 191MB)
 - **Evaluation results**:
   - eval_medical.json
@@ -211,6 +220,7 @@ Programming:  +11.3%  ████████████
   - eval_psychology.json
 
 ### Documentation
+
 - [PSYCHOLOGY_EPOCH_COMPARISON.md](PSYCHOLOGY_EPOCH_COMPARISON.md) - 1-epoch vs 3-epoch analysis
 - [PSYCHOLOGY_NUCLEAR_FIX.md](PSYCHOLOGY_NUCLEAR_FIX.md) - NUCLEAR strategy fix details
 - [PARALLEL_TRAINING_COMPARISON.md](PARALLEL_TRAINING_COMPARISON.md) - M4 Pro vs AWS GPU comparison
@@ -220,6 +230,7 @@ Programming:  +11.3%  ████████████
 ## Conclusion
 
 The multi-domain + psychology LoRA is a **successful integration**, showing:
+
 - ✅ **Strong overall performance** (+19.4% average)
 - ✅ **Psychology ranks #1** in relative improvement (+34.9%)
 - ✅ **Law maintains near-single-domain performance** (-1.7%)

@@ -5,9 +5,11 @@ This directory contains comprehensive documentation for the domain-specific cach
 ## 📚 Documentation Files
 
 ### Interactive HTML Documentation
+
 - **[index.html](index.html)** - Main interactive documentation page with tooltips, diagrams, and visualizations
 
 ### Technical Documentation
+
 - **[README.md](README.md)** - Complete technical deep-dive with methodology, architecture, and usage
 - **[QUICK_START_AWS.md](QUICK_START_AWS.md)** - AWS deployment guide with one-command setup
 - **[blog.md](blog.md)** - Validation methodology and margin-based testing explanation
@@ -15,6 +17,7 @@ This directory contains comprehensive documentation for the domain-specific cach
 ## 🚀 Viewing the Documentation
 
 ### Option 1: Open Directly in Browser
+
 ```bash
 # From the repository root
 open src/training/cache_embeddings/docs/index.html
@@ -25,6 +28,7 @@ firefox src/training/cache_embeddings/docs/index.html
 ```
 
 ### Option 2: Local Web Server (Recommended)
+
 ```bash
 # Navigate to the docs directory
 cd src/training/cache_embeddings/docs
@@ -37,7 +41,9 @@ python3 -m http.server 8000
 ```
 
 ### Option 3: VS Code Live Server
+
 If you have the Live Server extension in VS Code:
+
 1. Open `index.html` in VS Code
 2. Right-click and select "Open with Live Server"
 
@@ -57,18 +63,21 @@ The interactive HTML documentation includes:
 ## 🎯 Target Audiences
 
 ### For Managers
+
 - Clear ROI metrics (21.4% margin improvement)
 - Business impact explanations
 - Production-ready features highlighted
 - Cost-efficient AWS deployment
 
 ### For Developers
+
 - Complete technical architecture
 - Step-by-step implementation guide
 - Code examples and commands
 - AWS deployment automation
 
 ### For Researchers
+
 - Research paper references (arXiv:2504.02268v1)
 - Methodology explanations
 - Validation approach

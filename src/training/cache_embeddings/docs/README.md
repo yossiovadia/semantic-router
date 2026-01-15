@@ -19,13 +19,15 @@ This pipeline fine-tunes lightweight LoRA adapters for semantic caching using LL
 | **Average** | **+19.4%** | ~618,096 total | Single 582KB adapter |
 
 **Key Benefits:**
+
 - ✅ One adapter works across all domains
 - ✅ Memory: Base (584MB) + adapter (0.6MB) = 585MB total
 - ✅ No domain switching logic needed
 - ✅ Simpler deployment than per-domain models
 
 **Training Data:**
-- Pre-generated triplets available at: https://huggingface.co/datasets/llm-semantic-router/semantic-router-cache-triplets (private)
+
+- Pre-generated triplets available at: <https://huggingface.co/datasets/llm-semantic-router/semantic-router-cache-triplets> (private)
 - Includes all 4 domains + merged multi-domain triplets (~618K total)
 
 ## Quick Start
@@ -33,10 +35,12 @@ This pipeline fine-tunes lightweight LoRA adapters for semantic caching using LL
 ### Prerequisites
 
 **For production (GPU with vLLM):**
+
 - AWS EC2 with NVIDIA GPUs (e.g., g5.12xlarge with 4x A10G)
 - Python 3.11+ with: `vllm`, `transformers`, `torch`, `peft`, `sentence-transformers`
 
 **For local testing (CPU with Ollama):**
+
 - Ollama installed with a model (e.g., `qwen2.5:1.5b`)
 - Python 3.11+ with: `transformers`, `torch`, `peft`, `sentence-transformers`
 
@@ -179,6 +183,7 @@ Each training sample contains three components:
 ### 2. LLM-Generated Synthetic Data
 
 Starting with unlabeled domain queries, we use an LLM (Qwen 2.5 1.5B) to generate:
+
 - **3 paraphrases** per query (positives that preserve meaning)
 - **2 hard negatives** per query (related but different intent)
 
@@ -189,12 +194,14 @@ For 44K queries: 44K × 3 paraphrases = 132K anchor-positive pairs → ~130K com
 **Base Model:** `sentence-transformers/all-MiniLM-L12-v2` (33.5M params, 384-dim embeddings)
 
 **LoRA Configuration:**
+
 - Rank: 8, Alpha: 32
 - Target modules: query, value projection layers
 - Trainable params: 147K (0.44% of base model)
 - Output: 582KB adapter file
 
 **Training:**
+
 - Loss: Multiple Negatives Ranking (MNR) with temperature=0.05
 - Epochs: 1 (sufficient per paper)
 - Batch size: 32
@@ -226,12 +233,14 @@ Links to datasets used for training (not included in repo):
 **Problem:** Ordered datasets can have topic clustering that produces narrow, repetitive training data.
 
 **Example:** The `lex_glue` law dataset had:
+
 - First 5,000 queries: Terms of Service (subscriptions, refunds, cancellations)
 - Next 50,000 queries: Diverse case law
 
 Testing with the first 50 queries produced poor quality negatives due to ToS contamination.
 
 **Solution:**
+
 1. ✅ Inspect first and last 100 samples for topic clustering
 2. ✅ Use random sampling for testing if dataset has ordering bias
 3. ✅ Skip contaminated sections: `tail -n +5210 dataset.jsonl > clean.jsonl`
@@ -242,11 +251,13 @@ This saves hours of wasted GPU time.
 ## Production Features
 
 ### Streaming Writes
+
 - Writes samples immediately to disk (no memory accumulation)
 - Line-buffered I/O for real-time progress monitoring
 - Handles millions of samples without OOM
 
 ### Checkpoint/Resume
+
 ```bash
 # Resume from interruption
 python3 generate_training_data.py ... --resume
@@ -263,6 +274,7 @@ Checkpoint tracks: queries processed, samples written, timestamp.
 Performance: 1 GPU ~6-8 hours, 4 GPUs ~1.5-2 hours for 44K queries.
 
 ### Error Handling
+
 - Graceful LLM error recovery
 - SIGINT/SIGTERM handling (saves checkpoint on Ctrl+C)
 - Progress tracking with tqdm
@@ -284,6 +296,7 @@ loss = CrossEntropy(similarity, labels)
 ```
 
 This approach:
+
 - Scales quadratically with batch size (more negatives = harder task)
 - Is computationally efficient (single forward pass)
 - Benefits from LLM-generated hard negatives being present in batches

@@ -19,6 +19,7 @@ Negative: "How does the prefrontal cortex contribute to decision-making?" (Neuro
 **User feedback**: "the negative should be related but not match the original, here it seems completely unrelated"
 
 **Example provided (medical)**:
+
 ```
 ✅ CORRECT PATTERN:
 Anchor:   "What are diagnostic methods for whooping cough?"
@@ -31,6 +32,7 @@ Negative: "What are symptoms of Pertussis?"  # Same disease, different aspect
 ## Solution
 
 Updated psychology NUCLEAR strategy to match medical/programming pattern:
+
 - **Keep the same topic/entity** (e.g., anxiety disorder, working memory)
 - **Change the aspect** (symptoms → causes → treatment → risk factors)
 - **Don't jump to unrelated topics**
@@ -38,11 +40,13 @@ Updated psychology NUCLEAR strategy to match medical/programming pattern:
 ### NEW STRATEGY
 
 **Step 1: Identify the Topic**
+
 - Extract core topic: "anxiety disorder" → topic is "anxiety"
 - Extract core topic: "working memory" → topic is "memory systems"
 
 **Step 2: Shift the Aspect**
 If anchor asks about → Negative asks about:
+
 - Symptoms/Signs → Causes, Risk factors, Treatment, Prevention
 - Diagnosis → Treatment, Prognosis, Epidemiology
 - Treatment → Side effects, Efficacy, Contraindications
@@ -51,11 +55,13 @@ If anchor asks about → Negative asks about:
 **Step 3: Stay Related But Distinct**
 
 ✅ **DO**:
+
 - "symptoms of anxiety disorder" → "treatment options for anxiety disorder"
 - "symptoms of anxiety disorder" → "risk factors for developing anxiety"
 - "working memory function" → "brain regions involved in working memory"
 
 ❌ **DON'T**:
+
 - Jump to unrelated: "anxiety disorder" → "groupthink"
 - Just reword: "symptoms of anxiety" → "signs of anxiety"
 
@@ -118,6 +124,7 @@ Good negatives:
 **Lines 324-359**: Updated `negative_examples` to match new pattern
 
 **Key changes**:
+
 1. Removed mandatory subfield jump requirement
 2. Changed from "MAXIMUM separation" to "related but different aspect"
 3. Updated verification questions to check for same topic, different aspect
@@ -139,12 +146,14 @@ Before running full psychology generation (33,809 queries):
 ## Expected Impact
 
 ### Before (OLD prompts - 1.5B model, wrong strategy)
+
 - Generated: 12,049 triplets from 33,809 queries
 - Augmentation: 0.36× (should be 5×)
 - Placeholders: ~60% failure rate
 - Negatives: Completely unrelated topics
 
 ### After (NEW prompts - 7B model, correct strategy)
+
 - Expected: ~169,000 triplets from 33,809 queries
 - Augmentation: ~5× (2 paraphrases × 3 negatives per query)
 - Placeholders: <5% failure rate (validated on other domains)
@@ -155,6 +164,7 @@ Before running full psychology generation (33,809 queries):
 ## Architecture Impact
 
 This fix ensures psychology domain follows the same NUCLEAR pattern as medical and programming:
+
 - **Medical**: Same disease, different aspect (diagnosis vs symptoms)
 - **Programming**: Same library/framework, different feature (margins vs fonts)
 - **Psychology**: Same disorder/concept, different aspect (symptoms vs treatment)

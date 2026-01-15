@@ -12,6 +12,7 @@ This directory contains configuration files for training domain-specific cache e
 ```
 
 That's it! The script will:
+
 1. ✅ Provision AWS GPU instance (g5.12xlarge with 4x A10G)
 2. ✅ Upload your data and code
 3. ✅ Run vLLM data generation (~2 hours)
@@ -28,6 +29,7 @@ That's it! The script will:
 ## Available Domains
 
 Current configurations:
+
 - **medical** - Medical and healthcare queries (44K queries)
 
 To add more domains, copy `TEMPLATE.yaml` and fill in the details.
@@ -39,6 +41,7 @@ The multi-domain LoRA approach has proven effective across diverse domains. Vali
 ### Proven Domains
 
 Domains with validated improvement results:
+
 - ✅ **Medical/Healthcare** (+14.6%) - Clinical terms, diseases, treatments
 - ✅ **Law** (+16.9%) - Case law, legal concepts
 - ✅ **Programming** (+11.3%) - Code, technical documentation
@@ -49,6 +52,7 @@ Domains with validated improvement results:
 ### Recommended Domains
 
 Additional domains likely to benefit from training:
+
 - **Biology** - Taxonomy, molecular structures
 - **Chemistry** - Reactions, compounds
 - **Engineering** - Technical specs, standards
@@ -61,6 +65,7 @@ Additional domains likely to benefit from training:
 ### 1. Prepare Your Data
 
 Create unlabeled queries file:
+
 ```jsonl
 {"query": "Your domain-specific question 1"}
 {"query": "Your domain-specific question 2"}
@@ -77,6 +82,7 @@ cp TEMPLATE.yaml <domain>.yaml
 ```
 
 Edit the file:
+
 ```yaml
 domain: "<domain-name>"
 description: "<Brief description>"
@@ -98,6 +104,7 @@ cd ..
 ### Keep AWS Instance Running
 
 Useful for debugging or multiple training runs:
+
 ```bash
 ./train-domain.sh medical --skip-cleanup
 # Do your work...
@@ -109,6 +116,7 @@ cd aws/ && ./deploy-vllm.sh cleanup
 ### Dry Run
 
 See what would happen without actually running:
+
 ```bash
 ./train-domain.sh medical --dry-run
 ```
@@ -137,6 +145,7 @@ See what would happen without actually running:
 ## Planned Domains
 
 Future domain adapters to train:
+
 - [ ] legal - Legal and law queries
 - [ ] financial - Banking and finance
 - [ ] scientific - Research and academia
@@ -156,20 +165,25 @@ Total: 13 domains planned
 ## Troubleshooting
 
 ### "Domain config not found"
+
 ```bash
 ls -la domains/  # Check available configs
 ```
 
 ### "AWS credentials not configured"
+
 ```bash
 aws configure  # Set up AWS credentials
 ```
 
 ### "Instance IP not found"
+
 Check `aws/vllm-instance-*.txt` for instance details
 
 ### Training failed
+
 SSH to instance and check logs:
+
 ```bash
 # Get SSH command from aws/vllm-instance-*.txt
 ssh -i ~/.ssh/your-key.pem ubuntu@<instance-ip>

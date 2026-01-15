@@ -23,6 +23,7 @@ cd src/training/cache_embeddings/aws
 ```
 
 This will:
+
 - Launch g5.12xlarge instance (4x A10G GPUs) in us-east-2
 - Install NVIDIA drivers, Python, vLLM, and dependencies
 - Clone semantic-router repository
@@ -101,6 +102,7 @@ vars:
 ## Files Created
 
 After deployment:
+
 - `vllm-instance-i-xxxxx.txt` - Instance details and commands
 - `vllm-inventory-i-xxxxx.ini` - Ansible inventory file
 

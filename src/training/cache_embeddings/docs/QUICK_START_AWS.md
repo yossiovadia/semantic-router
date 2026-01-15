@@ -5,6 +5,7 @@ TL;DR for running cache embedding training on AWS with multiple GPUs.
 ## What This Does
 
 Generates training triplets for LoRA fine-tuning following [arXiv:2504.02268v1](https://arxiv.org/pdf/2504.02268v1):
+
 - **Anchor**: LLM-generated paraphrase (semantically identical)
 - **Positive**: Original query
 - **Negative**: LLM-generated related but distinct query (different intent)
@@ -26,6 +27,7 @@ cd src/training/cache_embeddings/aws
 ```
 
 Wait ~5 minutes. You'll get:
+
 - Instance details in `vllm-instance-i-xxxxx.txt`
 - SSH command
 - SCP commands for upload/download
@@ -87,16 +89,19 @@ cd src/training/cache_embeddings/aws
 ## Troubleshooting
 
 **Instance launch fails?**
+
 ```bash
 aws sts get-caller-identity  # Check credentials
 ```
 
 **NVIDIA not found?**
+
 ```bash
 ssh to instance and run: nvidia-smi
 ```
 
 **Training interrupted?**
+
 ```bash
 # Resume from checkpoint
 python3 src/training/cache_embeddings/generate_training_data.py \

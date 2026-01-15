@@ -75,6 +75,7 @@ The LoRA adapter learned to:
 Think of embeddings as points in 384-dimensional space:
 
 **Baseline Model:**
+
 ```
 [Original] ---- 0.83 ---- [Paraphrase]   (HIGH similarity ✓)
      |
@@ -84,6 +85,7 @@ Margin: 0.83 - 0.66 = 0.17 (small gap)
 ```
 
 **LoRA Adapter (after training on triplets):**
+
 ```
 [Original] ---- 0.78 ---- [Paraphrase]   (HIGH similarity ✓)
      |
@@ -99,10 +101,12 @@ In semantic caching, when a new query comes in, we check if it's similar to a ca
 **Scenario:** Cached query = "What are the symptoms of diabetes?"
 
 **New Query 1:** "What are the signs of diabetes mellitus?" (paraphrase)
+
 - **Baseline:** similarity = 0.83 → **Cache HIT** ✓
 - **LoRA:** similarity = 0.78 → **Cache HIT** ✓
 
 **New Query 2:** "How is diabetes treated?" (different question)
+
 - **Baseline:** similarity = 0.66 → Might accidentally **Cache HIT** ✗ (false positive!)
 - **LoRA:** similarity = 0.57 → **Cache MISS** ✓ (correct!)
 
@@ -122,11 +126,13 @@ The LoRA adapter learned this because of the **proper triplet format**:
 ```
 
 During training with **MNR (Multiple Negatives Ranking) loss**:
+
 - The model pulls `anchor` closer to `positive`
 - The model pushes `anchor` away from `negative`
 - This creates the larger margin we see in testing!
 
 **The MNR Loss Function:**
+
 ```
 MNR Loss = -log(exp(sim(anchor, positive) / τ) / Σ exp(sim(anchor, negative_i) / τ))
 ```
@@ -219,11 +225,13 @@ Conclusion
 ### When to Use LoRA-Adapted Models
 
 **Good use cases:**
+
 - Domain-specific applications (medical, legal, financial)
 - High-precision requirements (minimize false cache hits)
 - Limited deployment resources (582KB adapter vs 130MB model)
 
 **When generic models suffice:**
+
 - General-purpose applications
 - Low-precision requirements acceptable
 - Limited training data available
@@ -249,6 +257,7 @@ Conclusion
 ## Summary
 
 The validation demonstrates that LoRA fine-tuning with proper triplet-based training:
+
 - ✅ Improves semantic understanding by 21.4% (measured by margin)
 - ✅ Reduces false positives in semantic caching
 - ✅ Maintains true positives (paraphrase recognition)
