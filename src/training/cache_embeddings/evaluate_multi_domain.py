@@ -45,13 +45,16 @@ def load_test_triplets(test_file: str, sample_size: int = 2000) -> List[Dict]:
     # Sample if needed
     if len(triplets) > sample_size:
         import random
+
         random.seed(42)
         triplets = random.sample(triplets, sample_size)
 
     return triplets
 
 
-def evaluate_model(model, triplets: List[Dict], model_name: str) -> Tuple[float, float, float]:
+def evaluate_model(
+    model, triplets: List[Dict], model_name: str
+) -> Tuple[float, float, float]:
     """
     Evaluate model on test triplets.
 
@@ -88,34 +91,30 @@ def evaluate_model(model, triplets: List[Dict], model_name: str) -> Tuple[float,
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Evaluate multi-domain LoRA model"
-    )
+    parser = argparse.ArgumentParser(description="Evaluate multi-domain LoRA model")
     parser.add_argument(
-        "--lora-path",
-        required=True,
-        help="Path to multi-domain LoRA model"
+        "--lora-path", required=True, help="Path to multi-domain LoRA model"
     )
     parser.add_argument(
         "--medical-test",
         default="/Users/yovadia/cache_embedding_triplets/medical/test_set.jsonl",
-        help="Medical test set path"
+        help="Medical test set path",
     )
     parser.add_argument(
         "--law-test",
         default="/Users/yovadia/cache_embedding_triplets/law/test_triplets.jsonl",
-        help="Law test set path"
+        help="Law test set path",
     )
     parser.add_argument(
         "--programming-test",
         default="/Users/yovadia/cache_embedding_triplets/programming/test_triplets.jsonl",
-        help="Programming test set path"
+        help="Programming test set path",
     )
     parser.add_argument(
         "--sample-size",
         type=int,
         default=2000,
-        help="Number of triplets to sample per domain"
+        help="Number of triplets to sample per domain",
     )
 
     args = parser.parse_args()
@@ -171,14 +170,16 @@ def main():
         print(f"  Relative improvement:   {relative_improvement:+.1f}%")
         print(f"  Domain-specific baseline: +{baseline_improvement}%")
 
-        results.append({
-            "domain": domain_name,
-            "baseline_margin": float(base_margin),
-            "lora_margin": float(lora_margin),
-            "absolute_improvement": float(absolute_improvement),
-            "relative_improvement": float(relative_improvement),
-            "domain_specific_baseline": float(baseline_improvement),
-        })
+        results.append(
+            {
+                "domain": domain_name,
+                "baseline_margin": float(base_margin),
+                "lora_margin": float(lora_margin),
+                "absolute_improvement": float(absolute_improvement),
+                "relative_improvement": float(relative_improvement),
+                "domain_specific_baseline": float(baseline_improvement),
+            }
+        )
 
     # Overall summary
     print(f"\n{'=' * 80}")

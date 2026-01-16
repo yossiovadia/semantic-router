@@ -42,11 +42,13 @@ import yaml
 # Global flag for graceful shutdown
 shutdown_requested = False
 
+
 def signal_handler(sig, frame):
     """Handle SIGINT/SIGTERM for graceful shutdown."""
     global shutdown_requested
     print("\n⚠️  Shutdown requested. Finishing current batch...")
     shutdown_requested = True
+
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -63,17 +65,17 @@ def load_domain_prompts(domain: str) -> Dict:
     with open(prompts_file) as f:
         config = yaml.safe_load(f)
 
-    domains = config.get('domains', {})
+    domains = config.get("domains", {})
 
     # Handle domain aliases
     domain_aliases = {
-        'medical': 'health',
-        'programming': 'computer_science',
+        "medical": "health",
+        "programming": "computer_science",
     }
     canonical_domain = domain_aliases.get(domain, domain)
 
     if canonical_domain not in domains:
-        available = ', '.join(domains.keys())
+        available = ", ".join(domains.keys())
         print(f"\n❌ ERROR: No prompts defined for domain '{domain}'")
         print(f"Available domains: {available}")
         sys.exit(1)
@@ -88,8 +90,8 @@ def load_domain_prompts(domain: str) -> Dict:
 def extract_text(value):
     """Extract text from either string or {"text": "..."} format."""
     if isinstance(value, dict):
-        return value.get('text', '')
-    return str(value) if value else ''
+        return value.get("text", "")
+    return str(value) if value else ""
 
 
 class StreamingWriter:
@@ -102,25 +104,25 @@ class StreamingWriter:
         self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Open in append mode for crash recovery
-        self.file = open(output_path, 'a', buffering=1)  # Line buffered
+        self.file = open(output_path, "a", buffering=1)  # Line buffered
         self.samples_written = 0
 
     def write_samples(self, samples: List[Dict]):
         """Write samples immediately and flush."""
         for sample in samples:
-            self.file.write(json.dumps(sample) + '\n')
+            self.file.write(json.dumps(sample) + "\n")
             self.samples_written += 1
         self.file.flush()
 
     def write_checkpoint(self, queries_processed: int, total_queries: int):
         """Write checkpoint for resume capability."""
         checkpoint = {
-            'queries_processed': queries_processed,
-            'total_queries': total_queries,
-            'samples_written': self.samples_written,
-            'timestamp': time.time()
+            "queries_processed": queries_processed,
+            "total_queries": total_queries,
+            "samples_written": self.samples_written,
+            "timestamp": time.time(),
         }
-        with open(self.checkpoint_path, 'w') as f:
+        with open(self.checkpoint_path, "w") as f:
             json.dump(checkpoint, f)
 
     def load_checkpoint(self) -> Optional[Dict]:
@@ -132,7 +134,7 @@ class StreamingWriter:
 
     def close(self):
         """Close file handles."""
-        if hasattr(self, 'file'):
+        if hasattr(self, "file"):
             self.file.close()
 
     def __enter__(self):
@@ -142,15 +144,17 @@ class StreamingWriter:
         self.close()
 
 
-def generate_paraphrases_batch_vllm(queries: List[str], llm, num_paraphrases: int, domain_config: Dict) -> List[List[str]]:
+def generate_paraphrases_batch_vllm(
+    queries: List[str], llm, num_paraphrases: int, domain_config: Dict
+) -> List[List[str]]:
     """Generate paraphrases for a batch using vLLM.
 
     Uses simplified prompt format - empirically proven to work better than guideline blobs.
     """
     from vllm import SamplingParams
 
-    role = domain_config.get('role', 'helpful assistant')
-    examples = domain_config.get('paraphrase_examples', [])
+    role = domain_config.get("role", "helpful assistant")
+    examples = domain_config.get("paraphrase_examples", [])
 
     # Build GOOD examples from YAML
     good_examples = ""
@@ -158,7 +162,7 @@ def generate_paraphrases_batch_vllm(queries: List[str], llm, num_paraphrases: in
         ex = examples[0]
         good_examples = f"\nExamples of GOOD paraphrases:\n"
         good_examples += f'Original: "{ex["original"]}"\n'
-        for i, p in enumerate(ex.get('paraphrases', [])[:3], 1):
+        for i, p in enumerate(ex.get("paraphrases", [])[:3], 1):
             good_examples += f'{i}. "{p}"\n'
 
     # BAD examples - universal anti-patterns
@@ -190,11 +194,7 @@ Return ONLY valid JSON:
 """
         prompts.append(prompt)
 
-    sampling_params = SamplingParams(
-        temperature=0.7,
-        max_tokens=512,
-        stop=None
-    )
+    sampling_params = SamplingParams(temperature=0.7, max_tokens=512, stop=None)
 
     outputs = llm.generate(prompts, sampling_params)
 
@@ -202,12 +202,12 @@ Return ONLY valid JSON:
     for output in outputs:
         try:
             text = output.outputs[0].text.strip()
-            if '{' in text:
-                json_start = text.index('{')
-                json_end = text.rindex('}') + 1
+            if "{" in text:
+                json_start = text.index("{")
+                json_end = text.rindex("}") + 1
                 json_str = text[json_start:json_end]
                 data = json.loads(json_str)
-                paraphrases = [extract_text(p) for p in data.get('paraphrases', [])]
+                paraphrases = [extract_text(p) for p in data.get("paraphrases", [])]
                 results.append([p for p in paraphrases if p])
             else:
                 results.append([])
@@ -217,7 +217,9 @@ Return ONLY valid JSON:
     return results
 
 
-def generate_negatives_batch_vllm(queries: List[str], llm, num_negatives: int, domain_config: Dict) -> List[List[str]]:
+def generate_negatives_batch_vllm(
+    queries: List[str], llm, num_negatives: int, domain_config: Dict
+) -> List[List[str]]:
     """Generate hard negatives for a batch using vLLM.
 
     Uses simplified prompt format based on empirical testing:
@@ -227,28 +229,28 @@ def generate_negatives_batch_vllm(queries: List[str], llm, num_negatives: int, d
     """
     from vllm import SamplingParams
 
-    role = domain_config.get('role', 'helpful assistant')
-    negative_guidelines = domain_config.get('negative_guidelines', '')
-    examples = domain_config.get('negative_examples', [])
+    role = domain_config.get("role", "helpful assistant")
+    negative_guidelines = domain_config.get("negative_guidelines", "")
+    examples = domain_config.get("negative_examples", [])
 
     # Build examples from YAML
     examples_text = ""
     if examples:
         examples_text = "\nExamples:\n"
         for ex in examples[:3]:  # Use more examples
-            orig = ex.get('original', '')
+            orig = ex.get("original", "")
             if orig:
                 examples_text += f"\nOriginal: {orig}\n"
 
             # Show BAD examples if provided
-            bad_negs = ex.get('bad_negatives', [])
+            bad_negs = ex.get("bad_negatives", [])
             if bad_negs:
                 examples_text += "BAD (DO NOT DO THIS):\n"
                 for neg in bad_negs[:2]:
                     examples_text += f'  ❌ "{neg}"\n'
 
             # Show GOOD examples
-            good_negs = ex.get('negatives', []) or ex.get('good_negatives', [])
+            good_negs = ex.get("negatives", []) or ex.get("good_negatives", [])
             if good_negs:
                 examples_text += "GOOD (DO THIS):\n"
                 for neg in good_negs[:2]:
@@ -270,11 +272,7 @@ Return ONLY valid JSON:
 """
         prompts.append(prompt)
 
-    sampling_params = SamplingParams(
-        temperature=0.7,
-        max_tokens=512,
-        stop=None
-    )
+    sampling_params = SamplingParams(temperature=0.7, max_tokens=512, stop=None)
 
     outputs = llm.generate(prompts, sampling_params)
 
@@ -282,12 +280,12 @@ Return ONLY valid JSON:
     for output in outputs:
         try:
             text = output.outputs[0].text.strip()
-            if '{' in text:
-                json_start = text.index('{')
-                json_end = text.rindex('}') + 1
+            if "{" in text:
+                json_start = text.index("{")
+                json_end = text.rindex("}") + 1
                 json_str = text[json_start:json_end]
                 data = json.loads(json_str)
-                negatives = [extract_text(n) for n in data.get('negatives', [])]
+                negatives = [extract_text(n) for n in data.get("negatives", [])]
                 results.append([n for n in negatives if n])
             else:
                 results.append([])
@@ -297,7 +295,9 @@ Return ONLY valid JSON:
     return results
 
 
-def process_batch_vllm(batch_queries: List[str], llm, args, domain_config: Dict) -> List[Dict]:
+def process_batch_vllm(
+    batch_queries: List[str], llm, args, domain_config: Dict
+) -> List[Dict]:
     """Process a batch using vLLM with immediate sample generation.
 
     Creates triplets according to the paper (arXiv:2504.02268v1):
@@ -305,11 +305,17 @@ def process_batch_vllm(batch_queries: List[str], llm, args, domain_config: Dict)
     - Positive: paraphrased version (semantically identical)
     - Negative: related but distinct query (different intent/focus)
     """
-    paraphrases_batch = generate_paraphrases_batch_vllm(batch_queries, llm, args.paraphrases, domain_config)
-    negatives_batch = generate_negatives_batch_vllm(batch_queries, llm, args.negatives, domain_config)
+    paraphrases_batch = generate_paraphrases_batch_vllm(
+        batch_queries, llm, args.paraphrases, domain_config
+    )
+    negatives_batch = generate_negatives_batch_vllm(
+        batch_queries, llm, args.negatives, domain_config
+    )
 
     samples = []
-    for query, paraphrases, negatives in zip(batch_queries, paraphrases_batch, negatives_batch):
+    for query, paraphrases, negatives in zip(
+        batch_queries, paraphrases_batch, negatives_batch
+    ):
         # Create triplets: each paraphrase paired with a negative
         # This ensures proper contrastive learning with MNR loss
         for i, paraphrase in enumerate(paraphrases):
@@ -317,33 +323,60 @@ def process_batch_vllm(batch_queries: List[str], llm, args, domain_config: Dict)
             negative_idx = i % len(negatives) if negatives else None
 
             if negative_idx is not None:
-                samples.append({
-                    "anchor": paraphrase,
-                    "positive": query,
-                    "negative": negatives[negative_idx],
-                    "is_duplicate": 1  # Anchor-positive are duplicates
-                })
+                samples.append(
+                    {
+                        "anchor": paraphrase,
+                        "positive": query,
+                        "negative": negatives[negative_idx],
+                        "is_duplicate": 1,  # Anchor-positive are duplicates
+                    }
+                )
 
     return samples
 
 
 def main():
     # Disable vLLM's verbose progress bars to show clean overall progress
-    os.environ['VLLM_DISABLE_PROGRESS_BAR'] = '1'
+    os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
 
-    parser = argparse.ArgumentParser(description="Production vLLM augmentation with streaming and checkpointing")
-    parser.add_argument("--input", required=True, help="Input JSONL with unlabeled queries")
+    parser = argparse.ArgumentParser(
+        description="Production vLLM augmentation with streaming and checkpointing"
+    )
+    parser.add_argument(
+        "--input", required=True, help="Input JSONL with unlabeled queries"
+    )
     parser.add_argument("--output", required=True, help="Output JSONL for training")
-    parser.add_argument("--domain", required=True, help="Domain for prompts (e.g., programming, medical)")
-    parser.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct", help="Model name")
-    parser.add_argument("--paraphrases", type=int, default=3, help="Paraphrases per query")
-    parser.add_argument("--negatives", type=int, default=2, help="Hard negatives per query")
+    parser.add_argument(
+        "--domain",
+        required=True,
+        help="Domain for prompts (e.g., programming, medical)",
+    )
+    parser.add_argument(
+        "--model", default="Qwen/Qwen2.5-7B-Instruct", help="Model name"
+    )
+    parser.add_argument(
+        "--paraphrases", type=int, default=3, help="Paraphrases per query"
+    )
+    parser.add_argument(
+        "--negatives", type=int, default=2, help="Hard negatives per query"
+    )
     parser.add_argument("--max-queries", type=int, help="Max queries to process")
-    parser.add_argument("--batch-size", type=int, default=32, help="Batch size for vLLM")
-    parser.add_argument("--gpu-memory", type=float, default=0.9, help="GPU memory utilization")
-    parser.add_argument("--tensor-parallel", type=int, default=1, help="Number of GPUs for tensor parallelism")
+    parser.add_argument(
+        "--batch-size", type=int, default=32, help="Batch size for vLLM"
+    )
+    parser.add_argument(
+        "--gpu-memory", type=float, default=0.9, help="GPU memory utilization"
+    )
+    parser.add_argument(
+        "--tensor-parallel",
+        type=int,
+        default=1,
+        help="Number of GPUs for tensor parallelism",
+    )
     parser.add_argument("--resume", action="store_true", help="Resume from checkpoint")
-    parser.add_argument("--checkpoint-interval", type=int, default=10, help="Checkpoint every N batches")
+    parser.add_argument(
+        "--checkpoint-interval", type=int, default=10, help="Checkpoint every N batches"
+    )
 
     args = parser.parse_args()
 
@@ -352,7 +385,7 @@ def main():
 
     # Use domain's recommended model if --model not explicitly provided
     if args.model == "Qwen/Qwen2.5-7B-Instruct":  # Default value
-        recommended = domain_config.get('recommended_model')
+        recommended = domain_config.get("recommended_model")
         if recommended:
             args.model = recommended
             print(f"Using domain-recommended model: {recommended}")
@@ -367,10 +400,10 @@ def main():
     with open(args.input) as f:
         for line in f:
             data = json.loads(line)
-            queries.append(data['query'])
+            queries.append(data["query"])
 
     if args.max_queries:
-        queries = queries[:args.max_queries]
+        queries = queries[: args.max_queries]
         print(f"Limited to {args.max_queries} queries")
 
     print(f"Loaded {len(queries)} queries")
@@ -385,8 +418,10 @@ def main():
         if args.resume:
             checkpoint = writer.load_checkpoint()
             if checkpoint:
-                start_idx = checkpoint['queries_processed']
-                print(f"✓ Resuming from checkpoint: {start_idx}/{len(queries)} queries processed")
+                start_idx = checkpoint["queries_processed"]
+                print(
+                    f"✓ Resuming from checkpoint: {start_idx}/{len(queries)} queries processed"
+                )
                 print(f"  {checkpoint['samples_written']} samples already written")
                 print()
 
@@ -394,7 +429,7 @@ def main():
         print("Initializing vLLM...")
 
         # Suppress verbose vLLM progress bars
-        os.environ['VLLM_LOGGING_LEVEL'] = 'WARNING'
+        os.environ["VLLM_LOGGING_LEVEL"] = "WARNING"
 
         from vllm import LLM
 
@@ -404,7 +439,7 @@ def main():
             max_model_len=2048,
             trust_remote_code=True,
             tensor_parallel_size=args.tensor_parallel,
-            disable_log_stats=True  # Suppress token/s stats
+            disable_log_stats=True,  # Suppress token/s stats
         )
         print(f"✓ vLLM initialized with {args.tensor_parallel} GPU(s)")
         print()
@@ -413,9 +448,11 @@ def main():
         batch_size = args.batch_size
         num_batches = (len(queries) - start_idx + batch_size - 1) // batch_size
 
-        for batch_idx in tqdm(range(0, len(queries) - start_idx, batch_size),
-                             desc="Processing batches",
-                             total=num_batches):
+        for batch_idx in tqdm(
+            range(0, len(queries) - start_idx, batch_size),
+            desc="Processing batches",
+            total=num_batches,
+        ):
 
             if shutdown_requested:
                 print("\n⚠️  Shutdown requested. Saving checkpoint...")
@@ -424,7 +461,7 @@ def main():
                 sys.exit(0)
 
             actual_idx = start_idx + batch_idx
-            batch_queries = queries[actual_idx:actual_idx + batch_size]
+            batch_queries = queries[actual_idx : actual_idx + batch_size]
 
             # Generate samples and write immediately
             samples = process_batch_vllm(batch_queries, llm, args, domain_config)
