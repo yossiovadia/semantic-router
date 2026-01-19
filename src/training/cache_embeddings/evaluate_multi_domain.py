@@ -8,12 +8,19 @@ for medical, law, and programming domains.
 
 import argparse
 import json
+import os
 import torch
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from peft import PeftModel
 from typing import List, Dict, Tuple
 from tqdm import tqdm
+
+try:
+    from huggingface_hub import hf_hub_download
+    HF_AVAILABLE = True
+except ImportError:
+    HF_AVAILABLE = False
 
 
 def load_baseline_model():
@@ -35,8 +42,51 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 
+def download_test_set(domain: str) -> str:
+    """Download test set from HuggingFace if not available locally."""
+    if not HF_AVAILABLE:
+        raise ImportError(
+            "huggingface_hub is required to download test sets. "
+            "Install with: pip install huggingface_hub"
+        )
+
+    # Map domain to filename
+    filenames = {
+        "medical": "medical/test_set.jsonl",
+        "law": "law/test_triplets.jsonl",
+        "programming": "programming/test_triplets.jsonl",
+    }
+
+    if domain.lower() not in filenames:
+        raise ValueError(f"Unknown domain: {domain}. Choose from: medical, law, programming")
+
+    filename = filenames[domain.lower()]
+
+    print(f"  Downloading {domain} test set from HuggingFace...")
+    return hf_hub_download(
+        repo_id="llm-semantic-router/cache-embedding-test-sets",
+        filename=filename,
+        repo_type="dataset"
+    )
+
+
 def load_test_triplets(test_file: str, sample_size: int = 2000) -> List[Dict]:
-    """Load test triplets from JSONL file."""
+    """Load test triplets from JSONL file or download from HuggingFace."""
+    # If test_file doesn't exist locally, try to download from HF
+    if not os.path.exists(test_file):
+        # Try to infer domain from filename
+        if "medical" in test_file:
+            test_file = download_test_set("medical")
+        elif "law" in test_file:
+            test_file = download_test_set("law")
+        elif "programming" in test_file:
+            test_file = download_test_set("programming")
+        else:
+            raise FileNotFoundError(
+                f"Test file not found: {test_file}\n"
+                "Specify --download-from-hf to download from HuggingFace"
+            )
+
     triplets = []
     with open(test_file) as f:
         for line in f:
@@ -97,18 +147,18 @@ def main():
     )
     parser.add_argument(
         "--medical-test",
-        default="/Users/yovadia/cache_embedding_triplets/medical/test_set.jsonl",
-        help="Medical test set path",
+        default="data/cache_embeddings/medical/test_set.jsonl",
+        help="Medical test set path (downloads from HF if not found)",
     )
     parser.add_argument(
         "--law-test",
-        default="/Users/yovadia/cache_embedding_triplets/law/test_triplets.jsonl",
-        help="Law test set path",
+        default="data/cache_embeddings/law/test_triplets.jsonl",
+        help="Law test set path (downloads from HF if not found)",
     )
     parser.add_argument(
         "--programming-test",
-        default="/Users/yovadia/cache_embedding_triplets/programming/test_triplets.jsonl",
-        help="Programming test set path",
+        default="data/cache_embeddings/programming/test_triplets.jsonl",
+        help="Programming test set path (downloads from HF if not found)",
     )
     parser.add_argument(
         "--sample-size",
