@@ -129,14 +129,16 @@ with open(test_file) as f:
 
 ### Config File: `config/config.yaml`
 
+**Note:** LoRA integration requires code changes to support loading adapters. The configuration below shows the intended usage once implemented.
+
 ```yaml
 semantic_cache:
   enabled: true
   backend_type: "memory"
   similarity_threshold: 0.8
-  embedding_model: "bert"  # Must use MiniLM-L12 for LoRA
 
-  # Use multi-domain LoRA (recommended)
+  # LoRA model (requires base model: sentence-transformers/all-MiniLM-L12-v2)
+  # This feature requires implementation of LoRA loading in the semantic cache module
   lora_model: "llm-semantic-router/multi-domain-cache-lora-L12"
 ```
 
