@@ -184,7 +184,7 @@ cd ~/semantic-router
 python3 src/training/cache_embeddings/generate_training_data.py \
   --input data/cache_embeddings/medical/unlabeled_queries.jsonl \
   --output data/cache_embeddings/medical/triplets.jsonl \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --model Qwen/Qwen2.5-7B-Instruct \
   --paraphrases 3 \
   --negatives 2 \
   --batch-size 32 \
@@ -208,7 +208,7 @@ EOF
     echo "  python3 generate_training_data.py \\"
     echo "    --input data/cache_embeddings/medical/unlabeled_queries.jsonl \\"
     echo "    --output data/cache_embeddings/medical/triplets.jsonl \\"
-    echo "    --model Qwen/Qwen2.5-1.5B-Instruct \\"
+    echo "    --model Qwen/Qwen2.5-7B-Instruct \\"
     echo "    --paraphrases 3 --negatives 2 \\"
     echo "    --batch-size 32 --tensor-parallel 4"
     echo ""
@@ -222,7 +222,7 @@ export VLLM_DISABLE_PROGRESS_BAR=1
 python3 src/training/cache_embeddings/generate_training_data.py \
   --input $DATA_FILE \
   --output data/cache_embeddings/${DOMAIN}/triplets.jsonl \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --model Qwen/Qwen2.5-7B-Instruct \
   --paraphrases 3 \
   --negatives 2 \
   --batch-size 256 \
