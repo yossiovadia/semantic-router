@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 try:
     from huggingface_hub import hf_hub_download
+
     HF_AVAILABLE = True
 except ImportError:
     HF_AVAILABLE = False
@@ -58,7 +59,9 @@ def download_test_set(domain: str) -> str:
     }
 
     if domain.lower() not in filenames:
-        raise ValueError(f"Unknown domain: {domain}. Choose from: medical, law, programming")
+        raise ValueError(
+            f"Unknown domain: {domain}. Choose from: medical, law, programming"
+        )
 
     filename = filenames[domain.lower()]
 
@@ -66,7 +69,7 @@ def download_test_set(domain: str) -> str:
     return hf_hub_download(
         repo_id="llm-semantic-router/cache-embedding-test-sets",
         filename=filename,
-        repo_type="dataset"
+        repo_type="dataset",
     )
 
 

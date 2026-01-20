@@ -11,6 +11,7 @@ This directory contains scripts for training LoRA (Low-Rank Adaptation) adapters
 All trained models are available on HuggingFace:
 
 ### Recommended: Multi-Domain LoRA
+
 - **[multi-domain-cache-lora-L12](https://huggingface.co/llm-semantic-router/multi-domain-cache-lora-L12)** - Single adapter for all domains
   - Medical: +24.9% improvement
   - Law: +27.3% improvement
@@ -18,6 +19,7 @@ All trained models are available on HuggingFace:
   - **Use this for production** ✅
 
 ### Domain-Specific LoRAs
+
 - **[medical-cache-lora](https://huggingface.co/llm-semantic-router/medical-cache-lora)** - Medical/health queries only (+42.8%)
 - **[law-cache-lora](https://huggingface.co/llm-semantic-router/law-cache-lora)** - Legal queries only (+25.9%)
 - **[programming-cache-lora](https://huggingface.co/llm-semantic-router/programming-cache-lora)** - NOT recommended (+0.4%, use multi-domain instead)
@@ -26,6 +28,7 @@ All trained models are available on HuggingFace:
 ## Test Datasets
 
 Test datasets are available on HuggingFace:
+
 - **[cache-embedding-test-sets](https://huggingface.co/datasets/llm-semantic-router/cache-embedding-test-sets)**
   - Medical: 200 triplets
   - Law: 20,862 triplets
@@ -167,18 +170,21 @@ Domain-specific prompts and settings are in `domains/prompts.yaml`.
 ### Margin Score
 
 The primary metric for cache quality:
-```
+
+```text
 margin = avg(positive_similarity) - avg(negative_similarity)
 ```
 
 **Higher margin = Better cache accuracy**
 
 ### Baseline Margins (No LoRA)
+
 - Medical: 0.44
 - Law: 0.49
 - Programming: 0.24 (harder task - negatives are very similar)
 
 ### With Multi-Domain LoRA
+
 - Medical: 0.55 (+24.9%)
 - Law: 0.63 (+27.3%)
 - Programming: 0.27 (+12.4%)
@@ -186,12 +192,14 @@ margin = avg(positive_similarity) - avg(negative_similarity)
 ## Architecture
 
 ### Base Model
+
 - **sentence-transformers/all-MiniLM-L12-v2** (90MB)
 - 12-layer transformer
 - 384-dimensional embeddings
 - Fast inference on CPU
 
 ### LoRA Adapter
+
 - ≈600KB per adapter
 - Rank: 8
 - Alpha: 16
@@ -199,6 +207,7 @@ margin = avg(positive_similarity) - avg(negative_similarity)
 - Training: 1 epoch on triplet loss
 
 ### Memory Usage
+
 - Base model: 90 MB
 - Single LoRA: 0.6 MB
 - **Total: 90.6 MB** (multi-domain)
@@ -208,6 +217,7 @@ margin = avg(positive_similarity) - avg(negative_similarity)
 ### Use Multi-Domain LoRA
 
 **Why:**
+
 - ✅ Works well across all domains
 - ✅ No domain detection needed
 - ✅ Simple deployment
@@ -215,6 +225,7 @@ margin = avg(positive_similarity) - avg(negative_similarity)
 - ✅ Better generalization
 
 **Configuration:**
+
 ```yaml
 semantic_cache:
   lora_model: "llm-semantic-router/multi-domain-cache-lora-L12"
@@ -223,6 +234,7 @@ semantic_cache:
 ### Alternative: Hybrid Approach
 
 For maximum medical accuracy:
+
 1. Detect medical queries
 2. Use `medical-cache-lora` for medical (+42.8%)
 3. Use `multi-domain-cache-lora-L12` for others
@@ -242,6 +254,7 @@ Training data should be JSONL with triplets:
 ```
 
 **Key properties:**
+
 - **Anchor**: Original query
 - **Positive**: Semantically equivalent (should cache)
 - **Negative**: Related but different (should NOT cache)
