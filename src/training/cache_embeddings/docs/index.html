@@ -470,15 +470,19 @@
                 </div>
             </div>
 
-            <h3 style="color: var(--primary); margin: 2rem 0 1rem;">Training Data</h3>
+            <h3 style="color: var(--primary); margin: 2rem 0 1rem;">Training Data Generation</h3>
             <p class="section-description">
-                Triplets consist of (anchor, positive, negative) where:
+                Triplets are synthetically generated using <strong>Qwen/Qwen2.5-7B-Instruct</strong> to create:
             </p>
             <ul style="color: var(--text-muted); margin-left: 2rem; line-height: 2;">
                 <li><strong>Anchor:</strong> Original query</li>
-                <li><strong>Positive:</strong> Semantically equivalent query (should cache)</li>
-                <li><strong>Negative:</strong> Related but different query (should NOT cache)</li>
+                <li><strong>Positive:</strong> Semantically equivalent query (paraphrase - should cache)</li>
+                <li><strong>Negative:</strong> Related but different query (hard negative - should NOT cache)</li>
             </ul>
+            <p class="section-description" style="margin-top: 1rem;">
+                The 7B model provides high-quality paraphrases and challenging hard negatives that are semantically
+                related but distinct enough to require separate LLM responses.
+            </p>
         </section>
 
         <section id="usage" class="section">
