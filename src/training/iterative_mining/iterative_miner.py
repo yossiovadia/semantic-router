@@ -33,9 +33,10 @@ class IterativeHardNegativeMiner:
         llm_client: OpenAI,
         llm_model: str,
         corpus_chunks: List[Dict],
-        output_dir: str = "models"
+        output_dir: str = "models",
+        device: str = "cuda"
     ):
-        self.model = SentenceTransformer(base_model_name)
+        self.model = SentenceTransformer(base_model_name, device=device)
         self.llm = llm_client
         self.llm_model = llm_model
         self.corpus_chunks = corpus_chunks
@@ -267,14 +268,25 @@ Respond with ONLY the number 1, 2, 3, or 4:"""
         # Contrastive loss (CosineSimilarityLoss)
         train_loss = losses.CosineSimilarityLoss(self.model)
 
-        # Fine-tune
+        # Fine-tune (force CPU to avoid OOM with vLLM on GPU)
+        import os
+        old_cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Hide GPUs from PyTorch
+
         self.model.fit(
             train_objectives=[(train_dataloader, train_loss)],
             epochs=1,
             warmup_steps=100,
             show_progress_bar=True,
-            output_path=f"{self.output_dir}/iteration_{iteration}_checkpoint"
+            output_path=f"{self.output_dir}/iteration_{iteration}_checkpoint",
+            use_amp=False  # Disable automatic mixed precision (GPU feature)
         )
+
+        # Restore CUDA visibility
+        if old_cuda_visible is not None:
+            os.environ['CUDA_VISIBLE_DEVICES'] = old_cuda_visible
+        else:
+            os.environ.pop('CUDA_VISIBLE_DEVICES', None)
 
         print(f"Fine-tuning complete for iteration {iteration}")
 
@@ -320,7 +332,8 @@ def main():
         llm_client=llm_client,
         llm_model=args.llm_model,
         corpus_chunks=corpus_chunks,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        device="cpu"  # Use CPU since vLLM is using all GPUs
     )
 
     # Run iterations
