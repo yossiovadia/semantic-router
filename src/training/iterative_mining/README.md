@@ -4,7 +4,7 @@ Fine-tune embedding models for improved retrieval in specific domains using iter
 
 **Based on:** ["Distilling an LLM's Wisdom: A Framework for Creating Domain Adapted Financial Embedding Models"](https://arxiv.org/abs/2512.08088)
 
-**Result:** +26.42% MRR@5 improvement on MedQuAD medical dataset.
+**Result:** +71.18% MRR@5 improvement on MedQuAD medical dataset.
 
 ---
 
@@ -115,7 +115,7 @@ python train.py \
     --output-dir models/trained \
     --base-model llm-semantic-router/mmbert-embed-32k-2d-matryoshka \
     --iterations 2 \
-    --learning-rate 5e-7 \
+    --learning-rate 5e-5 \
     --margin 0.1
 ```
 
@@ -127,10 +127,10 @@ python train.py \
 | `--output-dir` | `models/trained` | Where to save trained model |
 | `--base-model` | `llm-semantic-router/mmbert-embed-32k-2d-matryoshka` | Base model to fine-tune |
 | `--iterations` | `2` | Number of training iterations |
-| `--learning-rate` | `5e-7` | Learning rate |
+| `--learning-rate` | `5e-5` | Learning rate (**critical - use 5e-5, not lower**) |
 | `--epochs` | `2` | Epochs per iteration |
 | `--batch-size` | `8` | Training batch size |
-| `--margin` | `0.1` | TripletLoss margin (**critical**) |
+| `--margin` | `0.1` | TripletLoss margin |
 | `--easy-to-hard-ratio` | `2` | Ratio of easy:hard triplets |
 | `--num-queries` | all | Limit training queries |
 
@@ -138,35 +138,38 @@ python train.py \
 
 ## Critical Hyperparameters
 
-These settings prevent catastrophic forgetting:
+These settings are essential for good results:
 
 | Parameter | Value | Why It Matters |
 |-----------|-------|----------------|
+| **learning-rate** | `5e-5` | Lower values (5e-7) result in minimal improvement |
 | **margin** | `0.1` | Default margin (~5.0) causes severe forgetting |
 | easy:hard ratio | `2:1` | Easy triplets reinforce existing knowledge |
 | Accumulate triplets | Yes | Don't replace, add to training set each iteration |
-| iterations | `2` | Diminishing returns after iteration 1 |
+| iterations | `2` | Second iteration provides additional gains |
 
 ---
 
 ## Results
 
-### MedQuAD Medical Dataset
+### MedQuAD Medical Dataset (13,125 training queries)
 
-| Metric | Base Model | Trained Model | Improvement |
-|--------|------------|---------------|-------------|
-| MRR@1 | 0.3505 | 0.4472 | **+27.6%** |
-| MRR@5 | 0.4756 | 0.5614 | **+18.0%** |
-| Recall@1 | 0.2466 | 0.3149 | **+27.7%** |
-| Recall@5 | 0.5253 | 0.5650 | **+7.5%** |
+| Metric | Baseline | Iteration 1 | Iteration 2 | Improvement |
+|--------|----------|-------------|-------------|-------------|
+| **MRR@5** | 0.4354 | 0.6528 (+49.93%) | **0.7453** | **+71.18%** |
+| **Recall@5** | 0.4896 | 0.5918 | **0.6900** | **+40.92%** |
 
-### Training Summary
+### Training Configuration
 
-| Iteration | MRR@5 | Triplets | Change |
-|-----------|-------|----------|--------|
-| 0 (baseline) | 0.4291 | 0 | - |
-| 1 | 0.4521 | 991 | +5.36% |
-| 2 | 0.5425 | 2005 | **+26.42%** |
+| Parameter | Value |
+|-----------|-------|
+| Base model | llm-semantic-router/mmbert-embed-32k-2d-matryoshka |
+| Learning rate | 5e-5 |
+| Batch size | 8 |
+| Epochs per iteration | 2 |
+| Margin | 0.1 |
+| Easy:Hard ratio | 2:1 |
+| GPU | NVIDIA L4 (24GB) |
 
 ---
 
@@ -215,7 +218,7 @@ print(similarities)  # Higher score = more relevant
 ## Files
 
 ```
-src/training/iterative_mining/
+iterative_mining/
 ├── README.md           # This file
 ├── train.py            # Main training script
 ├── prepare_data.py     # Data preparation (JSON, JSONL, HuggingFace)
@@ -230,7 +233,7 @@ src/training/iterative_mining/
 - Python 3.8+
 - PyTorch 2.0+
 - sentence-transformers 2.2+
-- GPU recommended (CPU works but slower)
+- GPU recommended (NVIDIA L4 or better with 24GB+ VRAM)
 
 Install:
 ```bash

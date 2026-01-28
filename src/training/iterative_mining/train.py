@@ -16,7 +16,7 @@ Usage:
     python train.py --data-dir data --output-dir models/trained \
         --iterations 3 --learning-rate 1e-6
 
-Results on MedQuAD dataset: +26.42% MRR@5 improvement over baseline.
+Results on MedQuAD dataset: +71.18% MRR@5 improvement over baseline (lr=5e-5).
 """
 
 import argparse
@@ -38,10 +38,10 @@ from tqdm import tqdm
 # ============================================================
 DEFAULT_MODEL = "llm-semantic-router/mmbert-embed-32k-2d-matryoshka"
 DEFAULT_ITERATIONS = 2
-DEFAULT_LEARNING_RATE = 5e-7
+DEFAULT_LEARNING_RATE = 5e-5
 DEFAULT_EPOCHS = 2
 DEFAULT_BATCH_SIZE = 8
-DEFAULT_MARGIN = 0.1  # CRITICAL: Default margin causes catastrophic forgetting
+DEFAULT_MARGIN = 0.1  # Important: SentenceTransformers default is 5.0 which performs poorly
 DEFAULT_EASY_TO_HARD_RATIO = 2
 DEFAULT_TOP_K = 100
 DEFAULT_HARD_NEG_RANK = 15
@@ -237,7 +237,7 @@ Examples:
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE,
                         help=f"Batch size (default: {DEFAULT_BATCH_SIZE})")
     parser.add_argument("--margin", type=float, default=DEFAULT_MARGIN,
-                        help=f"Triplet loss margin - CRITICAL: use 0.1, not default (default: {DEFAULT_MARGIN})")
+                        help=f"Triplet loss margin (default 0.1, not SentenceTransformers default of 5.0) (default: {DEFAULT_MARGIN})")
     parser.add_argument("--easy-to-hard-ratio", type=int, default=DEFAULT_EASY_TO_HARD_RATIO,
                         help=f"Ratio of easy to hard triplets for anti-forgetting (default: {DEFAULT_EASY_TO_HARD_RATIO})")
 
