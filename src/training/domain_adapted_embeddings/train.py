@@ -41,13 +41,17 @@ DEFAULT_ITERATIONS = 2
 DEFAULT_LEARNING_RATE = 5e-5
 DEFAULT_EPOCHS = 2
 DEFAULT_BATCH_SIZE = 8
-DEFAULT_MARGIN = 0.1  # Important: SentenceTransformers default is 5.0 which performs poorly
+DEFAULT_MARGIN = (
+    0.1  # Important: SentenceTransformers default is 5.0 which performs poorly
+)
 DEFAULT_EASY_TO_HARD_RATIO = 2
 DEFAULT_TOP_K = 100
 DEFAULT_HARD_NEG_RANK = 15
 
 
-def load_data(data_dir: str, num_queries: int = None) -> Tuple[List, List, List, List, Dict]:
+def load_data(
+    data_dir: str, num_queries: int = None
+) -> Tuple[List, List, List, List, Dict]:
     """Load prepared data files."""
     with open(f"{data_dir}/corpus_chunks.pkl", "rb") as f:
         corpus_list = pickle.load(f)
@@ -66,8 +70,13 @@ def load_data(data_dir: str, num_queries: int = None) -> Tuple[List, List, List,
     return corpus_list, train_data, test_data, chunk_texts, chunk_id_to_idx
 
 
-def evaluate(model: SentenceTransformer, test_data: List, chunk_texts: List,
-             chunk_id_to_idx: Dict, k: int = 5) -> Dict[str, float]:
+def evaluate(
+    model: SentenceTransformer,
+    test_data: List,
+    chunk_texts: List,
+    chunk_id_to_idx: Dict,
+    k: int = 5,
+) -> Dict[str, float]:
     """
     Evaluate model on test set.
 
@@ -87,8 +96,11 @@ def evaluate(model: SentenceTransformer, test_data: List, chunk_texts: List,
     valid_queries = 0
 
     for i, q in enumerate(test_data):
-        gt_indices = {chunk_id_to_idx[cid] for cid in q["ground_truth_chunk_ids"]
-                      if cid in chunk_id_to_idx}
+        gt_indices = {
+            chunk_id_to_idx[cid]
+            for cid in q["ground_truth_chunk_ids"]
+            if cid in chunk_id_to_idx
+        }
         if not gt_indices:
             continue
 
@@ -112,9 +124,14 @@ def evaluate(model: SentenceTransformer, test_data: List, chunk_texts: List,
     }
 
 
-def mine_triplets(model: SentenceTransformer, train_data: List, chunk_texts: List,
-                  chunk_id_to_idx: Dict, top_k: int = 100,
-                  hard_neg_rank: int = 15) -> Tuple[List, List]:
+def mine_triplets(
+    model: SentenceTransformer,
+    train_data: List,
+    chunk_texts: List,
+    chunk_id_to_idx: Dict,
+    top_k: int = 100,
+    hard_neg_rank: int = 15,
+) -> Tuple[List, List]:
     """
     Mine both HARD and EASY triplets using ground-truth labels.
 
@@ -137,8 +154,11 @@ def mine_triplets(model: SentenceTransformer, train_data: List, chunk_texts: Lis
 
     print("  Mining triplets...")
     for i, q in enumerate(tqdm(train_data, desc="Mining")):
-        gt_indices = {chunk_id_to_idx[cid] for cid in q["ground_truth_chunk_ids"]
-                      if cid in chunk_id_to_idx}
+        gt_indices = {
+            chunk_id_to_idx[cid]
+            for cid in q["ground_truth_chunk_ids"]
+            if cid in chunk_id_to_idx
+        }
         if not gt_indices:
             continue
 
@@ -147,34 +167,41 @@ def mine_triplets(model: SentenceTransformer, train_data: List, chunk_texts: Lis
 
         # Categorize by position in ranking
         hard_negs = [idx for idx in ranked[:hard_neg_rank] if idx not in gt_indices]
-        easy_negs = [idx for idx in ranked[hard_neg_rank:top_k] if idx not in gt_indices]
-        hard_pos = [idx for idx in ranked[5:top_k] if idx in gt_indices]  # GT ranked low
-        easy_pos = [idx for idx in ranked[:5] if idx in gt_indices]       # GT ranked high
+        easy_negs = [
+            idx for idx in ranked[hard_neg_rank:top_k] if idx not in gt_indices
+        ]
+        hard_pos = [
+            idx for idx in ranked[5:top_k] if idx in gt_indices
+        ]  # GT ranked low
+        easy_pos = [idx for idx in ranked[:5] if idx in gt_indices]  # GT ranked high
 
         # HARD triplet: hard positive + hard negative
         if hard_negs and hard_pos:
-            hard_triplets.append((
-                q["query"],
-                chunk_texts[hard_pos[0]],
-                chunk_texts[hard_negs[0]]
-            ))
+            hard_triplets.append(
+                (q["query"], chunk_texts[hard_pos[0]], chunk_texts[hard_negs[0]])
+            )
 
         # EASY triplet: easy positive + negative (anti-forgetting)
         if easy_pos:
-            neg_idx = easy_negs[0] if easy_negs else (hard_negs[0] if hard_negs else None)
+            neg_idx = (
+                easy_negs[0] if easy_negs else (hard_negs[0] if hard_negs else None)
+            )
             if neg_idx is not None:
-                easy_triplets.append((
-                    q["query"],
-                    chunk_texts[easy_pos[0]],
-                    chunk_texts[neg_idx]
-                ))
+                easy_triplets.append(
+                    (q["query"], chunk_texts[easy_pos[0]], chunk_texts[neg_idx])
+                )
 
     return hard_triplets, easy_triplets
 
 
-def train_iteration(model: SentenceTransformer, triplets: List[Tuple],
-                    learning_rate: float, num_epochs: int, batch_size: int,
-                    margin: float) -> SentenceTransformer:
+def train_iteration(
+    model: SentenceTransformer,
+    triplets: List[Tuple],
+    learning_rate: float,
+    num_epochs: int,
+    batch_size: int,
+    margin: float,
+) -> SentenceTransformer:
     """Train model on triplets for one iteration."""
     examples = [InputExample(texts=[a, p, n]) for a, p, n in triplets]
     loader = DataLoader(examples, batch_size=batch_size, shuffle=True)
@@ -183,7 +210,7 @@ def train_iteration(model: SentenceTransformer, triplets: List[Tuple],
     loss_fn = losses.TripletLoss(
         model,
         distance_metric=losses.TripletDistanceMetric.COSINE,
-        triplet_margin=margin
+        triplet_margin=margin,
     )
 
     model.fit(
@@ -192,7 +219,7 @@ def train_iteration(model: SentenceTransformer, triplets: List[Tuple],
         warmup_steps=100,
         optimizer_params={"lr": learning_rate},
         weight_decay=0.01,
-        show_progress_bar=True
+        show_progress_bar=True,
     )
 
     return model
@@ -212,40 +239,85 @@ Examples:
 
   # Adjust hyperparameters
   python train.py --data-dir data --iterations 3 --learning-rate 1e-6
-        """
+        """,
     )
 
     # Required arguments
-    parser.add_argument("--data-dir", required=True,
-                        help="Directory containing prepared data (corpus_chunks.pkl, train_queries.pkl, test_queries.pkl)")
-    parser.add_argument("--output-dir", default="models/trained",
-                        help="Directory to save trained model (default: models/trained)")
+    parser.add_argument(
+        "--data-dir",
+        required=True,
+        help="Directory containing prepared data (corpus_chunks.pkl, train_queries.pkl, test_queries.pkl)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="models/trained",
+        help="Directory to save trained model (default: models/trained)",
+    )
 
     # Model configuration
-    parser.add_argument("--base-model", default=DEFAULT_MODEL,
-                        help=f"Base SentenceTransformer model (default: {DEFAULT_MODEL})")
+    parser.add_argument(
+        "--base-model",
+        default=DEFAULT_MODEL,
+        help=f"Base SentenceTransformer model (default: {DEFAULT_MODEL})",
+    )
 
     # Training hyperparameters
-    parser.add_argument("--iterations", type=int, default=DEFAULT_ITERATIONS,
-                        help=f"Number of training iterations (default: {DEFAULT_ITERATIONS})")
-    parser.add_argument("--num-queries", type=int, default=None,
-                        help="Limit number of training queries (default: use all)")
-    parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE,
-                        help=f"Learning rate (default: {DEFAULT_LEARNING_RATE})")
-    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS,
-                        help=f"Epochs per iteration (default: {DEFAULT_EPOCHS})")
-    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE,
-                        help=f"Batch size (default: {DEFAULT_BATCH_SIZE})")
-    parser.add_argument("--margin", type=float, default=DEFAULT_MARGIN,
-                        help=f"Triplet loss margin (default 0.1, not SentenceTransformers default of 5.0) (default: {DEFAULT_MARGIN})")
-    parser.add_argument("--easy-to-hard-ratio", type=int, default=DEFAULT_EASY_TO_HARD_RATIO,
-                        help=f"Ratio of easy to hard triplets for anti-forgetting (default: {DEFAULT_EASY_TO_HARD_RATIO})")
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=DEFAULT_ITERATIONS,
+        help=f"Number of training iterations (default: {DEFAULT_ITERATIONS})",
+    )
+    parser.add_argument(
+        "--num-queries",
+        type=int,
+        default=None,
+        help="Limit number of training queries (default: use all)",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=DEFAULT_LEARNING_RATE,
+        help=f"Learning rate (default: {DEFAULT_LEARNING_RATE})",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=DEFAULT_EPOCHS,
+        help=f"Epochs per iteration (default: {DEFAULT_EPOCHS})",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
+        help=f"Batch size (default: {DEFAULT_BATCH_SIZE})",
+    )
+    parser.add_argument(
+        "--margin",
+        type=float,
+        default=DEFAULT_MARGIN,
+        help=f"Triplet loss margin (default 0.1, not SentenceTransformers default of 5.0) (default: {DEFAULT_MARGIN})",
+    )
+    parser.add_argument(
+        "--easy-to-hard-ratio",
+        type=int,
+        default=DEFAULT_EASY_TO_HARD_RATIO,
+        help=f"Ratio of easy to hard triplets for anti-forgetting (default: {DEFAULT_EASY_TO_HARD_RATIO})",
+    )
 
     # Mining parameters
-    parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K,
-                        help=f"Top K chunks to consider for mining (default: {DEFAULT_TOP_K})")
-    parser.add_argument("--hard-neg-rank", type=int, default=DEFAULT_HARD_NEG_RANK,
-                        help=f"Negatives ranked within this are 'hard' (default: {DEFAULT_HARD_NEG_RANK})")
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=DEFAULT_TOP_K,
+        help=f"Top K chunks to consider for mining (default: {DEFAULT_TOP_K})",
+    )
+    parser.add_argument(
+        "--hard-neg-rank",
+        type=int,
+        default=DEFAULT_HARD_NEG_RANK,
+        help=f"Negatives ranked within this are 'hard' (default: {DEFAULT_HARD_NEG_RANK})",
+    )
 
     args = parser.parse_args()
 
@@ -306,15 +378,21 @@ Examples:
         # Mine triplets
         print("\nStep 1: Mining triplets...")
         hard_triplets, easy_triplets = mine_triplets(
-            model, train_data, chunk_texts, chunk_id_to_idx,
-            top_k=args.top_k, hard_neg_rank=args.hard_neg_rank
+            model,
+            train_data,
+            chunk_texts,
+            chunk_id_to_idx,
+            top_k=args.top_k,
+            hard_neg_rank=args.hard_neg_rank,
         )
         print(f"  Mined: {len(hard_triplets)} hard, {len(easy_triplets)} easy triplets")
 
         # Balance easy:hard ratio
         n_easy = min(len(easy_triplets), len(hard_triplets) * args.easy_to_hard_ratio)
         iteration_triplets = hard_triplets + easy_triplets[:n_easy]
-        print(f"  Using: {len(hard_triplets)} hard + {n_easy} easy = {len(iteration_triplets)}")
+        print(
+            f"  Using: {len(hard_triplets)} hard + {n_easy} easy = {len(iteration_triplets)}"
+        )
 
         if len(iteration_triplets) == 0:
             print("  WARNING: No triplets mined. Skipping iteration.")
@@ -331,11 +409,12 @@ Examples:
         # Train
         print("\nStep 2: Training...")
         model = train_iteration(
-            model, all_triplets,
+            model,
+            all_triplets,
             learning_rate=args.learning_rate,
             num_epochs=args.epochs,
             batch_size=args.batch_size,
-            margin=args.margin
+            margin=args.margin,
         )
 
         # Evaluate
@@ -380,7 +459,7 @@ Examples:
             "batch_size": args.batch_size,
             "margin": args.margin,
             "easy_to_hard_ratio": args.easy_to_hard_ratio,
-        }
+        },
     }
 
     with open(f"{args.output_dir}/training_summary.json", "w") as f:

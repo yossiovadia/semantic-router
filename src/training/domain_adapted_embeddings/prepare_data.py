@@ -65,11 +65,13 @@ def load_from_huggingface(dataset_name: str, split: str = "train") -> List[Dict]
         answer = item.get("Answer") or item.get("answer") or ""
 
         if question and answer:
-            qa_pairs.append({
-                "id": idx,
-                "question": question,
-                "answer": answer,
-            })
+            qa_pairs.append(
+                {
+                    "id": idx,
+                    "question": question,
+                    "answer": answer,
+                }
+            )
 
     print(f"Loaded {len(qa_pairs)} Q&A pairs")
     return qa_pairs
@@ -95,11 +97,13 @@ def load_from_json(input_file: str) -> List[Dict]:
         answer = item.get("answer") or item.get("Answer") or ""
 
         if question and answer:
-            qa_pairs.append({
-                "id": idx,
-                "question": question,
-                "answer": answer,
-            })
+            qa_pairs.append(
+                {
+                    "id": idx,
+                    "question": question,
+                    "answer": answer,
+                }
+            )
 
     print(f"Loaded {len(qa_pairs)} Q&A pairs")
     return qa_pairs
@@ -126,11 +130,13 @@ def load_from_jsonl(input_file: str) -> List[Dict]:
             answer = item.get("answer") or item.get("Answer") or ""
 
             if question and answer:
-                qa_pairs.append({
-                    "id": idx,
-                    "question": question,
-                    "answer": answer,
-                })
+                qa_pairs.append(
+                    {
+                        "id": idx,
+                        "question": question,
+                        "answer": answer,
+                    }
+                )
 
     print(f"Loaded {len(qa_pairs)} Q&A pairs")
     return qa_pairs
@@ -151,7 +157,9 @@ def chunk_text(text: str, max_length: int = 1000) -> List[str]:
         return [text]
 
     # Simple sentence splitting
-    sentences = text.replace("! ", "!|").replace("? ", "?|").replace(". ", ".|").split("|")
+    sentences = (
+        text.replace("! ", "!|").replace("? ", "?|").replace(". ", ".|").split("|")
+    )
 
     chunks = []
     current_chunk = ""
@@ -205,18 +213,22 @@ def prepare_data(
         qa_id_to_chunk_ids[qa_id] = []
         for chunk_text_str in chunks:
             chunk_id = len(corpus_chunks)
-            corpus_chunks.append({
-                "chunk_id": chunk_id,
-                "text": chunk_text_str,
-                "qa_id": qa_id,
-            })
+            corpus_chunks.append(
+                {
+                    "chunk_id": chunk_id,
+                    "text": chunk_text_str,
+                    "qa_id": qa_id,
+                }
+            )
             qa_id_to_chunk_ids[qa_id].append(chunk_id)
 
     print(f"Created {len(corpus_chunks)} corpus chunks")
 
     # Split into train/test
     print("\nSplitting data...")
-    train_qas, test_qas = train_test_split(qa_pairs, test_size=test_size, random_state=42)
+    train_qas, test_qas = train_test_split(
+        qa_pairs, test_size=test_size, random_state=42
+    )
     print(f"Train: {len(train_qas)} Q&A pairs")
     print(f"Test: {len(test_qas)} Q&A pairs")
 
@@ -226,10 +238,12 @@ def prepare_data(
         for qa in qas:
             chunk_ids = qa_id_to_chunk_ids.get(qa["id"], [])
             if chunk_ids:
-                queries.append({
-                    "query": qa["question"],
-                    "ground_truth_chunk_ids": chunk_ids,
-                })
+                queries.append(
+                    {
+                        "query": qa["question"],
+                        "ground_truth_chunk_ids": chunk_ids,
+                    }
+                )
         return queries
 
     train_queries = create_queries(train_qas)
@@ -287,23 +301,45 @@ Examples:
 
 Input JSON/JSONL format:
   [{"question": "What is X?", "answer": "X is..."}]
-        """
+        """,
     )
 
-    parser.add_argument("--source", required=True, choices=["huggingface", "json", "jsonl"],
-                        help="Data source type")
-    parser.add_argument("--dataset", default=None,
-                        help="HuggingFace dataset name (required for --source huggingface)")
-    parser.add_argument("--input-file", default=None,
-                        help="Input file path (required for --source json/jsonl)")
-    parser.add_argument("--output-dir", default="data",
-                        help="Output directory (default: data)")
-    parser.add_argument("--test-size", type=float, default=0.2,
-                        help="Fraction of data for testing (default: 0.2)")
-    parser.add_argument("--chunk-size", type=int, default=1000,
-                        help="Maximum chunk size in characters (default: 1000)")
-    parser.add_argument("--split", default="train",
-                        help="HuggingFace dataset split to use (default: train)")
+    parser.add_argument(
+        "--source",
+        required=True,
+        choices=["huggingface", "json", "jsonl"],
+        help="Data source type",
+    )
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        help="HuggingFace dataset name (required for --source huggingface)",
+    )
+    parser.add_argument(
+        "--input-file",
+        default=None,
+        help="Input file path (required for --source json/jsonl)",
+    )
+    parser.add_argument(
+        "--output-dir", default="data", help="Output directory (default: data)"
+    )
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        default=0.2,
+        help="Fraction of data for testing (default: 0.2)",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=1000,
+        help="Maximum chunk size in characters (default: 1000)",
+    )
+    parser.add_argument(
+        "--split",
+        default="train",
+        help="HuggingFace dataset split to use (default: train)",
+    )
 
     args = parser.parse_args()
 

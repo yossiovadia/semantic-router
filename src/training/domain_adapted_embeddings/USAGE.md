@@ -35,6 +35,7 @@ python prepare_data.py --source huggingface --dataset keivalya/MedQuad-MedicalQn
 ### Option 2: Custom JSON File
 
 Create a JSON file with Q&A pairs:
+
 ```json
 [
   {"question": "What are the symptoms of diabetes?", "answer": "Diabetes symptoms include..."},
@@ -43,6 +44,7 @@ Create a JSON file with Q&A pairs:
 ```
 
 Then run:
+
 ```bash
 python prepare_data.py --source json --input-file your_data.json
 ```
@@ -146,11 +148,13 @@ print(similarities)  # Higher score = more relevant
    - Answer: Document/passage that answers the question
 
 2. **Prepare data**
+
    ```bash
    python prepare_data.py --source json --input-file your_domain_qa.json
    ```
 
 3. **Train**
+
    ```bash
    python train.py --data-dir data --output-dir models/your_domain
    ```
@@ -167,6 +171,7 @@ print(similarities)  # Higher score = more relevant
 - GPU recommended (NVIDIA L4 or better with 24GB+ VRAM)
 
 Install:
+
 ```bash
 pip install -r requirements.txt
 ```
