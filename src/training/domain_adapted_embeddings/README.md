@@ -1,5 +1,7 @@
 # Domain-Adapted Embedding Fine-Tuning
 
+![Domain-Adapted Embeddings](domain-embed.jpg)
+
 Fine-tune embedding models for improved retrieval in specific domains using iterative hard-negative mining.
 
 **Based on:** ["Distilling an LLM's Wisdom: A Framework for Creating Domain Adapted Financial Embedding Models"](https://arxiv.org/abs/2512.08088)
