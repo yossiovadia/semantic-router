@@ -230,6 +230,20 @@ print(similarities)  # Higher score = more relevant
 
 ---
 
+## Limitation: Multi-Domain Integration (TBD)
+
+Each domain-adapted model is fine-tuned independently. When multiple domains exist (medical, legal, finance, etc.), a strategy is needed to integrate them into the semantic router:
+
+| Option | Approach | Trade-off |
+|--------|----------|-----------|
+| **Multi-domain fine-tuning** | Train one model on all domains together | Simple deployment, but domains may interfere |
+| **Two-stage routing** | Domain classifier → domain-specific embeddings | Best accuracy, more complexity |
+| **Ensemble** | Run through multiple models, combine scores | Handles cross-domain queries, higher latency |
+
+Currently, this pipeline produces standalone domain models. Integration with the semantic router's existing domain signal infrastructure is future work.
+
+---
+
 ## Files
 
 ```
