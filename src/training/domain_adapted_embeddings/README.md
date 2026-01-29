@@ -8,7 +8,22 @@ Fine-tune embedding models for improved retrieval in specific domains using iter
 
 ---
 
-## Quick Start
+## Pre-trained Models
+
+| Domain | Model | Base Model | Improvement |
+|--------|-------|------------|-------------|
+| Medical | [mmbert-embed-medical](https://huggingface.co/llm-semantic-router/mmbert-embed-medical) | mmbert-embed-32k-2d-matryoshka | +71% MRR@5 |
+
+```python
+# Use pre-trained domain-adapted model
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("llm-semantic-router/mmbert-embed-medical", trust_remote_code=True)
+embeddings = model.encode(["What are the symptoms of diabetes?"])
+```
+
+---
+
+## Train Your Own
 
 ```bash
 # 1. Install dependencies
@@ -218,7 +233,7 @@ print(similarities)  # Higher score = more relevant
 ## Files
 
 ```
-iterative_mining/
+domain_adapted_embeddings/
 ├── README.md           # This file
 ├── train.py            # Main training script
 ├── prepare_data.py     # Data preparation (JSON, JSONL, HuggingFace)
