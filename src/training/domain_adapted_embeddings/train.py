@@ -32,6 +32,8 @@ from sentence_transformers import InputExample, SentenceTransformer, losses
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from apply_cocktail import apply_lm_cocktail
+
 # ============================================================
 # DEFAULT CONFIGURATION
 # These are the proven hyperparameters from our experiments
@@ -47,6 +49,7 @@ DEFAULT_MARGIN = (
 DEFAULT_EASY_TO_HARD_RATIO = 2
 DEFAULT_TOP_K = 100
 DEFAULT_HARD_NEG_RANK = 15
+DEFAULT_LM_COCKTAIL_ALPHA = 0.7  # Best performing alpha from experiments
 
 
 def load_data(
@@ -319,6 +322,19 @@ Examples:
         help=f"Negatives ranked within this are 'hard' (default: {DEFAULT_HARD_NEG_RANK})",
     )
 
+    # LM-Cocktail (enabled by default)
+    parser.add_argument(
+        "--no-lm-cocktail",
+        action="store_true",
+        help="Disable LM-Cocktail weight merging (enabled by default)",
+    )
+    parser.add_argument(
+        "--lm-cocktail-alpha",
+        type=float,
+        default=DEFAULT_LM_COCKTAIL_ALPHA,
+        help=f"LM-Cocktail alpha: 0=base, 1=fine-tuned (default: {DEFAULT_LM_COCKTAIL_ALPHA})",
+    )
+
     args = parser.parse_args()
 
     # Ensure output directory exists
@@ -465,6 +481,20 @@ Examples:
     with open(f"{args.output_dir}/training_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
     print(f"Training summary saved to: {args.output_dir}/training_summary.json")
+
+    # Apply LM-Cocktail (enabled by default)
+    if not args.no_lm_cocktail:
+        print("\n" + "=" * 70)
+        print(f"APPLYING LM-COCKTAIL (alpha={args.lm_cocktail_alpha})")
+        print("=" * 70)
+        cocktail_path = f"{args.output_dir}/best_cocktail"
+        apply_lm_cocktail(
+            base_model_path=args.base_model,
+            finetuned_model_path=f"{args.output_dir}/best",
+            output_path=cocktail_path,
+            alpha=args.lm_cocktail_alpha,
+        )
+        print(f"\nFinal model: {cocktail_path}")
 
 
 if __name__ == "__main__":
