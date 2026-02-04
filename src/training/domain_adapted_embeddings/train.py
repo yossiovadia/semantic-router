@@ -50,6 +50,7 @@ DEFAULT_EASY_TO_HARD_RATIO = 2
 DEFAULT_TOP_K = 100
 DEFAULT_HARD_NEG_RANK = 15
 DEFAULT_LM_COCKTAIL_ALPHA = 0.7  # Best performing alpha from experiments
+DEFAULT_LOSS = "mnrl"  # MultipleNegativesRankingLoss - modern standard, recommended by sentence-transformers
 
 
 def load_data(
@@ -204,17 +205,29 @@ def train_iteration(
     num_epochs: int,
     batch_size: int,
     margin: float,
+    loss_type: str = "mnrl",
 ) -> SentenceTransformer:
-    """Train model on triplets for one iteration."""
+    """Train model on triplets for one iteration.
+
+    Args:
+        loss_type: "triplet" for TripletLoss, "mnrl" for MultipleNegativesRankingLoss.
+                   MNRL is the modern standard used by E5, BGE, GTE embedding models.
+    """
     examples = [InputExample(texts=[a, p, n]) for a, p, n in triplets]
     loader = DataLoader(examples, batch_size=batch_size, shuffle=True)
 
-    # CRITICAL: Use margin=0.1, not default
-    loss_fn = losses.TripletLoss(
-        model,
-        distance_metric=losses.TripletDistanceMetric.COSINE,
-        triplet_margin=margin,
-    )
+    if loss_type == "mnrl":
+        # MultipleNegativesRankingLoss (InfoNCE) - recommended for embedding training
+        # Uses in-batch negatives: all other positives in batch become negatives
+        # With triplets, the explicit negative is also included
+        loss_fn = losses.MultipleNegativesRankingLoss(model)
+    else:
+        # TripletLoss with margin=0.1 (not default 5.0)
+        loss_fn = losses.TripletLoss(
+            model,
+            distance_metric=losses.TripletDistanceMetric.COSINE,
+            triplet_margin=margin,
+        )
 
     model.fit(
         train_objectives=[(loader, loss_fn)],
@@ -322,6 +335,14 @@ Examples:
         help=f"Negatives ranked within this are 'hard' (default: {DEFAULT_HARD_NEG_RANK})",
     )
 
+    # Loss function
+    parser.add_argument(
+        "--loss",
+        choices=["triplet", "mnrl"],
+        default=DEFAULT_LOSS,
+        help=f"Loss function: 'triplet' (TripletLoss) or 'mnrl' (MultipleNegativesRankingLoss) (default: {DEFAULT_LOSS})",
+    )
+
     # LM-Cocktail (enabled by default)
     parser.add_argument(
         "--no-lm-cocktail",
@@ -347,9 +368,10 @@ Examples:
     print(f"  Base model: {args.base_model}")
     print(f"  Data dir: {args.data_dir}")
     print(f"  Output dir: {args.output_dir}")
+    print(f"  Loss function: {args.loss} ({'MultipleNegativesRankingLoss' if args.loss == 'mnrl' else 'TripletLoss'})")
     print(f"  Iterations: {args.iterations}")
     print(f"  Learning rate: {args.learning_rate}")
-    print(f"  Margin: {args.margin}")
+    print(f"  Margin: {args.margin}" + (" (used for triplet only)" if args.loss == "mnrl" else ""))
     print(f"  Easy:Hard ratio: {args.easy_to_hard_ratio}")
 
     # Load data
@@ -431,6 +453,7 @@ Examples:
             num_epochs=args.epochs,
             batch_size=args.batch_size,
             margin=args.margin,
+            loss_type=args.loss,
         )
 
         # Evaluate
@@ -469,6 +492,7 @@ Examples:
         "best_iteration": best_iteration,
         "improvement_percent": final_change,
         "hyperparameters": {
+            "loss": args.loss,
             "iterations": args.iterations,
             "learning_rate": args.learning_rate,
             "epochs": args.epochs,
