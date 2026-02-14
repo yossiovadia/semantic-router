@@ -389,6 +389,29 @@ demo-hallucination-auto: build-router download-models
 	@echo "Starting Hallucination Detection Demo (auto mode)..."
 	@./e2e/testing/hallucination-demo/run_demo.sh --demo
 
+# ============== Egress Routing Demo ==============
+
+# Run the egress routing demo (multi-provider routing + API translation)
+run-egress-demo: ## Start egress routing demo services (OpenAI + Anthropic + internal routing)
+run-egress-demo: build-router download-models
+	@echo "Starting Egress Routing Demo..."
+	@./e2e/testing/demo/run-egress-demo.sh
+
+# Run egress demo scenarios
+run-egress-scenarios: ## Run egress routing demo scenarios (requires demo services running)
+run-egress-scenarios:
+	@./e2e/testing/demo/run-scenarios.sh
+
+# Run all egress demo scenarios including security
+run-egress-scenarios-all: ## Run all egress demo scenarios including security
+run-egress-scenarios-all:
+	@./e2e/testing/demo/run-scenarios.sh --all
+
+# Stop egress demo services
+stop-egress-demo: ## Stop egress routing demo services
+stop-egress-demo:
+	@./e2e/testing/demo/run-egress-demo.sh --stop
+
 # ============== Image Generation Tests ==============
 
 # Test image generation with vLLM-Omni

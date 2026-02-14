@@ -1,0 +1,155 @@
+# vSR Egress Routing Demo Configuration
+#
+# Demonstrates:
+# 1. Body-based routing (model extraction from JSON body)
+# 2. Multi-provider routing (external + internal)
+# 3. API translation (OpenAI <-> Anthropic)
+# 4. Tier-based model access control
+# 5. Semantic classification (domain/intent detection)
+# 6. PII detection and blocking (--security scenarios)
+# 7. Jailbreak detection and blocking (--security scenarios)
+#
+# Usage:
+#   ./bin/router -config=config/demo/config.egress-demo.yaml
+
+# --- ML Models ---
+bert_model:
+  model_id: models/mom-embedding-light
+  threshold: 0.6
+  use_cpu: true
+
+classifier:
+  category_model:
+    model_id: "models/mom-domain-classifier"
+    threshold: 0.6
+    use_cpu: true
+    category_mapping_path: "models/mom-domain-classifier/category_mapping.json"
+  pii_model:
+    model_id: "models/mom-pii-classifier"
+    use_modernbert: false
+    threshold: 0.7
+    use_cpu: true
+    pii_mapping_path: "models/mom-pii-classifier/pii_type_mapping.json"
+
+prompt_guard:
+  enabled: false
+
+# --- Backend Endpoints ---
+# Three endpoints: Ollama "external" (simulates OpenAI egress), Anthropic (mock), Internal model (mock)
+# In production, the "external" endpoint would be api.openai.com:443 with a real API key.
+# For this demo, Ollama provides an OpenAI-compatible API locally.
+vllm_endpoints:
+  - name: "external-provider"
+    address: "127.0.0.1"
+    port: 11434
+    weight: 1
+  - name: "anthropic-endpoint"
+    address: "127.0.0.1"
+    port: 8003
+    weight: 1
+  - name: "internal-endpoint"
+    address: "127.0.0.1"
+    port: 8002
+    weight: 1
+
+# --- Model Configuration ---
+model_config:
+  "qwen2.5:1.5b":
+    preferred_endpoints: ["external-provider"]
+    description: "External provider model (Ollama, simulates OpenAI egress)"
+  "claude-sonnet":
+    api_format: "anthropic"
+    access_key: "mock-anthropic-key-for-demo"
+    preferred_endpoints: ["anthropic-endpoint"]
+    description: "Anthropic Claude Sonnet (mock endpoint, API translation demo)"
+  "mock-llama3":
+    preferred_endpoints: ["internal-endpoint"]
+    description: "Internal KServe-hosted model (mock)"
+
+# --- Semantic Cache (disabled for demo simplicity) ---
+semantic_cache:
+  enabled: false
+
+# --- Categories ---
+categories:
+  - name: math
+    description: "Mathematics and quantitative reasoning"
+    mmlu_categories: ["math"]
+  - name: computer_science
+    description: "Computer science and programming"
+    mmlu_categories: ["computer_science"]
+  - name: health
+    description: "Health and medical information"
+    mmlu_categories: ["health"]
+  - name: business
+    description: "Business and management"
+    mmlu_categories: ["business"]
+  - name: other
+    description: "General knowledge"
+    mmlu_categories: ["other"]
+
+# --- Decision-based Routing ---
+strategy: "priority"
+
+decisions:
+  - name: "math_routing"
+    description: "Route math queries"
+    priority: 100
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "domain"
+          name: "math"
+    modelRefs:
+      - model: "qwen2.5:1.5b"
+        use_reasoning: false
+    plugins: []
+
+  - name: "cs_routing"
+    description: "Route CS queries"
+    priority: 100
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "domain"
+          name: "computer_science"
+    modelRefs:
+      - model: "qwen2.5:1.5b"
+        use_reasoning: false
+    plugins: []
+
+  - name: "default_routing"
+    description: "Default catch-all routing"
+    priority: 1
+    rules:
+      operator: "OR"
+      conditions:
+        - type: "always"
+    modelRefs:
+      - model: "qwen2.5:1.5b"
+        use_reasoning: false
+    plugins: []
+
+default_model: "qwen2.5:1.5b"
+
+# --- Tier-Based Model Access Policy ---
+# Maps subscription tiers to allowed models.
+# Tier is read from the X-MaaS-Tier request header (injected by Kuadrant AuthPolicy).
+# If no policy is configured or no tier header is present, access is unrestricted.
+model_access_policy:
+  free:
+    allowed_models:
+      - "mock-llama3"           # Free tier: internal models only
+  premium:
+    allowed_models:
+      - "mock-llama3"           # Internal models
+      - "qwen2.5:1.5b"         # External provider model
+      - "claude-sonnet"         # Anthropic model
+  enterprise:
+    allowed_models:
+      - "*"                     # Enterprise: unrestricted access
+
+# --- Observability ---
+observability:
+  metrics:
+    enabled: true

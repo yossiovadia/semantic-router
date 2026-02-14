@@ -165,6 +165,21 @@ func (r *OpenAIRouter) handleRequestBody(v *ext_proc.ProcessingRequest_RequestBo
 // handleModelRouting handles model selection and routing logic
 // decisionName, reasoningDecision, and selectedModel are pre-computed from ProcessRequest
 func (r *OpenAIRouter) handleModelRouting(openAIRequest *openai.ChatCompletionNewParams, originalModel string, decisionName string, reasoningDecision entropy.ReasoningDecision, selectedModel string, ctx *RequestContext) (*ext_proc.ProcessingResponse, error) {
+	// Check tier-based model access policy
+	if r.Config != nil && len(r.Config.ModelAccessPolicy) > 0 {
+		tier := ctx.Headers["x-maas-tier"]
+		targetModel := originalModel
+		if selectedModel != "" && r.Config.IsAutoModelName(originalModel) {
+			targetModel = selectedModel
+		}
+		if !r.Config.IsModelAllowedForTier(tier, targetModel) {
+			logging.Infof("Model access denied: tier=%q model=%q", tier, targetModel)
+			metrics.RecordRequestError(targetModel, "tier_access_denied")
+			return r.createErrorResponse(403,
+				fmt.Sprintf("Model %q is not available for your subscription tier. Contact your administrator to upgrade.", targetModel)), nil
+		}
+	}
+
 	response := &ext_proc.ProcessingResponse{
 		Response: &ext_proc.ProcessingResponse_RequestBody{
 			RequestBody: &ext_proc.BodyResponse{

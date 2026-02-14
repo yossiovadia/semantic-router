@@ -103,6 +103,28 @@ func (c *RouterConfig) GetModelAPIFormat(modelName string) string {
 	return APIFormatOpenAI
 }
 
+// IsModelAllowedForTier checks whether the given model is accessible for the user's tier.
+// Returns true if no policy is configured (open access), if the tier has wildcard ["*"],
+// or if the model is in the tier's allowed list.
+func (c *RouterConfig) IsModelAllowedForTier(tier, modelName string) bool {
+	if c == nil || len(c.ModelAccessPolicy) == 0 {
+		return true // No policy configured = open access
+	}
+	if tier == "" {
+		return true // No tier info = skip enforcement
+	}
+	tierConfig, ok := c.ModelAccessPolicy[tier]
+	if !ok {
+		return false // Tier not in policy = deny
+	}
+	for _, allowed := range tierConfig.AllowedModels {
+		if allowed == "*" || allowed == modelName {
+			return true
+		}
+	}
+	return false
+}
+
 // GetModelAccessKey returns the access key for the given model.
 func (c *RouterConfig) GetModelAccessKey(modelName string) string {
 	if c == nil || c.ModelConfig == nil {

@@ -103,6 +103,14 @@ type RouterConfig struct {
 	BackendModels `yaml:",inline"`
 	// ToolSelection for automatic tool selection
 	ToolSelection `yaml:",inline"`
+	// Model access policy for tier-based model restriction
+	ModelAccessPolicy map[string]TierAccessConfig `yaml:"model_access_policy,omitempty"`
+}
+
+// TierAccessConfig defines which models a tier can access
+type TierAccessConfig struct {
+	// AllowedModels lists the model names this tier can use. Use ["*"] for unrestricted access.
+	AllowedModels []string `yaml:"allowed_models"`
 }
 
 // ToolSelection represents the configuration for automatic tool selection
