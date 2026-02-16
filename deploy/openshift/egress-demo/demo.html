@@ -55,7 +55,12 @@
   .arch-box .detail { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
   .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
   .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
-  .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); }
+  .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
+
+  @keyframes neon-pulse-red {
+    0%, 100% { box-shadow: 0 0 8px rgba(248,81,73,0.2), 0 0 20px rgba(248,81,73,0.1); }
+    50% { box-shadow: 0 0 16px rgba(248,81,73,0.5), 0 0 40px rgba(248,81,73,0.3), 0 0 60px rgba(248,81,73,0.1); border-color: #ff6b6b; }
+  }
   .arch-box.dimmed { opacity: 0.3; }
 
   @keyframes neon-pulse {
