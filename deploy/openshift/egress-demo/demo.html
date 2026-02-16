@@ -54,8 +54,14 @@
   .arch-box .label { font-size: 12px; font-weight: 600; }
   .arch-box .detail { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
   .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
   .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); }
   .arch-box.dimmed { opacity: 0.3; }
+
+  @keyframes neon-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(63,185,80,0.2), 0 0 20px rgba(63,185,80,0.1); }
+    50% { box-shadow: 0 0 16px rgba(63,185,80,0.5), 0 0 40px rgba(63,185,80,0.3), 0 0 60px rgba(63,185,80,0.1); border-color: #6fdd8b; }
+  }
 
   .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; }
   .arch-arrow.active { color: var(--green); }
@@ -233,7 +239,7 @@ function setArch(scenario, blocked) {
   const ids = ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
   ids.forEach(id => {
     const el = document.getElementById(id);
-    el.classList.remove('active','blocked','dimmed');
+    el.classList.remove('active','blocked','dimmed','neon');
   });
 
   document.getElementById('backend-label').textContent = s.backend.label;
@@ -246,6 +252,7 @@ function setArch(scenario, blocked) {
     document.getElementById('box-backend').classList.add('dimmed');
   } else {
     ids.forEach(id => document.getElementById(id).classList.add('active'));
+    document.getElementById('box-backend').classList.add('neon');
   }
 }
 
