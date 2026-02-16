@@ -18,7 +18,12 @@ spec:
     spec:
       containers:
       - name: semantic-router
-        image: ghcr.io/vllm-project/semantic-router/extproc:latest
+        # Temporary custom image with tier-based access control (ModelAccessPolicy).
+        # Replace with ghcr.io/vllm-project/semantic-router/extproc:latest
+        # once the tier feature is merged upstream.
+        image: quay.io/jabadia/vsr-extproc:latest
+        command: ["/usr/local/bin/router"]
+        args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
         ports:
         - containerPort: 50051
           name: grpc
@@ -28,9 +33,9 @@ spec:
           name: api
         env:
         - name: CONFIG_FILE
-          value: "/app/config/config.yaml"
+          value: "/app/config.yaml"
         - name: LD_LIBRARY_PATH
-          value: "/app/lib"
+          value: "/usr/local/lib"
         - name: HOME
           value: "/tmp/home"
         securityContext:
@@ -58,7 +63,8 @@ spec:
             cpu: "500m"
         volumeMounts:
         - name: config
-          mountPath: /app/config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
           readOnly: true
       - name: envoy-proxy
         image: envoyproxy/envoy:v1.33.2

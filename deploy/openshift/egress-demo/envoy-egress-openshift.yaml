@@ -39,11 +39,21 @@ static_resources:
                 route:
                   cluster: external_cluster
                   timeout: 300s
-              # Default route (dynamic destination from vSR)
+              # Internal model route (mock-llama3)
+              - match:
+                  prefix: "/"
+                  headers:
+                  - name: x-selected-model
+                    string_match:
+                      prefix: "mock-"
+                route:
+                  cluster: internal_cluster
+                  timeout: 300s
+              # Default fallback to internal
               - match:
                   prefix: "/"
                 route:
-                  cluster: dynamic_cluster
+                  cluster: internal_cluster
                   timeout: 300s
           http_filters:
           - name: envoy.filters.http.ext_proc
@@ -120,14 +130,20 @@ static_resources:
                 address: mock-anthropic
                 port_value: 8003
 
-  # Dynamic cluster for internal models
-  - name: dynamic_cluster
-    type: ORIGINAL_DST
+  # Internal model (llm-katan-internal service)
+  - name: internal_cluster
+    type: STRICT_DNS
     connect_timeout: 10s
-    lb_policy: CLUSTER_PROVIDED
-    original_dst_lb_config:
-      use_http_header: true
-      http_header_name: "x-vsr-destination-endpoint"
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: internal_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: llm-katan-internal
+                port_value: 8000
 
 admin:
   address:

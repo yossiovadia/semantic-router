@@ -173,58 +173,58 @@ const GW = '';  // Same origin — proxied by demo-server.py
 const SCENARIOS = {
   external: {
     name: 'External Provider Routing',
-    desc: 'Client specifies model in body. vSR extracts it, resolves endpoint, routes to external provider.',
+    desc: 'Client specifies model in body. vSR extracts it, resolves endpoint, routes to external provider (OpenAI-compatible).',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? Answer in one word.'}], max_tokens: 50 },
     headers: {},
-    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: false
   },
   anthropic: {
     name: 'API Translation (Anthropic)',
-    desc: 'Client sends OpenAI format. vSR detects api_format: anthropic, transforms body to Anthropic Messages API, translates response back.',
+    desc: 'Client sends OpenAI format. vSR detects api_format: anthropic, transforms request to Anthropic Messages API, routes to Anthropic, translates response back to OpenAI format.',
     body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the capital of France? Answer briefly.'}], max_tokens: 50 },
     headers: {},
-    backend: { label: 'Anthropic', detail: ':8003 (mock)' },
+    backend: { label: 'Anthropic', detail: 'External Provider' },
     expectBlock: false
   },
   internal: {
     name: 'Internal Model Routing',
-    desc: 'Routes to internal KServe-hosted model. No egress, no translation. Standard vLLM-compatible endpoint.',
+    desc: 'Routes to internal KServe-hosted model. No egress, no API translation. Standard OpenAI-compatible endpoint within the cluster.',
     body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello, how are you?'}] },
     headers: {},
-    backend: { label: 'KServe', detail: ':8002 (internal)' },
+    backend: { label: 'KServe', detail: 'Internal Model' },
     expectBlock: false
   },
   classify: {
     name: 'Domain Classification',
-    desc: 'vSR classifies the request using ModernBERT. Sets x-vsr-selected-category header. Downstream can use this for routing decisions.',
+    desc: 'vSR classifies the request domain/intent using ModernBERT. Sets x-vsr-selected-category header for downstream routing decisions.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is the derivative of x^3 + 2x^2 - 5x + 7?'}], max_tokens: 100 },
     headers: {},
-    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: false
   },
   tier_free_blocked: {
     name: 'Free Tier \u2192 External (Blocked)',
-    desc: 'Free tier user requests external model. vSR reads X-MaaS-Tier header, checks model_access_policy, denies access. In production, Authorino injects this header after consulting MaaS API.',
+    desc: 'Free tier user requests external model. vSR reads X-MaaS-Tier header (injected by Authorino in production), checks model_access_policy, denies access.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
     headers: { 'X-MaaS-Tier': 'free' },
-    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: true
   },
   tier_free_allowed: {
     name: 'Free Tier \u2192 Internal (Allowed)',
-    desc: 'Free tier user requests internal model. Policy allows mock-llama3 for free tier. Request passes through.',
+    desc: 'Free tier user requests internal model. Policy allows mock-llama3 for free tier. Request passes through to KServe.',
     body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello'}] },
     headers: { 'X-MaaS-Tier': 'free' },
-    backend: { label: 'KServe', detail: ':8002 (internal)' },
+    backend: { label: 'KServe', detail: 'Internal Model' },
     expectBlock: false
   },
   tier_premium: {
     name: 'Premium Tier \u2192 External (Allowed)',
-    desc: 'Premium tier user requests external model. Policy allows qwen2.5:1.5b for premium tier. Request passes through.',
+    desc: 'Premium tier user requests external model. Policy allows access for premium tier. Request passes through to external provider.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? One word.'}], max_tokens: 10 },
     headers: { 'X-MaaS-Tier': 'premium' },
-    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: false
   }
 };
