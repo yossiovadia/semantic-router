@@ -81,7 +81,7 @@ fi
 # Prepare build context
 BUILD_TMP=$(mktemp -d)
 cp "$SCRIPT_DIR/Dockerfile.mock-anthropic" "$BUILD_TMP/Dockerfile"
-cp "$PROJECT_ROOT/e2e/testing/demo/mock-server.py" "$BUILD_TMP/"
+cp "$SCRIPT_DIR/mock-server.py" "$BUILD_TMP/"
 oc start-build mock-anthropic --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
 rm -rf "$BUILD_TMP"
 success "mock-anthropic image built"
@@ -92,8 +92,8 @@ if ! oc get imagestream demo-ui -n "$NAMESPACE" &>/dev/null; then
 fi
 BUILD_TMP=$(mktemp -d)
 cp "$SCRIPT_DIR/Dockerfile.demo-ui" "$BUILD_TMP/Dockerfile"
-cp "$PROJECT_ROOT/e2e/testing/demo/demo.html" "$BUILD_TMP/"
-cp "$PROJECT_ROOT/e2e/testing/demo/demo-server.py" "$BUILD_TMP/"
+cp "$SCRIPT_DIR/demo.html" "$BUILD_TMP/"
+cp "$SCRIPT_DIR/demo-server.py" "$BUILD_TMP/"
 oc start-build demo-ui --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
 rm -rf "$BUILD_TMP"
 success "demo-ui image built"

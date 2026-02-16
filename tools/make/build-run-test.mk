@@ -395,22 +395,27 @@ demo-hallucination-auto: build-router download-models
 run-egress-demo: ## Start egress routing demo services (OpenAI + Anthropic + internal routing)
 run-egress-demo: build-router download-models
 	@echo "Starting Egress Routing Demo..."
-	@./e2e/testing/demo/run-egress-demo.sh
+	@./deploy/openshift/egress-demo/run-egress-demo.sh
 
 # Run egress demo scenarios
 run-egress-scenarios: ## Run egress routing demo scenarios (requires demo services running)
 run-egress-scenarios:
-	@./e2e/testing/demo/run-scenarios.sh
+	@./deploy/openshift/egress-demo/run-scenarios.sh
 
 # Run all egress demo scenarios including security
 run-egress-scenarios-all: ## Run all egress demo scenarios including security
 run-egress-scenarios-all:
-	@./e2e/testing/demo/run-scenarios.sh --all
+	@./deploy/openshift/egress-demo/run-scenarios.sh --all
 
 # Stop egress demo services
 stop-egress-demo: ## Stop egress routing demo services
 stop-egress-demo:
-	@./e2e/testing/demo/run-egress-demo.sh --stop
+	@./deploy/openshift/egress-demo/run-egress-demo.sh --stop
+
+# Run egress demo smoke test
+smoke-test-egress-demo: ## Run smoke test (auto-detects OpenShift or localhost)
+smoke-test-egress-demo:
+	@./deploy/openshift/egress-demo/smoke-test.sh --phase 1
 
 # ============== Image Generation Tests ==============
 

@@ -95,7 +95,7 @@ curl -sf http://127.0.0.1:8003/health > /dev/null 2>&1 && \
 echo ""
 echo "2. Starting vSR router (ExtProc on port 50051)..."
 export LD_LIBRARY_PATH="${PROJECT_ROOT}/candle-binding/target/release:${PROJECT_ROOT}/ml-binding/target/release:${LD_LIBRARY_PATH:-}"
-nohup "$PROJECT_ROOT/bin/router" -config="$PROJECT_ROOT/config/demo/config.egress-demo.yaml" \
+nohup "$PROJECT_ROOT/bin/router" -config="$SCRIPT_DIR/config-egress-local.yaml" \
     > "$ROUTER_LOG" 2>&1 & echo $! > "$ROUTER_PID_FILE"
 echo "   Waiting for router to initialize models (15s)..."
 sleep 15
@@ -108,7 +108,7 @@ if ! command -v func-e >/dev/null 2>&1; then
     echo "   func-e not found. Installing..."
     curl -sL https://func-e.io/install.sh | sudo bash -s -- -b /usr/local/bin
 fi
-nohup func-e run --config-path "$PROJECT_ROOT/config/demo/envoy.egress-demo.yaml" \
+nohup func-e run --config-path "$SCRIPT_DIR/envoy-egress-local.yaml" \
     > "$ENVOY_LOG" 2>&1 & echo $! > "$ENVOY_PID_FILE"
 sleep 3
 echo "   OK: Envoy started"
