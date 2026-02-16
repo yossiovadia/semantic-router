@@ -1,5 +1,7 @@
 # Envoy config for egress demo on OpenShift
-# Uses cluster-internal DNS names for backends
+# All routing decisions made by vSR ExtProc via x-selected-model header.
+# Envoy routes to the correct backend cluster based on that header.
+# ClearRouteCache: true in ExtProc response forces re-evaluation after headers are set.
 static_resources:
   listeners:
   - name: listener_0
@@ -39,7 +41,7 @@ static_resources:
                 route:
                   cluster: external_cluster
                   timeout: 300s
-              # Internal model route (mock-llama3)
+              # Internal model route (model starts with mock-)
               - match:
                   prefix: "/"
                   headers:
@@ -49,7 +51,9 @@ static_resources:
                 route:
                   cluster: internal_cluster
                   timeout: 300s
-              # Default fallback to internal
+              # Default fallback — before ExtProc sets headers, this catches the initial request.
+              # After ExtProc processes and sets x-selected-model + ClearRouteCache,
+              # the request is re-routed to one of the above header-matched routes.
               - match:
                   prefix: "/"
                 route:

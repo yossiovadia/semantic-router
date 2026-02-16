@@ -65,6 +65,10 @@ model_access_policy:
     allowed_models:
       - "*"
 
+# Required for header-based routing in Envoy — forces route re-evaluation
+# after vSR sets x-selected-model header
+clear_route_cache: true
+
 observability:
   metrics:
     enabled: true
