@@ -132,11 +132,11 @@ oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/demo-ui.yaml"
 # ─── Create Routes ───
 log "Creating OpenShift Routes..."
 
-# Route for demo web UI (public)
-oc expose service demo-ui --name=demo-ui-route -n "$NAMESPACE" \
-    --dry-run=client -o yaml | oc apply -f -
+# Route for demo web UI (HTTPS with edge TLS termination)
+oc create route edge demo-ui-route --service=demo-ui --port=http \
+    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
-# Route for gateway (for direct API access)
+# Route for gateway (HTTP — API access)
 oc expose service vsr-gateway --name=gateway-route -n "$NAMESPACE" \
     --dry-run=client -o yaml | oc apply -f -
 
