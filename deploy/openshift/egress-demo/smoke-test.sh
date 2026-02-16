@@ -6,16 +6,21 @@
 # Works with both local (make run-egress-demo) and OpenShift deployments.
 #
 # Usage:
-#   ./smoke-test.sh                                    # Test local (localhost:8801)
-#   ./smoke-test.sh https://gateway-route-xxx.apps...  # Test OpenShift
-#   ./smoke-test.sh --phase 1                          # Phase 1 tests only
-#   ./smoke-test.sh --phase 2                          # Include Phase 2 (expected failures)
-#   ./smoke-test.sh --phase 3                          # Include Phase 3 (expected failures)
+#   ./smoke-test.sh                 # Auto-detect: OpenShift route or localhost
+#   ./smoke-test.sh http://gw:8801  # Explicit gateway URL
+#   ./smoke-test.sh --phase 1       # Phase 1 tests only (egress MVP)
+#   ./smoke-test.sh --phase 2       # + Phase 2 (BBR plugin, expected failures)
+#   ./smoke-test.sh --phase 3       # + Phase 3 (MaaS/Kuadrant, expected failures)
+#
+# Phases:
+#   1 = Egress routing, API translation, tier access (should pass now)
+#   2 = BBR plugin integration (expected to fail until Phase 2 is done)
+#   3 = Full stack with MaaS + Kuadrant (expected to fail until Phase 3 is done)
 # =============================================================================
 
 set -uo pipefail
 
-GATEWAY_URL="http://localhost:8801"
+GATEWAY_URL=""
 PHASE="1"
 PASS=0
 FAIL=0
@@ -36,6 +41,23 @@ while [[ $# -gt 0 ]]; do
         *) shift ;;
     esac
 done
+
+# Auto-detect gateway URL if not provided
+if [[ -z "$GATEWAY_URL" ]]; then
+    # Try OpenShift route
+    if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
+        GW_HOST=$(oc get route gateway-route -n vsr-egress-demo -o jsonpath='{.spec.host}' 2>/dev/null || true)
+        if [[ -n "$GW_HOST" ]]; then
+            GATEWAY_URL="http://${GW_HOST}"
+            echo -e "${GREEN}Auto-detected${RESET} OpenShift gateway: $GATEWAY_URL"
+        fi
+    fi
+    # Fallback to localhost
+    if [[ -z "$GATEWAY_URL" ]]; then
+        GATEWAY_URL="http://localhost:8801"
+        echo -e "${YELLOW}No OpenShift route found${RESET}, using local: $GATEWAY_URL"
+    fi
+fi
 
 assert_response() {
     local test_name="$1"
