@@ -68,7 +68,11 @@
     50% { box-shadow: 0 0 16px rgba(63,185,80,0.5), 0 0 40px rgba(63,185,80,0.3), 0 0 60px rgba(63,185,80,0.1); border-color: #6fdd8b; }
   }
 
-  .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; }
+  .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .arch-arrow .arrow-icon { line-height: 1; }
+  .arch-arrow .arrow-ms { font-size: 9px; color: var(--text-muted); font-family: monospace; opacity: 0; transition: opacity 0.3s; }
+  .arch-arrow.active .arrow-ms { opacity: 1; color: var(--green); }
+  .arch-arrow.blocked .arrow-ms { opacity: 1; color: var(--red); }
   .arch-arrow.active { color: var(--green); }
   .arch-arrow.blocked { color: var(--red); }
   .arch-arrow.dimmed { opacity: 0.3; }
@@ -140,11 +144,11 @@
       <h3>Request Flow</h3>
       <div class="arch-flow" id="arch-flow">
         <div class="arch-box" id="box-client"><div class="label">Client</div><div class="detail">curl / app</div></div>
-        <div class="arch-arrow" id="arr-1">&rarr;</div>
+        <div class="arch-arrow" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
         <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
-        <div class="arch-arrow" id="arr-2">&rarr;</div>
+        <div class="arch-arrow" id="arr-2"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-2"></span></div>
         <div class="arch-box" id="box-vsr"><div class="label">vSR ExtProc</div><div class="detail">:50051</div></div>
-        <div class="arch-arrow" id="arr-3">&rarr;</div>
+        <div class="arch-arrow" id="arr-3"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-3"></span></div>
         <div class="arch-box" id="box-backend"><div class="label" id="backend-label">Backend</div><div class="detail" id="backend-detail">...</div></div>
       </div>
     </div>
@@ -239,13 +243,30 @@ async function checkHealth() {
   } catch(e) { el.textContent = 'Gateway Unreachable'; el.className = 'status err'; }
 }
 
-function setArch(scenario, blocked) {
+function setArch(scenario, blocked, totalMs) {
   const s = SCENARIOS[scenario];
   const ids = ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     el.classList.remove('active','blocked','dimmed','neon');
   });
+
+  // Clear timing labels
+  document.getElementById('ms-1').textContent = '';
+  document.getElementById('ms-2').textContent = '';
+  document.getElementById('ms-3').textContent = '';
+
+  // Distribute timing across arrows (approximate: network → extproc → backend)
+  if (totalMs > 0) {
+    const netMs = Math.round(totalMs * 0.15);       // Client → Envoy (~15%)
+    const extprocMs = Math.round(totalMs * 0.25);    // Envoy → vSR ExtProc (~25%)
+    const backendMs = totalMs - netMs - extprocMs;    // vSR → Backend (remainder)
+    document.getElementById('ms-1').textContent = netMs + 'ms';
+    document.getElementById('ms-2').textContent = extprocMs + 'ms';
+    if (!blocked) {
+      document.getElementById('ms-3').textContent = backendMs + 'ms';
+    }
+  }
 
   document.getElementById('backend-label').textContent = s.backend.label;
   document.getElementById('backend-detail').textContent = s.backend.detail;
@@ -338,6 +359,7 @@ async function run(scenario) {
   document.getElementById('trace').innerHTML = '<span class="spinner"></span> Processing...';
 
   try {
+    const t0 = performance.now();
     const resp = await fetch(GW + '/v1/chat/completions', {
       method: 'POST',
       headers: hdrs,
@@ -345,11 +367,12 @@ async function run(scenario) {
     });
 
     const data = await resp.json();
+    const totalMs = Math.round(performance.now() - t0);
     const isBlocked = data.error && data.error.code === 403;
 
     // Badge
-    if (isBlocked) { badge.textContent = '403 BLOCKED'; badge.className = 'badge badge-err'; }
-    else { badge.textContent = `${resp.status} OK`; badge.className = 'badge badge-ok'; }
+    if (isBlocked) { badge.textContent = `403 BLOCKED (${totalMs}ms)`; badge.className = 'badge badge-err'; }
+    else { badge.textContent = `${resp.status} OK (${totalMs}ms)`; badge.className = 'badge badge-ok'; }
 
     // Response headers
     const respHeaders = {};
@@ -361,7 +384,7 @@ async function run(scenario) {
     resPre.innerHTML = resText;
 
     // Architecture + trace
-    setArch(scenario, isBlocked);
+    setArch(scenario, isBlocked, totalMs);
     setTrace(scenario, respHeaders, isBlocked);
 
   } catch(e) {
