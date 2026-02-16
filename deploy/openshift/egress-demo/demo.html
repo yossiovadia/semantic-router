@@ -251,20 +251,16 @@ function setArch(scenario, blocked, totalMs) {
     el.classList.remove('active','blocked','dimmed','neon');
   });
 
-  // Clear timing labels
+  // Show total round-trip time on the last active arrow
   document.getElementById('ms-1').textContent = '';
   document.getElementById('ms-2').textContent = '';
   document.getElementById('ms-3').textContent = '';
 
-  // Distribute timing across arrows (approximate: network → extproc → backend)
   if (totalMs > 0) {
-    const netMs = Math.round(totalMs * 0.15);       // Client → Envoy (~15%)
-    const extprocMs = Math.round(totalMs * 0.25);    // Envoy → vSR ExtProc (~25%)
-    const backendMs = totalMs - netMs - extprocMs;    // vSR → Backend (remainder)
-    document.getElementById('ms-1').textContent = netMs + 'ms';
-    document.getElementById('ms-2').textContent = extprocMs + 'ms';
-    if (!blocked) {
-      document.getElementById('ms-3').textContent = backendMs + 'ms';
+    if (blocked) {
+      document.getElementById('ms-2').textContent = totalMs + 'ms';
+    } else {
+      document.getElementById('ms-3').textContent = totalMs + 'ms total';
     }
   }
 
