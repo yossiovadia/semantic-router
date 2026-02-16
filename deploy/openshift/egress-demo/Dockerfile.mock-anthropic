@@ -1,0 +1,5 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY mock-server.py ./
+EXPOSE 8003
+CMD ["python3", "mock-server.py", "--anthropic-port", "8003", "--internal-port", "9999"]

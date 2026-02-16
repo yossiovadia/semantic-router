@@ -153,7 +153,7 @@ class MockAnthropicHandler(BaseHTTPRequestHandler):
 
 
 def run_server(handler_class, port, name):
-    server = HTTPServer(("127.0.0.1", port), handler_class)
+    server = HTTPServer(("0.0.0.0", port), handler_class)
     print(f"[{name}] Starting on port {port}")
     server.serve_forever()
 

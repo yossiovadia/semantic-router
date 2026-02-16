@@ -23,7 +23,8 @@ spec:
       containers:
       - name: llm-katan
         image: ghcr.io/vllm-project/semantic-router/llm-katan:latest
-        args: ["--backend", "echo", "--served-model-name", "qwen2.5:1.5b", "--port", "8000"]
+        command: ["llm-katan"]
+        args: ["--model", "echo-model", "--backend", "echo", "--served-model-name", "qwen2.5:1.5b", "--port", "8000", "--host", "0.0.0.0"]
         ports:
         - containerPort: 8000
           name: http
@@ -75,7 +76,8 @@ spec:
       containers:
       - name: llm-katan
         image: ghcr.io/vllm-project/semantic-router/llm-katan:latest
-        args: ["--backend", "echo", "--served-model-name", "mock-llama3", "--port", "8000"]
+        command: ["llm-katan"]
+        args: ["--model", "echo-model", "--backend", "echo", "--served-model-name", "mock-llama3", "--port", "8000", "--host", "0.0.0.0"]
         ports:
         - containerPort: 8000
           name: http

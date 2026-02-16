@@ -107,7 +107,7 @@ def main():
     global GATEWAY
     GATEWAY = args.gateway
 
-    server = HTTPServer(("127.0.0.1", args.port), DemoHandler)
+    server = HTTPServer(("0.0.0.0", args.port), DemoHandler)
     print(f"\n  Demo UI: http://localhost:{args.port}")
     print(f"  Gateway: {GATEWAY}")
     print(f"\n  Open http://localhost:{args.port} in your browser\n")

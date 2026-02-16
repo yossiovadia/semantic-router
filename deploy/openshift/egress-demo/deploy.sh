@@ -73,11 +73,33 @@ log "Creating namespace: $NAMESPACE"
 oc create namespace "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 success "Namespace ready"
 
+# ─── Build images on cluster ───
+log "Building mock-anthropic image on cluster..."
+if ! oc get imagestream mock-anthropic -n "$NAMESPACE" &>/dev/null; then
+    oc new-build --name mock-anthropic --binary --strategy=docker -n "$NAMESPACE"
+fi
+# Prepare build context
+BUILD_TMP=$(mktemp -d)
+cp "$SCRIPT_DIR/Dockerfile.mock-anthropic" "$BUILD_TMP/Dockerfile"
+cp "$PROJECT_ROOT/e2e/testing/demo/mock-server.py" "$BUILD_TMP/"
+oc start-build mock-anthropic --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
+rm -rf "$BUILD_TMP"
+success "mock-anthropic image built"
+
+log "Building demo-ui image on cluster..."
+if ! oc get imagestream demo-ui -n "$NAMESPACE" &>/dev/null; then
+    oc new-build --name demo-ui --binary --strategy=docker -n "$NAMESPACE"
+fi
+BUILD_TMP=$(mktemp -d)
+cp "$SCRIPT_DIR/Dockerfile.demo-ui" "$BUILD_TMP/Dockerfile"
+cp "$PROJECT_ROOT/e2e/testing/demo/demo.html" "$BUILD_TMP/"
+cp "$PROJECT_ROOT/e2e/testing/demo/demo-server.py" "$BUILD_TMP/"
+oc start-build demo-ui --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
+rm -rf "$BUILD_TMP"
+success "demo-ui image built"
+
 # ─── Deploy mock Anthropic server ───
 log "Deploying mock Anthropic endpoint..."
-oc create configmap mock-anthropic-server \
-    --from-file=mock-server.py="$PROJECT_ROOT/e2e/testing/demo/mock-server.py" \
-    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/mock-anthropic.yaml"
 
 # ─── Deploy llm-katan (external + internal provider) ───
@@ -105,11 +127,6 @@ oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
 
 # ─── Deploy demo web UI ───
 log "Deploying demo web UI..."
-oc create configmap demo-ui-files \
-    --from-file=demo.html="$PROJECT_ROOT/e2e/testing/demo/demo.html" \
-    --from-file=demo-server.py="$PROJECT_ROOT/e2e/testing/demo/demo-server.py" \
-    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
-
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/demo-ui.yaml"
 
 # ─── Create Routes ───

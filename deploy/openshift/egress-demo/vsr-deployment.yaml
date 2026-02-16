@@ -19,8 +19,6 @@ spec:
       containers:
       - name: semantic-router
         image: ghcr.io/vllm-project/semantic-router/extproc:latest
-        command: ["/app/router"]
-        args: ["-config", "/app/config/config.yaml"]
         ports:
         - containerPort: 50051
           name: grpc
@@ -29,6 +27,8 @@ spec:
         - containerPort: 8080
           name: api
         env:
+        - name: CONFIG_FILE
+          value: "/app/config/config.yaml"
         - name: LD_LIBRARY_PATH
           value: "/app/lib"
         - name: HOME

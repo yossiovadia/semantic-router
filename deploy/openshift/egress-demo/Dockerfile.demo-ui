@@ -1,0 +1,5 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY demo.html demo-server.py ./
+EXPOSE 8888
+CMD ["python3", "demo-server.py", "--port", "8888", "--gateway", "http://vsr-gateway:8801"]
