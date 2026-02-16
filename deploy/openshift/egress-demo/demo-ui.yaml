@@ -1,0 +1,71 @@
+# Demo web UI — serves the interactive demo page and proxies API calls to the gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-ui
+  labels:
+    app: demo-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-ui
+  template:
+    metadata:
+      labels:
+        app: demo-ui
+    spec:
+      containers:
+      - name: demo-ui
+        image: python:3.11-slim
+        command: ["python3", "/app/demo-server.py", "--port", "8888", "--gateway", "http://vsr-gateway:8801"]
+        ports:
+        - containerPort: 8888
+          name: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8888
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8888
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: demo-files
+          mountPath: /app
+      volumes:
+      - name: demo-files
+        configMap:
+          name: demo-ui-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-ui
+  labels:
+    app: demo-ui
+spec:
+  ports:
+  - name: http
+    port: 8888
+    targetPort: 8888
+  selector:
+    app: demo-ui

@@ -1,0 +1,75 @@
+# vSR Egress Demo — OpenShift Config
+# Uses cluster-internal service names for endpoints
+
+bert_model:
+  model_id: models/mom-embedding-light
+  threshold: 0.6
+  use_cpu: true
+
+prompt_guard:
+  enabled: false
+
+semantic_cache:
+  enabled: false
+
+vllm_endpoints:
+  - name: "external-provider"
+    address: "llm-katan-external"
+    port: 8000
+    weight: 1
+  - name: "anthropic-endpoint"
+    address: "mock-anthropic"
+    port: 8003
+    weight: 1
+  - name: "internal-endpoint"
+    address: "llm-katan-internal"
+    port: 8000
+    weight: 1
+
+model_config:
+  "qwen2.5:1.5b":
+    preferred_endpoints: ["external-provider"]
+  "claude-sonnet":
+    api_format: "anthropic"
+    access_key: "mock-anthropic-key-for-demo"
+    preferred_endpoints: ["anthropic-endpoint"]
+  "mock-llama3":
+    preferred_endpoints: ["internal-endpoint"]
+
+categories:
+  - name: other
+    description: "General knowledge"
+    mmlu_categories: ["other"]
+
+strategy: "priority"
+
+decisions:
+  - name: "default_routing"
+    priority: 1
+    rules:
+      operator: "OR"
+      conditions:
+        - type: "always"
+    modelRefs:
+      - model: "qwen2.5:1.5b"
+        use_reasoning: false
+    plugins: []
+
+default_model: "qwen2.5:1.5b"
+
+model_access_policy:
+  free:
+    allowed_models:
+      - "mock-llama3"
+  premium:
+    allowed_models:
+      - "mock-llama3"
+      - "qwen2.5:1.5b"
+      - "claude-sonnet"
+  enterprise:
+    allowed_models:
+      - "*"
+
+observability:
+  metrics:
+    enabled: true

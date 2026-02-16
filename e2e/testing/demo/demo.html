@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vSR Egress Routing Demo</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #c9d1d9;
+    --text-muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: var(--bg); color: var(--text); }
+
+  header { padding: 20px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .subtitle { color: var(--text-muted); font-size: 13px; }
+  header .status { margin-left: auto; font-size: 12px; padding: 4px 10px; border-radius: 12px; }
+  header .status.ok { background: rgba(63,185,80,0.15); color: var(--green); }
+  header .status.err { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  .layout { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 61px); }
+
+  /* Sidebar */
+  .sidebar { border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 16px 0 8px; }
+  .sidebar h2:first-child { margin-top: 0; }
+  .scenario-btn {
+    display: block; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 4px;
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    color: var(--text); cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.15s;
+  }
+  .scenario-btn:hover { background: var(--surface); border-color: var(--border); }
+  .scenario-btn.active { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .scenario-btn .tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-right: 6px; font-weight: 600; }
+  .tag-route { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tag-translate { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .tag-tier { background: rgba(240,136,62,0.15); color: var(--orange); }
+  .tag-classify { background: rgba(63,185,80,0.15); color: var(--green); }
+
+  /* Main content */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Architecture diagram */
+  .arch-panel { padding: 24px 32px; border-bottom: 1px solid var(--border); min-height: 200px; }
+  .arch-panel h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+
+  .arch-flow { display: flex; align-items: center; gap: 0; justify-content: center; flex-wrap: nowrap; }
+  .arch-box {
+    padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    text-align: center; min-width: 110px; transition: all 0.3s;
+  }
+  .arch-box .label { font-size: 12px; font-weight: 600; }
+  .arch-box .detail { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); }
+  .arch-box.dimmed { opacity: 0.3; }
+
+  .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; }
+  .arch-arrow.active { color: var(--green); }
+  .arch-arrow.blocked { color: var(--red); }
+  .arch-arrow.dimmed { opacity: 0.3; }
+
+  /* Trace panel */
+  .trace-panel { padding: 16px 32px; border-bottom: 1px solid var(--border); max-height: 180px; overflow-y: auto; }
+  .trace-panel h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; }
+  .trace-step .num { color: var(--text-muted); min-width: 18px; }
+  .trace-step .action { color: var(--text); }
+  .trace-step .value { color: var(--accent); font-family: monospace; }
+  .trace-step.blocked .action { color: var(--red); }
+  .trace-step.success .action { color: var(--green); }
+
+  /* Request/Response panels */
+  .io-panels { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
+  .io-panel { padding: 16px 24px; overflow-y: auto; }
+  .io-panel:first-child { border-right: 1px solid var(--border); }
+  .io-panel h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .io-panel h3 .badge { font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+  .badge-ok { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-err { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    line-height: 1.5;
+  }
+  .header-line { color: var(--text-muted); }
+  .header-key { color: var(--yellow); }
+  .header-val { color: var(--text); }
+  .header-vsr { color: var(--accent); font-weight: 600; }
+
+  .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 14px; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>vLLM Semantic Router</h1>
+  <span class="subtitle">Egress Routing Demo</span>
+  <span class="status" id="status">Checking...</span>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <h2>Egress Routing</h2>
+    <button class="scenario-btn" onclick="run('external')">
+      <span class="tag tag-route">ROUTE</span> External Provider
+    </button>
+    <button class="scenario-btn" onclick="run('anthropic')">
+      <span class="tag tag-translate">TRANSLATE</span> API Translation
+    </button>
+    <button class="scenario-btn" onclick="run('internal')">
+      <span class="tag tag-route">ROUTE</span> Internal Model
+    </button>
+
+    <h2>Classification</h2>
+    <button class="scenario-btn" onclick="run('classify')">
+      <span class="tag tag-classify">CLASSIFY</span> Domain Detection
+    </button>
+
+    <h2>Tier Access Control</h2>
+    <button class="scenario-btn" onclick="run('tier_free_blocked')">
+      <span class="tag tag-tier">TIER</span> Free &rarr; External (blocked)
+    </button>
+    <button class="scenario-btn" onclick="run('tier_free_allowed')">
+      <span class="tag tag-tier">TIER</span> Free &rarr; Internal (allowed)
+    </button>
+    <button class="scenario-btn" onclick="run('tier_premium')">
+      <span class="tag tag-tier">TIER</span> Premium &rarr; External (allowed)
+    </button>
+  </div>
+
+  <div class="main">
+    <div class="arch-panel">
+      <h3>Request Flow</h3>
+      <div class="arch-flow" id="arch-flow">
+        <div class="arch-box" id="box-client"><div class="label">Client</div><div class="detail">curl / app</div></div>
+        <div class="arch-arrow" id="arr-1">&rarr;</div>
+        <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
+        <div class="arch-arrow" id="arr-2">&rarr;</div>
+        <div class="arch-box" id="box-vsr"><div class="label">vSR ExtProc</div><div class="detail">:50051</div></div>
+        <div class="arch-arrow" id="arr-3">&rarr;</div>
+        <div class="arch-box" id="box-backend"><div class="label" id="backend-label">Backend</div><div class="detail" id="backend-detail">...</div></div>
+      </div>
+    </div>
+
+    <div class="trace-panel">
+      <h3>What vSR Did</h3>
+      <div id="trace"></div>
+    </div>
+
+    <div class="io-panels">
+      <div class="io-panel">
+        <h3>Request</h3>
+        <pre id="request-pre"><span class="empty-state">Select a scenario</span></pre>
+      </div>
+      <div class="io-panel">
+        <h3>Response <span class="badge" id="resp-badge"></span></h3>
+        <pre id="response-pre"><span class="empty-state">Select a scenario</span></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GW = '';  // Same origin — proxied by demo-server.py
+
+const SCENARIOS = {
+  external: {
+    name: 'External Provider Routing',
+    desc: 'Client specifies model in body. vSR extracts it, resolves endpoint, routes to external provider.',
+    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? Answer in one word.'}], max_tokens: 50 },
+    headers: {},
+    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    expectBlock: false
+  },
+  anthropic: {
+    name: 'API Translation (Anthropic)',
+    desc: 'Client sends OpenAI format. vSR detects api_format: anthropic, transforms body to Anthropic Messages API, translates response back.',
+    body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the capital of France? Answer briefly.'}], max_tokens: 50 },
+    headers: {},
+    backend: { label: 'Anthropic', detail: ':8003 (mock)' },
+    expectBlock: false
+  },
+  internal: {
+    name: 'Internal Model Routing',
+    desc: 'Routes to internal KServe-hosted model. No egress, no translation. Standard vLLM-compatible endpoint.',
+    body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello, how are you?'}] },
+    headers: {},
+    backend: { label: 'KServe', detail: ':8002 (internal)' },
+    expectBlock: false
+  },
+  classify: {
+    name: 'Domain Classification',
+    desc: 'vSR classifies the request using ModernBERT. Sets x-vsr-selected-category header. Downstream can use this for routing decisions.',
+    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is the derivative of x^3 + 2x^2 - 5x + 7?'}], max_tokens: 100 },
+    headers: {},
+    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    expectBlock: false
+  },
+  tier_free_blocked: {
+    name: 'Free Tier \u2192 External (Blocked)',
+    desc: 'Free tier user requests external model. vSR reads X-MaaS-Tier header, checks model_access_policy, denies access. In production, Authorino injects this header after consulting MaaS API.',
+    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
+    headers: { 'X-MaaS-Tier': 'free' },
+    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    expectBlock: true
+  },
+  tier_free_allowed: {
+    name: 'Free Tier \u2192 Internal (Allowed)',
+    desc: 'Free tier user requests internal model. Policy allows mock-llama3 for free tier. Request passes through.',
+    body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello'}] },
+    headers: { 'X-MaaS-Tier': 'free' },
+    backend: { label: 'KServe', detail: ':8002 (internal)' },
+    expectBlock: false
+  },
+  tier_premium: {
+    name: 'Premium Tier \u2192 External (Allowed)',
+    desc: 'Premium tier user requests external model. Policy allows qwen2.5:1.5b for premium tier. Request passes through.',
+    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? One word.'}], max_tokens: 10 },
+    headers: { 'X-MaaS-Tier': 'premium' },
+    backend: { label: 'Ollama', detail: ':11434 (external)' },
+    expectBlock: false
+  }
+};
+
+async function checkHealth() {
+  const el = document.getElementById('status');
+  try {
+    const r = await fetch(GW + '/v1/chat/completions', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model:'mock-llama3', messages:[{role:'user',content:'ping'}]}) });
+    if (r.ok) { el.textContent = 'Gateway Connected'; el.className = 'status ok'; }
+    else { el.textContent = 'Gateway Error'; el.className = 'status err'; }
+  } catch(e) { el.textContent = 'Gateway Unreachable'; el.className = 'status err'; }
+}
+
+function setArch(scenario, blocked) {
+  const s = SCENARIOS[scenario];
+  const ids = ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','blocked','dimmed');
+  });
+
+  document.getElementById('backend-label').textContent = s.backend.label;
+  document.getElementById('backend-detail').textContent = s.backend.detail;
+
+  if (blocked) {
+    ['box-client','arr-1','box-envoy','arr-2'].forEach(id => document.getElementById(id).classList.add('active'));
+    document.getElementById('box-vsr').classList.add('blocked');
+    document.getElementById('arr-3').classList.add('blocked');
+    document.getElementById('box-backend').classList.add('dimmed');
+  } else {
+    ids.forEach(id => document.getElementById(id).classList.add('active'));
+  }
+}
+
+function setTrace(scenario, respHeaders, blocked) {
+  const s = SCENARIOS[scenario];
+  const body = s.body;
+  const tier = s.headers['X-MaaS-Tier'] || '(none)';
+  const cat = respHeaders['x-vsr-selected-category'] || '';
+  const conf = respHeaders['x-vsr-selected-confidence'] || '';
+
+  let steps = [];
+  steps.push({ n: 1, a: 'Received request', v: `POST /v1/chat/completions` });
+  steps.push({ n: 2, a: 'Extracted model from body', v: body.model });
+
+  if (s.headers['X-MaaS-Tier']) {
+    if (blocked) {
+      steps.push({ n: 3, a: `Tier check: ${tier} \u2192 model "${body.model}" NOT in allowed list`, v: '\u2718 BLOCKED (403)', cls: 'blocked' });
+    } else {
+      steps.push({ n: 3, a: `Tier check: ${tier} \u2192 model "${body.model}" allowed`, v: '\u2714 PASS', cls: 'success' });
+    }
+  }
+
+  if (!blocked) {
+    if (cat) {
+      steps.push({ n: steps.length+1, a: `Classified domain`, v: `${cat} (confidence: ${conf})` });
+    }
+    if (body.model === 'claude-sonnet') {
+      steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+    }
+    const ep = s.backend.detail.split(' ')[0];
+    steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
+    steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
+    if (body.model === 'claude-sonnet') {
+      steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+    }
+  }
+
+  const html = steps.map(s =>
+    `<div class="trace-step ${s.cls||''}"><span class="num">${s.n}.</span><span class="action">${s.a}: </span><span class="value">${s.v}</span></div>`
+  ).join('');
+  document.getElementById('trace').innerHTML = html;
+}
+
+function formatHeaders(headers, isVsr) {
+  let lines = [];
+  headers.forEach((v, k) => {
+    if (k.startsWith('x-vsr-') || k.startsWith('x-selected-')) {
+      lines.push(`<span class="header-vsr">${k}</span>: ${v}`);
+    } else if (['content-type','content-length'].includes(k)) {
+      lines.push(`<span class="header-key">${k}</span>: <span class="header-val">${v}</span>`);
+    }
+  });
+  return lines.join('\n');
+}
+
+async function run(scenario) {
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  const s = SCENARIOS[scenario];
+  const reqPre = document.getElementById('request-pre');
+  const resPre = document.getElementById('response-pre');
+  const badge = document.getElementById('resp-badge');
+
+  // Show request
+  const hdrs = { 'Content-Type': 'application/json', ...s.headers };
+  let reqText = `POST /v1/chat/completions HTTP/1.1\nHost: localhost:8801\n`;
+  Object.entries(hdrs).forEach(([k,v]) => {
+    if (k === 'X-MaaS-Tier') reqText += `<span class="header-vsr">${k}: ${v}</span>\n`;
+    else reqText += `<span class="header-key">${k}</span>: <span class="header-val">${v}</span>\n`;
+  });
+  reqText += `\n${JSON.stringify(s.body, null, 2)}`;
+  reqPre.innerHTML = reqText;
+
+  // Loading state
+  resPre.innerHTML = '<span class="spinner"></span> Sending request...';
+  badge.textContent = ''; badge.className = 'badge';
+  document.getElementById('trace').innerHTML = '<span class="spinner"></span> Processing...';
+
+  try {
+    const resp = await fetch(GW + '/v1/chat/completions', {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify(s.body)
+    });
+
+    const data = await resp.json();
+    const isBlocked = data.error && data.error.code === 403;
+
+    // Badge
+    if (isBlocked) { badge.textContent = '403 BLOCKED'; badge.className = 'badge badge-err'; }
+    else { badge.textContent = `${resp.status} OK`; badge.className = 'badge badge-ok'; }
+
+    // Response headers
+    const respHeaders = {};
+    resp.headers.forEach((v, k) => { respHeaders[k] = v; });
+
+    let resText = `HTTP/1.1 ${resp.status} ${resp.statusText}\n`;
+    resText += formatHeaders(resp.headers) + '\n\n';
+    resText += JSON.stringify(data, null, 2);
+    resPre.innerHTML = resText;
+
+    // Architecture + trace
+    setArch(scenario, isBlocked);
+    setTrace(scenario, respHeaders, isBlocked);
+
+  } catch(e) {
+    resPre.innerHTML = `Error: ${e.message}\n\nIs the demo running? (make run-egress-demo)`;
+    badge.textContent = 'ERROR'; badge.className = 'badge badge-err';
+  }
+}
+
+checkHealth();
+</script>
+</body>
+</html>

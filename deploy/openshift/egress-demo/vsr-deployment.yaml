@@ -1,0 +1,122 @@
+# vSR Router + Envoy Proxy for egress demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vsr-router
+  labels:
+    app: vsr-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vsr-router
+  template:
+    metadata:
+      labels:
+        app: vsr-router
+    spec:
+      containers:
+      - name: semantic-router
+        image: ghcr.io/vllm-project/semantic-router/extproc:latest
+        command: ["/app/router"]
+        args: ["-config", "/app/config/config.yaml"]
+        ports:
+        - containerPort: 50051
+          name: grpc
+        - containerPort: 9190
+          name: metrics
+        - containerPort: 8080
+          name: api
+        env:
+        - name: LD_LIBRARY_PATH
+          value: "/app/lib"
+        - name: HOME
+          value: "/tmp/home"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      - name: envoy-proxy
+        image: envoyproxy/envoy:v1.33.2
+        command: ["/usr/local/bin/envoy"]
+        args: ["-c", "/etc/envoy/envoy.yaml"]
+        ports:
+        - containerPort: 8801
+          name: http
+        - containerPort: 19000
+          name: admin
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          tcpSocket:
+            port: 8801
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          tcpSocket:
+            port: 8801
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: vsr-egress-config
+      - name: envoy-config
+        configMap:
+          name: envoy-egress-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vsr-gateway
+  labels:
+    app: vsr-router
+spec:
+  ports:
+  - name: http
+    port: 8801
+    targetPort: 8801
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+  selector:
+    app: vsr-router
