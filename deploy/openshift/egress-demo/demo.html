@@ -120,8 +120,18 @@
   <span class="status" id="status">Checking...</span>
 </header>
 
+<div style="display:flex; border-bottom:1px solid var(--border); padding:0 32px;">
+  <button class="scenario-btn active" id="tab-extproc" onclick="switchTab('extproc')" style="border-radius:6px 6px 0 0; border-bottom:2px solid var(--accent); margin-bottom:-1px;">
+    ExtProc (standalone vSR)
+  </button>
+  <button class="scenario-btn" id="tab-bbr" onclick="switchTab('bbr')" style="border-radius:6px 6px 0 0; margin-bottom:-1px;">
+    BBR Plugin (vSR in-process)
+  </button>
+</div>
+
 <div class="layout">
   <div class="sidebar">
+    <div id="sidebar-extproc">
     <h2>Egress Routing</h2>
     <button class="scenario-btn" onclick="run('openai')">
       <span class="tag tag-route">ROUTE</span> OpenAI (pass-through)
@@ -143,6 +153,23 @@
     <button class="scenario-btn" onclick="run('tier_premium_anthropic')">
       <span class="tag tag-tier">TIER</span> Premium &rarr; Anthropic (translated)
     </button>
+    </div>
+
+    <div id="sidebar-bbr" style="display:none;">
+    <h2>BBR Plugin Routing</h2>
+    <button class="scenario-btn" onclick="run('bbr_openai')">
+      <span class="tag tag-route">ROUTE</span> OpenAI (pass-through)
+    </button>
+    <button class="scenario-btn" onclick="run('bbr_anthropic')">
+      <span class="tag tag-translate">TRANSLATE</span> Anthropic (request translated)
+    </button>
+    <button class="scenario-btn" onclick="run('bbr_internal')">
+      <span class="tag tag-route">ROUTE</span> Internal Model
+    </button>
+    <p style="font-size:11px; color:var(--text-muted); margin-top:16px; padding:8px; border:1px solid var(--border); border-radius:4px;">
+      Note: Tier enforcement not available in BBR mode — the BBRPlugin.Execute() interface doesn't receive request headers. In production, Authorino handles tier checks before BBR.
+    </p>
+    </div>
   </div>
 
   <div class="main">
@@ -153,7 +180,7 @@
         <div class="arch-arrow" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
         <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
         <div class="arch-arrow" id="arr-2"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-2"></span></div>
-        <div class="arch-box" id="box-vsr"><div class="label">vSR ExtProc</div><div class="detail">:50051</div></div>
+        <div class="arch-box" id="box-vsr"><div class="label" id="vsr-label">vSR ExtProc</div><div class="detail" id="vsr-detail">:50051</div></div>
         <div class="arch-arrow" id="arr-3"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-3"></span></div>
         <div class="arch-box" id="box-backend"><div class="label" id="backend-label">Backend</div><div class="detail" id="backend-detail">...</div></div>
       </div>
@@ -244,6 +271,34 @@ const SCENARIOS = {
     headers: { 'X-MaaS-Tier': 'premium' },
     backend: { label: 'Anthropic', detail: 'External Provider' },
     expectBlock: false
+  },
+  // BBR Plugin scenarios (same backends, different architecture)
+  bbr_openai: {
+    name: 'BBR: OpenAI (pass-through)',
+    desc: 'vSR BBR plugin extracts model from body, sets X-Gateway-Model-Name header. No body mutation. Plugin runs in-process inside BBR \u2014 no separate gRPC call.',
+    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? Answer in one word.'}], max_tokens: 50 },
+    headers: {},
+    backend: { label: 'OpenAI', detail: 'via BBR Plugin' },
+    expectBlock: false,
+    bbr: true
+  },
+  bbr_anthropic: {
+    name: 'BBR: Anthropic (request translated)',
+    desc: 'vSR BBR plugin translates request body from OpenAI to Anthropic format in-process. Note: response comes back in raw Anthropic format (BBR only handles request body, not response).',
+    body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the capital of France?'}], max_tokens: 50 },
+    headers: {},
+    backend: { label: 'Anthropic', detail: 'via BBR Plugin' },
+    expectBlock: false,
+    bbr: true
+  },
+  bbr_internal: {
+    name: 'BBR: Internal Model',
+    desc: 'vSR BBR plugin routes to internal KServe model. Same as ExtProc but plugin runs in-process \u2014 no network hop to a separate vSR service.',
+    body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello'}] },
+    headers: {},
+    backend: { label: 'KServe', detail: 'via BBR Plugin' },
+    expectBlock: false,
+    bbr: true
   }
 };
 
@@ -280,6 +335,8 @@ function setArch(scenario, blocked, totalMs) {
 
   document.getElementById('backend-label').textContent = s.backend.label;
   document.getElementById('backend-detail').textContent = s.backend.detail;
+  document.getElementById('vsr-label').textContent = s.bbr ? 'BBR + vSR Plugin' : 'vSR ExtProc';
+  document.getElementById('vsr-detail').textContent = s.bbr ? ':9002 (in-process)' : ':50051';
 
   if (blocked) {
     ['box-client','arr-1','box-envoy','arr-2'].forEach(id => document.getElementById(id).classList.add('active'));
@@ -346,6 +403,16 @@ function formatHeaders(headers, isVsr) {
   return lines.join('\n');
 }
 
+function switchTab(tab) {
+  document.getElementById('tab-extproc').classList.remove('active');
+  document.getElementById('tab-bbr').classList.remove('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).style.borderBottom = '2px solid var(--accent)';
+  document.getElementById('tab-' + (tab === 'extproc' ? 'bbr' : 'extproc')).style.borderBottom = 'none';
+  document.getElementById('sidebar-extproc').style.display = tab === 'extproc' ? 'block' : 'none';
+  document.getElementById('sidebar-bbr').style.display = tab === 'bbr' ? 'block' : 'none';
+}
+
 async function run(scenario) {
   document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
   event.currentTarget.classList.add('active');
@@ -372,7 +439,8 @@ async function run(scenario) {
 
   try {
     const t0 = performance.now();
-    const resp = await fetch(GW + '/v1/chat/completions', {
+    const apiPath = s.bbr ? '/bbr/v1/chat/completions' : '/v1/chat/completions';
+    const resp = await fetch(GW + apiPath, {
       method: 'POST',
       headers: hdrs,
       body: JSON.stringify(s.body)
