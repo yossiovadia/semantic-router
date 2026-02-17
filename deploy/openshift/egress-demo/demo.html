@@ -123,8 +123,11 @@
 <div class="layout">
   <div class="sidebar">
     <h2>Egress Routing</h2>
+    <button class="scenario-btn" onclick="run('openai')">
+      <span class="tag tag-route">ROUTE</span> OpenAI (pass-through)
+    </button>
     <button class="scenario-btn" onclick="run('anthropic')">
-      <span class="tag tag-translate">TRANSLATE</span> API Translation (Anthropic)
+      <span class="tag tag-translate">TRANSLATE</span> Anthropic (API translated)
     </button>
 
     <h2>Tier-Based Access Control</h2>
@@ -175,9 +178,9 @@
 const GW = '';  // Same origin — proxied by demo-server.py
 
 const SCENARIOS = {
-  external: {
-    name: 'External Provider Routing',
-    desc: 'Client specifies model in body. vSR extracts it, resolves endpoint, routes to external provider (OpenAI-compatible).',
+  openai: {
+    name: 'OpenAI (Pass-Through)',
+    desc: 'Client sends OpenAI format to an OpenAI-compatible provider. No body mutation needed \u2014 request passes through as-is. vSR extracts model name, resolves endpoint, and routes.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? Answer in one word.'}], max_tokens: 50 },
     headers: {},
     backend: { label: 'OpenAI', detail: 'External Provider' },
@@ -303,6 +306,8 @@ function setTrace(scenario, respHeaders, blocked) {
     }
     if (body.model === 'claude-sonnet') {
       steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+    } else {
+      steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
     }
     const ep = s.backend.detail.split(' ')[0];
     steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
