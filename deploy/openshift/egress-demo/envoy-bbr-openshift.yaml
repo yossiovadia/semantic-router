@@ -1,5 +1,5 @@
 # Envoy config for egress demo on OpenShift
-# All routing decisions made by vSR ExtProc via x-selected-model header.
+# All routing decisions made by vSR ExtProc via X-Gateway-Model-Name header.
 # Envoy routes to the correct backend cluster based on that header.
 # ClearRouteCache: true in ExtProc response forces re-evaluation after headers are set.
 static_resources:
@@ -25,7 +25,7 @@ static_resources:
               - match:
                   prefix: "/"
                   headers:
-                  - name: x-selected-model
+                  - name: X-Gateway-Model-Name
                     string_match:
                       prefix: "claude-"
                 route:
@@ -35,7 +35,7 @@ static_resources:
               - match:
                   prefix: "/"
                   headers:
-                  - name: x-selected-model
+                  - name: X-Gateway-Model-Name
                     string_match:
                       prefix: "qwen"
                 route:
@@ -45,14 +45,14 @@ static_resources:
               - match:
                   prefix: "/"
                   headers:
-                  - name: x-selected-model
+                  - name: X-Gateway-Model-Name
                     string_match:
                       prefix: "mock-"
                 route:
                   cluster: internal_cluster
                   timeout: 300s
               # Default fallback — before ExtProc sets headers, this catches the initial request.
-              # After ExtProc processes and sets x-selected-model + ClearRouteCache,
+              # After ExtProc processes and sets X-Gateway-Model-Name + ClearRouteCache,
               # the request is re-routed to one of the above header-matched routes.
               - match:
                   prefix: "/"

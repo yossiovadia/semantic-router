@@ -123,6 +123,10 @@ func (p *SemanticRouterPlugin) Execute(requestBodyBytes []byte) (mutatedBodyByte
 	if ep, ok := p.config.Models[req.Model]; ok && ep.APIFormat == "anthropic" {
 		if translated, err := p.translateToAnthropic(requestBodyBytes); err == nil {
 			mutatedBodyBytes = translated
+			// Set Anthropic-specific headers
+			headers[":path"] = []string{"/v1/messages"}
+			headers["x-api-key"] = []string{"mock-anthropic-key"}
+			headers["anthropic-version"] = []string{"2023-06-01"}
 			p.mu.Lock()
 			p.stats.TranslatedRequests++
 			p.mu.Unlock()
