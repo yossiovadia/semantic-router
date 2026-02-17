@@ -122,8 +122,16 @@ oc create configmap envoy-egress-config \
     --from-file=envoy.yaml="$SCRIPT_DIR/envoy-egress-openshift.yaml" \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
-log "Deploying vSR router + Envoy..."
+log "Deploying vSR router + Envoy (ExtProc)..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
+
+# ─── Deploy BBR router + Envoy (BBR Plugin) ───
+log "Deploying BBR router + Envoy (BBR Plugin)..."
+oc create configmap envoy-bbr-config \
+    --from-file=envoy.yaml="$SCRIPT_DIR/envoy-bbr-openshift.yaml" \
+    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+
+oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/bbr-deployment.yaml"
 
 # ─── Deploy demo web UI ───
 log "Deploying demo web UI..."
@@ -136,8 +144,12 @@ log "Creating OpenShift Routes..."
 oc create route edge demo-ui-route --service=demo-ui --port=http \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
-# Route for gateway (HTTP — API access)
+# Route for ExtProc gateway (HTTP — API access)
 oc expose service vsr-gateway --name=gateway-route -n "$NAMESPACE" \
+    --dry-run=client -o yaml | oc apply -f -
+
+# Route for BBR gateway (HTTP — API access)
+oc expose service bbr-gateway --name=bbr-gateway-route -n "$NAMESPACE" \
     --dry-run=client -o yaml | oc apply -f -
 
 # ─── Wait for pods ───
@@ -145,19 +157,22 @@ log "Waiting for pods to be ready..."
 oc wait --for=condition=Ready pod -l app=mock-anthropic -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "mock-anthropic not ready yet"
 oc wait --for=condition=Ready pod -l app=llm-katan -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "llm-katan not ready yet"
 oc wait --for=condition=Ready pod -l app=vsr-router -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "vsr-router not ready yet"
+oc wait --for=condition=Ready pod -l app=bbr-router -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "bbr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=demo-ui -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "demo-ui not ready yet"
 
 # ─── Print URLs ───
 DEMO_URL=$(oc get route demo-ui-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
 GW_URL=$(oc get route gateway-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
+BBR_URL=$(oc get route bbr-gateway-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
 
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  vSR Egress Routing Demo Deployed${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  Demo UI:  ${BLUE}http://${DEMO_URL}${NC}"
-echo -e "  Gateway:  ${BLUE}http://${GW_URL}${NC}"
+echo -e "  Demo UI:      ${BLUE}https://${DEMO_URL}${NC}"
+echo -e "  ExtProc GW:   ${BLUE}http://${GW_URL}${NC}"
+echo -e "  BBR GW:       ${BLUE}http://${BBR_URL}${NC}"
 echo ""
 echo -e "  Share the Demo UI URL with stakeholders."
 echo ""

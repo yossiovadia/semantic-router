@@ -1,0 +1,100 @@
+# BBR ExtProc server with vSR plugin (in-process, no separate vSR service)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bbr-router
+  labels:
+    app: bbr-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bbr-router
+  template:
+    metadata:
+      labels:
+        app: bbr-router
+    spec:
+      containers:
+      - name: bbr-with-vsr
+        image: quay.io/jabadia/bbr-with-vsr:latest
+        args: ["-port", "9002"]
+        ports:
+        - containerPort: 9002
+          name: grpc
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          tcpSocket:
+            port: 9002
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9002
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+      - name: envoy-proxy
+        image: envoyproxy/envoy:v1.33.2
+        command: ["/usr/local/bin/envoy"]
+        args: ["-c", "/etc/envoy/envoy.yaml"]
+        ports:
+        - containerPort: 8802
+          name: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          tcpSocket:
+            port: 8802
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8802
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+          readOnly: true
+      volumes:
+      - name: envoy-config
+        configMap:
+          name: envoy-bbr-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bbr-gateway
+  labels:
+    app: bbr-router
+spec:
+  ports:
+  - name: http
+    port: 8802
+    targetPort: 8802
+  selector:
+    app: bbr-router
