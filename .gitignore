@@ -186,3 +186,4 @@ src/training/cache_embeddings/aws/vllm-inventory-*.ini
 grafana/
 grafana-data/
 prometheus-data/
+STATUS.md
