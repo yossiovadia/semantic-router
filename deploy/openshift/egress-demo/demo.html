@@ -138,7 +138,10 @@
       <span class="tag tag-tier">TIER</span> Free &rarr; Internal (allowed)
     </button>
     <button class="scenario-btn" onclick="run('tier_premium')">
-      <span class="tag tag-tier">TIER</span> Premium &rarr; External (allowed)
+      <span class="tag tag-tier">TIER</span> Premium &rarr; OpenAI (allowed)
+    </button>
+    <button class="scenario-btn" onclick="run('tier_premium_anthropic')">
+      <span class="tag tag-tier">TIER</span> Premium &rarr; Anthropic (translated)
     </button>
   </div>
 
@@ -227,11 +230,19 @@ const SCENARIOS = {
     expectBlock: false
   },
   tier_premium: {
-    name: 'Premium Tier \u2192 External (Allowed)',
-    desc: 'Premium tier user requests external model. Policy allows access for premium tier. Request passes through to external provider.',
+    name: 'Premium Tier \u2192 OpenAI (Allowed)',
+    desc: 'Premium tier user requests external model. Policy allows access for premium tier. Request passes through to OpenAI-compatible provider.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? One word.'}], max_tokens: 10 },
     headers: { 'X-MaaS-Tier': 'premium' },
     backend: { label: 'OpenAI', detail: 'External Provider' },
+    expectBlock: false
+  },
+  tier_premium_anthropic: {
+    name: 'Premium Tier \u2192 Anthropic (Translated)',
+    desc: 'Premium tier user requests Anthropic model. Tier check passes, then vSR translates from OpenAI to Anthropic format, routes to Anthropic, translates response back.',
+    body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the speed of light?'}], max_tokens: 50 },
+    headers: { 'X-MaaS-Tier': 'premium' },
+    backend: { label: 'Anthropic', detail: 'External Provider' },
     expectBlock: false
   }
 };
