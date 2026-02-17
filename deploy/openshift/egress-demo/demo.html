@@ -56,6 +56,8 @@
   .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
   .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
   .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
+  .arch-box.active.extproc-glow { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
+  .arch-box.active.bbr-glow { border-color: var(--purple); box-shadow: 0 0 12px rgba(188,140,255,0.3); animation: neon-pulse-bbr 1.5s ease-in-out infinite; }
 
   @keyframes neon-pulse-red {
     0%, 100% { box-shadow: 0 0 8px rgba(248,81,73,0.2), 0 0 20px rgba(248,81,73,0.1); }
@@ -66,6 +68,14 @@
   @keyframes neon-pulse {
     0%, 100% { box-shadow: 0 0 8px rgba(63,185,80,0.2), 0 0 20px rgba(63,185,80,0.1); }
     50% { box-shadow: 0 0 16px rgba(63,185,80,0.5), 0 0 40px rgba(63,185,80,0.3), 0 0 60px rgba(63,185,80,0.1); border-color: #6fdd8b; }
+  }
+  @keyframes neon-pulse-extproc {
+    0%, 100% { box-shadow: 0 0 8px rgba(88,166,255,0.2), 0 0 20px rgba(88,166,255,0.1); }
+    50% { box-shadow: 0 0 16px rgba(88,166,255,0.5), 0 0 40px rgba(88,166,255,0.3), 0 0 60px rgba(88,166,255,0.1); border-color: #79c0ff; }
+  }
+  @keyframes neon-pulse-bbr {
+    0%, 100% { box-shadow: 0 0 8px rgba(188,140,255,0.2), 0 0 20px rgba(188,140,255,0.1); }
+    50% { box-shadow: 0 0 16px rgba(188,140,255,0.5), 0 0 40px rgba(188,140,255,0.3), 0 0 60px rgba(188,140,255,0.1); border-color: #d2a8ff; }
   }
 
   .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -317,7 +327,7 @@ function setArch(scenario, blocked, totalMs) {
   const ids = ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
   ids.forEach(id => {
     const el = document.getElementById(id);
-    el.classList.remove('active','blocked','dimmed','neon');
+    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow');
   });
 
   // Show total round-trip time on the last active arrow
@@ -346,6 +356,7 @@ function setArch(scenario, blocked, totalMs) {
   } else {
     ids.forEach(id => document.getElementById(id).classList.add('active'));
     document.getElementById('box-backend').classList.add('neon');
+    document.getElementById('box-vsr').classList.add(s.bbr ? 'bbr-glow' : 'extproc-glow');
   }
 }
 
@@ -411,6 +422,24 @@ function switchTab(tab) {
   document.getElementById('tab-' + (tab === 'extproc' ? 'bbr' : 'extproc')).style.borderBottom = 'none';
   document.getElementById('sidebar-extproc').style.display = tab === 'extproc' ? 'block' : 'none';
   document.getElementById('sidebar-bbr').style.display = tab === 'bbr' ? 'block' : 'none';
+
+  // Reset all state
+  ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'].forEach(id => {
+    document.getElementById(id).classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow');
+  });
+  document.getElementById('ms-1').textContent = '';
+  document.getElementById('ms-2').textContent = '';
+  document.getElementById('ms-3').textContent = '';
+  document.getElementById('vsr-label').textContent = tab === 'bbr' ? 'BBR + vSR Plugin' : 'vSR ExtProc';
+  document.getElementById('vsr-detail').textContent = tab === 'bbr' ? ':9002 (in-process)' : ':50051';
+  document.getElementById('backend-label').textContent = 'Backend';
+  document.getElementById('backend-detail').textContent = '...';
+  document.getElementById('trace').innerHTML = '';
+  document.getElementById('request-pre').innerHTML = '<span class="empty-state">Select a scenario</span>';
+  document.getElementById('response-pre').innerHTML = '<span class="empty-state">Select a scenario</span>';
+  document.getElementById('resp-badge').textContent = '';
+  document.getElementById('resp-badge').className = 'badge';
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
 }
 
 async function run(scenario) {
