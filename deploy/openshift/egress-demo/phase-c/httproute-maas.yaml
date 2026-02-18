@@ -1,0 +1,23 @@
+# HTTPRoute: routes MaaS API paths through the Gateway (with Authorino auth)
+# This enables token issuance and tier lookup through the authenticated Gateway
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: maas-api-route
+  namespace: vsr-egress-demo
+spec:
+  parentRefs:
+  - name: vsr-demo-gateway
+    namespace: openshift-ingress
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/tokens
+    - path:
+        type: PathPrefix
+        value: /v1/tiers
+    backendRefs:
+    - name: maas-api
+      port: 8080

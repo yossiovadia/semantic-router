@@ -1,4 +1,38 @@
-# Demo web UI — serves the interactive demo page and proxies API calls to the gateway
+# Demo web UI — serves the interactive demo + admin pages and proxies API calls
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-ui
+  namespace: vsr-egress-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: demo-ui-admin
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "list", "create", "delete"]
+- apiGroups: [""]
+  resources: ["serviceaccounts/token"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: demo-ui-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: demo-ui-admin
+subjects:
+- kind: ServiceAccount
+  name: demo-ui
+  namespace: vsr-egress-demo
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -16,6 +50,7 @@ spec:
       labels:
         app: demo-ui
     spec:
+      serviceAccountName: demo-ui
       containers:
       - name: demo-ui
         image: image-registry.openshift-image-registry.svc:5000/vsr-egress-demo/demo-ui:latest

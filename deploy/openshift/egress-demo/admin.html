@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egress Inference Routing — Admin Demo</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #c9d1d9;
+    --text-muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: var(--bg); color: var(--text); }
+
+  header { padding: 20px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .subtitle { color: var(--text-muted); font-size: 13px; }
+  header .nav-link {
+    margin-left: auto; font-size: 13px; color: var(--accent); text-decoration: none;
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s;
+  }
+  header .nav-link:hover { background: var(--surface); border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 61px); }
+
+  /* Sidebar */
+  .sidebar { border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 16px 0 8px; }
+  .sidebar h2:first-child { margin-top: 0; }
+
+  .user-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 2px;
+    border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s;
+    font-size: 13px;
+  }
+  .user-item:hover { background: var(--surface); border-color: var(--border); }
+  .user-item.selected { background: var(--surface); border-color: var(--accent); }
+  .user-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .user-item .user-info { flex: 1; min-width: 0; }
+  .user-item .user-name { font-weight: 600; font-size: 13px; }
+  .user-item .user-tier { font-size: 10px; color: var(--text-muted); }
+
+  .tier-badge {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tier-free { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tier-premium { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .tier-enterprise { background: rgba(240,136,62,0.15); color: var(--orange); }
+
+  .sidebar-btn {
+    display: block; width: 100%; padding: 8px 12px; margin-bottom: 4px;
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.15s;
+    text-align: left;
+  }
+  .sidebar-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .sidebar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .sidebar-btn:disabled:hover { background: transparent; border-color: var(--border); color: var(--text); }
+  .sidebar-btn.primary { border-color: var(--accent); color: var(--accent); }
+  .sidebar-btn.danger { border-color: var(--red); color: var(--red); }
+  .sidebar-btn.danger:hover { background: rgba(248,81,73,0.1); }
+
+  .create-form { padding: 8px 0; }
+  .create-form input, .create-form select {
+    width: 100%; padding: 6px 10px; margin-bottom: 6px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+    font-size: 13px; font-family: inherit;
+  }
+  .create-form input:focus, .create-form select:focus { outline: none; border-color: var(--accent); }
+  .create-form .form-row { display: flex; gap: 6px; }
+  .create-form .form-row button { flex-shrink: 0; }
+
+  /* Main content */
+  .main { overflow-y: auto; padding: 24px 32px; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+    font-weight: 600; display: flex; align-items: center; gap: 8px;
+  }
+  .panel-body { padding: 16px; }
+
+  /* Two-column layout for tiers + providers */
+  .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 1200px) { .top-grid { grid-template-columns: 1fr; } }
+
+  /* Tier cards */
+  .tier-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .tier-card {
+    border: 1px solid var(--border); border-radius: 6px; padding: 14px;
+    background: var(--bg); transition: border-color 0.3s;
+  }
+  .tier-card.free { border-top: 3px solid var(--green); }
+  .tier-card.premium { border-top: 3px solid var(--purple); }
+  .tier-card.enterprise { border-top: 3px solid var(--orange); }
+  .tier-card h4 { font-size: 14px; margin-bottom: 8px; }
+  .tier-card .level { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+  .tier-card .models { font-size: 12px; margin-bottom: 10px; }
+  .tier-card .models .model-name {
+    display: inline-block; padding: 2px 6px; margin: 2px 0; background: rgba(88,166,255,0.1);
+    border-radius: 3px; font-family: monospace; font-size: 11px; color: var(--accent);
+  }
+  .tier-card .rate-limit { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+  .tier-card .rate-limit strong { color: var(--text); }
+
+  /* Provider table */
+  .provider-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .provider-row:last-child { border-bottom: none; }
+  .provider-row .model-label { font-family: monospace; color: var(--accent); min-width: 120px; }
+  .provider-row .arrow { color: var(--text-muted); }
+  .provider-row .provider-name { font-weight: 600; }
+  .provider-row .api-key { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+  .provider-info {
+    font-size: 11px; color: var(--text-muted); padding: 10px; margin-top: 8px;
+    border: 1px dashed var(--border); border-radius: 4px; line-height: 1.6;
+  }
+
+  /* Token panel */
+  .token-display {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px;
+    font-family: monospace; font-size: 12px; word-break: break-all; margin: 10px 0;
+    max-height: 60px; overflow: hidden; position: relative; color: var(--accent);
+  }
+  .token-meta { font-size: 12px; margin: 8px 0; }
+  .token-meta span { color: var(--text-muted); }
+  .token-meta strong { color: var(--text); font-weight: 600; }
+  .token-actions { display: flex; gap: 8px; margin: 10px 0; }
+  .token-btn {
+    padding: 4px 12px; background: transparent; border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); cursor: pointer; font-size: 12px;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .token-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .token-btn.copied { border-color: var(--green); color: var(--green); }
+
+  .issuance-log { margin-top: 12px; }
+  .issuance-step {
+    display: flex; gap: 8px; padding: 3px 0; font-size: 12px;
+  }
+  .issuance-step .step-num { color: var(--text-muted); min-width: 16px; }
+  .issuance-step .step-icon { min-width: 16px; }
+  .issuance-step .step-icon.ok { color: var(--green); }
+  .issuance-step .step-icon.err { color: var(--red); }
+  .issuance-step .step-text { color: var(--text); }
+  .issuance-step .step-detail { color: var(--text-muted); }
+
+  .jwt-decode {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px;
+    font-family: monospace; font-size: 11px; margin-top: 10px; white-space: pre-wrap;
+    word-break: break-all; max-height: 200px; overflow-y: auto; display: none;
+  }
+
+  /* Test request panel */
+  .test-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .test-form .field { display: flex; flex-direction: column; gap: 4px; }
+  .test-form label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .test-form select, .test-form input[type="text"] {
+    padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  .test-form select:focus, .test-form input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  .test-form input[type="text"] { min-width: 300px; }
+  .send-btn {
+    padding: 8px 20px; background: var(--accent); border: none; border-radius: 4px;
+    color: var(--bg); font-weight: 600; cursor: pointer; font-size: 13px; font-family: inherit;
+    transition: opacity 0.15s;
+  }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Architecture diagram */
+  .arch-flow { display: flex; align-items: center; gap: 0; justify-content: center; flex-wrap: nowrap; margin: 16px 0; }
+  .arch-box {
+    padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    text-align: center; min-width: 110px; transition: all 0.3s; cursor: pointer;
+  }
+  .arch-box .label { font-size: 12px; font-weight: 600; }
+  .arch-box .detail { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
+  .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
+  .arch-box.active.extproc-glow { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
+  .arch-box.active.auth-glow { border-color: var(--orange); box-shadow: 0 0 12px rgba(240,136,62,0.3); animation: neon-pulse-auth 1.5s ease-in-out infinite; }
+  .arch-box.dimmed { opacity: 0.3; }
+
+  @keyframes neon-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(63,185,80,0.2), 0 0 20px rgba(63,185,80,0.1); }
+    50% { box-shadow: 0 0 16px rgba(63,185,80,0.5), 0 0 40px rgba(63,185,80,0.3), 0 0 60px rgba(63,185,80,0.1); border-color: #6fdd8b; }
+  }
+  @keyframes neon-pulse-red {
+    0%, 100% { box-shadow: 0 0 8px rgba(248,81,73,0.2), 0 0 20px rgba(248,81,73,0.1); }
+    50% { box-shadow: 0 0 16px rgba(248,81,73,0.5), 0 0 40px rgba(248,81,73,0.3), 0 0 60px rgba(248,81,73,0.1); border-color: #ff6b6b; }
+  }
+  @keyframes neon-pulse-extproc {
+    0%, 100% { box-shadow: 0 0 8px rgba(88,166,255,0.2), 0 0 20px rgba(88,166,255,0.1); }
+    50% { box-shadow: 0 0 16px rgba(88,166,255,0.5), 0 0 40px rgba(88,166,255,0.3), 0 0 60px rgba(88,166,255,0.1); border-color: #79c0ff; }
+  }
+  @keyframes neon-pulse-auth {
+    0%, 100% { box-shadow: 0 0 8px rgba(240,136,62,0.2), 0 0 20px rgba(240,136,62,0.1); }
+    50% { box-shadow: 0 0 16px rgba(240,136,62,0.5), 0 0 40px rgba(240,136,62,0.3), 0 0 60px rgba(240,136,62,0.1); border-color: #f4a261; }
+  }
+
+  .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .arch-arrow .arrow-icon { line-height: 1; }
+  .arch-arrow .arrow-ms { font-size: 9px; color: var(--text-muted); font-family: monospace; opacity: 0; transition: opacity 0.3s; }
+  .arch-arrow.active .arrow-ms { opacity: 1; color: var(--green); }
+  .arch-arrow.blocked .arrow-ms { opacity: 1; color: var(--red); }
+  .arch-arrow.active { color: var(--green); }
+  .arch-arrow.blocked { color: var(--red); }
+  .arch-arrow.dimmed { opacity: 0.3; }
+
+  /* Component log */
+  .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; border-radius: 4px; transition: background 0.3s, box-shadow 0.3s; }
+  .trace-step .num { color: var(--text-muted); min-width: 24px; }
+  .trace-step .icon { min-width: 16px; }
+  .trace-step .icon.ok { color: var(--green); }
+  .trace-step .icon.err { color: var(--red); }
+  .trace-step .action { color: var(--text); }
+  .trace-step .value { color: var(--accent); font-family: monospace; }
+  .trace-step.blocked .action { color: var(--red); }
+  .trace-step.success .action { color: var(--green); }
+  .trace-step.auth .action { color: var(--orange); }
+  .trace-step .sub-detail { display: block; padding-left: 50px; font-size: 11px; color: var(--text-muted); }
+  .trace-step.highlight { background: rgba(0,200,255,0.08); box-shadow: inset 3px 0 0 var(--accent); padding-left: 8px; }
+
+  /* Credential switch visualization */
+  .cred-switch {
+    display: flex; align-items: center; gap: 0; justify-content: center; margin: 16px 0;
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .cred-switch.visible { opacity: 1; }
+  .cred-card {
+    padding: 14px 18px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); min-width: 180px; font-size: 12px; transition: all 0.5s;
+  }
+  .cred-card h5 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .cred-card .cred-line { margin: 3px 0; }
+  .cred-card .cred-label { color: var(--text-muted); }
+  .cred-card .cred-value { color: var(--text); font-family: monospace; }
+  .cred-card.user-cred { border-color: var(--orange); }
+  .cred-card.user-cred.animate { box-shadow: 0 0 20px rgba(240,136,62,0.3); }
+  .cred-card.provider-cred { border-color: var(--accent); }
+  .cred-card.provider-cred.animate { box-shadow: 0 0 20px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
+  .cred-card .validated-by { font-size: 10px; color: var(--text-muted); margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+  .cred-arrow {
+    display: flex; flex-direction: column; align-items: center; padding: 0 16px;
+    color: var(--text-muted); font-size: 12px;
+  }
+  .cred-arrow .cred-arrow-icon { font-size: 24px; color: var(--border); transition: color 0.5s; }
+  .cred-arrow .cred-arrow-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .cred-arrow.animate .cred-arrow-icon { color: var(--accent); animation: arrow-pulse 1s ease-in-out infinite; }
+  @keyframes arrow-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* Request/Response inspector */
+  .inspector-toggle {
+    padding: 8px 16px; background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 12px;
+    font-family: inherit; transition: all 0.15s; width: 100%;
+    text-align: left; display: flex; align-items: center; gap: 8px;
+  }
+  .inspector-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .inspector-toggle .chevron { transition: transform 0.2s; }
+  .inspector-toggle.open .chevron { transform: rotate(90deg); }
+  .inspector-content { display: none; margin-top: 12px; }
+  .inspector-content.open { display: block; }
+  .inspector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 1200px) { .inspector-grid { grid-template-columns: 1fr; } }
+  .inspector-section h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .inspector-section h4 .badge { font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+  .badge-ok { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-err { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    line-height: 1.5; max-height: 300px; overflow-y: auto;
+  }
+  .header-key { color: var(--yellow); }
+  .header-val { color: var(--text); }
+  .header-vsr { color: var(--accent); font-weight: 600; }
+  .header-auth { color: var(--orange); font-weight: 600; }
+
+  .empty-state { color: var(--text-muted); font-size: 13px; font-style: italic; }
+  .error-state { color: var(--red); font-size: 13px; padding: 12px; border: 1px solid rgba(248,81,73,0.3); border-radius: 6px; background: rgba(248,81,73,0.05); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .confirm-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .confirm-dialog {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 24px; max-width: 360px; width: 100%;
+  }
+  .confirm-dialog h3 { font-size: 15px; margin-bottom: 8px; }
+  .confirm-dialog p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .confirm-dialog .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .confirm-dialog button {
+    padding: 6px 16px; border-radius: 4px; border: 1px solid var(--border);
+    cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.15s;
+  }
+  .confirm-dialog .cancel-btn { background: transparent; color: var(--text); }
+  .confirm-dialog .cancel-btn:hover { border-color: var(--accent); }
+  .confirm-dialog .delete-btn { background: rgba(248,81,73,0.15); color: var(--red); border-color: var(--red); }
+  .confirm-dialog .delete-btn:hover { background: rgba(248,81,73,0.3); }
+
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Egress Inference Routing</h1>
+  <span class="subtitle">Admin Demo</span>
+  <a href="/" class="nav-link">&larr; Main Demo</a>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h2>Users</h2>
+    <button class="sidebar-btn primary" onclick="toggleCreateForm()">+ Create User</button>
+    <div id="create-form" class="create-form" style="display:none;">
+      <input type="text" id="new-username" placeholder="Username" autocomplete="off">
+      <select id="new-tier">
+        <option value="free">Free</option>
+        <option value="premium">Premium</option>
+        <option value="enterprise">Enterprise</option>
+      </select>
+      <div class="form-row">
+        <button class="sidebar-btn primary" onclick="createUser()" style="flex:1;">Create</button>
+        <button class="sidebar-btn" onclick="toggleCreateForm()" style="flex:0 0 auto;">Cancel</button>
+      </div>
+    </div>
+    <div id="user-list" style="margin-top: 8px;">
+      <span class="empty-state">Loading users...</span>
+    </div>
+
+    <h2>Actions</h2>
+    <div id="actions-panel">
+      <button class="sidebar-btn" id="btn-issue-token" onclick="issueToken()" disabled>Issue Token</button>
+      <button class="sidebar-btn danger" id="btn-delete-user" onclick="confirmDeleteUser()" disabled>Delete User</button>
+    </div>
+    <div id="selected-info" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
+      Select a user to see actions.
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- Top: Tier Config + Provider Credentials -->
+    <div class="top-grid">
+      <!-- Tier Configuration -->
+      <div class="panel">
+        <div class="panel-header">Tier Configuration &amp; Rate Limits</div>
+        <div class="panel-body" id="tier-panel">
+          <span class="empty-state">Loading tier configuration...</span>
+        </div>
+      </div>
+
+      <!-- Provider Credentials -->
+      <div class="panel">
+        <div class="panel-header">Provider Credentials</div>
+        <div class="panel-body" id="provider-panel">
+          <span class="empty-state">Loading provider information...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token Panel -->
+    <div class="panel" id="token-panel" style="display:none;">
+      <div class="panel-header">
+        Token: <span id="token-user-label"></span>
+      </div>
+      <div class="panel-body" id="token-body"></div>
+    </div>
+
+    <!-- Test Request -->
+    <div class="panel">
+      <div class="panel-header">Test Request</div>
+      <div class="panel-body">
+        <div class="test-form">
+          <div class="field">
+            <label>Model</label>
+            <select id="test-model">
+              <option value="mock-llama3">mock-llama3</option>
+              <option value="qwen2.5:1.5b">qwen2.5:1.5b</option>
+              <option value="claude-sonnet">claude-sonnet</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Message</label>
+            <input type="text" id="test-message" value="Hello, how are you?" placeholder="Enter your message...">
+          </div>
+          <button class="send-btn" id="btn-send" onclick="sendTestRequest()" disabled>Send Request</button>
+        </div>
+        <div id="test-no-token" style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+          Issue a token first to send test requests.
+        </div>
+      </div>
+    </div>
+
+    <!-- Credential Switch Visualization -->
+    <div class="cred-switch" id="cred-switch">
+      <div class="cred-card user-cred" id="cred-user">
+        <h5>User Credential</h5>
+        <div class="cred-line"><span class="cred-label">SA: </span><span class="cred-value" id="cred-user-sa">--</span></div>
+        <div class="cred-line"><span class="cred-label">Tier: </span><span class="cred-value" id="cred-user-tier">--</span></div>
+        <div class="cred-line"><span class="cred-label">Expires: </span><span class="cred-value" id="cred-user-exp">--</span></div>
+        <div class="validated-by">Validated by Authorino</div>
+      </div>
+      <div class="cred-arrow" id="cred-arrow">
+        <span class="cred-arrow-label">vSR</span>
+        <span class="cred-arrow-icon">&rarr;</span>
+        <span class="cred-arrow-label">switches</span>
+      </div>
+      <div class="cred-card provider-cred" id="cred-provider">
+        <h5>Provider Credential</h5>
+        <div class="cred-line"><span class="cred-label">API Key: </span><span class="cred-value" id="cred-prov-key">--</span></div>
+        <div class="cred-line"><span class="cred-label">Target: </span><span class="cred-value" id="cred-prov-target">--</span></div>
+        <div class="validated-by">Injected by vSR ExtProc</div>
+      </div>
+    </div>
+
+    <!-- Architecture Diagram -->
+    <div class="panel">
+      <div class="panel-header">Request Flow</div>
+      <div class="panel-body">
+        <div class="arch-flow" id="arch-flow">
+          <div class="arch-box" id="box-client"><div class="label">Client</div><div class="detail">admin demo</div></div>
+          <div class="arch-arrow" id="arr-gw"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-gw"></span></div>
+          <div class="arch-box" id="box-gateway"><div class="label">Gateway</div><div class="detail">Kuadrant</div></div>
+          <div class="arch-arrow" id="arr-auth"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-auth"></span></div>
+          <div class="arch-box" id="box-authorino"><div class="label">Authorino/MaaS</div><div class="detail">Token + Tier</div></div>
+          <div class="arch-arrow" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
+          <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
+          <div class="arch-arrow" id="arr-2"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-2"></span></div>
+          <div class="arch-box" id="box-vsr"><div class="label">vSR ExtProc</div><div class="detail">:50051</div></div>
+          <div class="arch-arrow" id="arr-3"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-3"></span></div>
+          <div class="arch-box" id="box-backend"><div class="label">Backend</div><div class="detail">...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component Log -->
+    <div class="panel">
+      <div class="panel-header">Component Log</div>
+      <div class="panel-body" id="component-log">
+        <span class="empty-state">Send a test request to see the component trace.</span>
+      </div>
+    </div>
+
+    <!-- Request/Response Inspector -->
+    <div class="panel">
+      <button class="inspector-toggle" id="inspector-toggle" onclick="toggleInspector()">
+        <span class="chevron">&#9654;</span> Request / Response Inspector
+      </button>
+      <div class="inspector-content" id="inspector-content">
+        <div class="panel-body">
+          <div class="inspector-grid">
+            <div class="inspector-section">
+              <h4>Request</h4>
+              <pre id="inspector-request"><span class="empty-state">No request yet.</span></pre>
+            </div>
+            <div class="inspector-section">
+              <h4>Response <span class="badge" id="inspector-badge"></span></h4>
+              <pre id="inspector-response"><span class="empty-state">No response yet.</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Confirmation dialog (rendered dynamically) -->
+<div id="confirm-overlay" class="confirm-overlay" style="display:none;"></div>
+
+<script>
+// ─── State ──────────────────────────────────────────
+let state = {
+  users: [],
+  selectedUser: null,
+  currentToken: null,
+  tokenExpiry: null,
+  tiers: null,
+  rateLimits: null,
+  providers: null,
+};
+
+// ─── API helpers ────────────────────────────────────
+
+async function apiFetch(path, opts = {}) {
+  const resp = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+  });
+  const data = await resp.json();
+  if (!resp.ok && !data) throw new Error(`HTTP ${resp.status}`);
+  return { status: resp.status, data, headers: resp.headers };
+}
+
+// ─── Users ──────────────────────────────────────────
+
+async function loadUsers() {
+  const list = document.getElementById('user-list');
+  try {
+    const { data } = await apiFetch('/api/admin/users');
+    // Server returns a flat array (not {users: [...]})
+    state.users = Array.isArray(data) ? data : (data.users || []);
+    renderUserList();
+  } catch (e) {
+    list.innerHTML = `<div class="error-state">Failed to load users: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderUserList() {
+  const list = document.getElementById('user-list');
+  if (state.users.length === 0) {
+    list.innerHTML = '<span class="empty-state">No users yet. Create one above.</span>';
+    return;
+  }
+  list.innerHTML = state.users.map(u => {
+    const sel = state.selectedUser && state.selectedUser.name === u.name ? 'selected' : '';
+    const tierCls = `tier-${u.tier}`;
+    return `<div class="user-item ${sel}" onclick="selectUser('${esc(u.name)}', '${esc(u.tier)}')">
+      <div class="dot" style="background: var(--${u.tier === 'free' ? 'green' : u.tier === 'premium' ? 'purple' : 'orange'});"></div>
+      <div class="user-info">
+        <div class="user-name">${esc(u.name)}</div>
+        <div class="user-tier"><span class="tier-badge ${tierCls}">${esc(u.tier)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectUser(name, tier) {
+  state.selectedUser = { name, tier };
+  state.currentToken = null;
+  state.tokenExpiry = null;
+  renderUserList();
+  document.getElementById('btn-issue-token').disabled = false;
+  document.getElementById('btn-delete-user').disabled = false;
+  document.getElementById('selected-info').textContent = `Selected: ${name} (${tier})`;
+  document.getElementById('token-panel').style.display = 'none';
+  document.getElementById('btn-send').disabled = true;
+  document.getElementById('test-no-token').style.display = '';
+  hidCredSwitch();
+}
+
+function toggleCreateForm() {
+  const form = document.getElementById('create-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-username').focus();
+  }
+}
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const tier = document.getElementById('new-tier').value;
+  if (!username) { document.getElementById('new-username').focus(); return; }
+  try {
+    await apiFetch('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, tier }),
+    });
+    document.getElementById('create-form').style.display = 'none';
+    await loadUsers();
+    selectUser(username, tier);
+  } catch (e) {
+    alert('Failed to create user: ' + e.message);
+  }
+}
+
+function confirmDeleteUser() {
+  if (!state.selectedUser) return;
+  const name = state.selectedUser.name;
+  const overlay = document.getElementById('confirm-overlay');
+  overlay.innerHTML = `<div class="confirm-dialog fade-in">
+    <h3>Delete ${esc(name)}?</h3>
+    <p>All tokens for this user will be revoked. This cannot be undone.</p>
+    <div class="confirm-actions">
+      <button class="cancel-btn" onclick="closeConfirm()">Cancel</button>
+      <button class="delete-btn" onclick="deleteUser()">Delete</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').style.display = 'none';
+}
+
+async function deleteUser() {
+  if (!state.selectedUser) return;
+  closeConfirm();
+  const { name, tier } = state.selectedUser;
+  try {
+    await apiFetch(`/api/admin/users?name=${encodeURIComponent(name)}&tier=${encodeURIComponent(tier)}`, {
+      method: 'DELETE',
+    });
+    state.selectedUser = null;
+    state.currentToken = null;
+    state.tokenExpiry = null;
+    document.getElementById('btn-issue-token').disabled = true;
+    document.getElementById('btn-delete-user').disabled = true;
+    document.getElementById('selected-info').textContent = 'Select a user to see actions.';
+    document.getElementById('token-panel').style.display = 'none';
+    document.getElementById('btn-send').disabled = true;
+    document.getElementById('test-no-token').style.display = '';
+    hidCredSwitch();
+    await loadUsers();
+  } catch (e) {
+    alert('Failed to delete user: ' + e.message);
+  }
+}
+
+// ─── Token Issuance ─────────────────────────────────
+
+async function issueToken() {
+  if (!state.selectedUser) return;
+  const panel = document.getElementById('token-panel');
+  const body = document.getElementById('token-body');
+  const label = document.getElementById('token-user-label');
+
+  label.innerHTML = `${esc(state.selectedUser.name)} <span class="tier-badge tier-${state.selectedUser.tier}">${state.selectedUser.tier}</span>`;
+  body.innerHTML = '<span class="spinner"></span> Issuing token...';
+  panel.style.display = '';
+
+  try {
+    const { data } = await apiFetch('/api/admin/token', {
+      method: 'POST',
+      body: JSON.stringify({ username: state.selectedUser.name, tier: state.selectedUser.tier }),
+    });
+
+    state.currentToken = data.token || '';
+    state.tokenExpiry = data.expiresAt || '';
+
+    // Server returns steps as [{step, action, detail, status, elapsed_ms, result}, ...]
+    // Normalize to display format with icon and label
+    const rawSteps = data.steps || [];
+    const displaySteps = rawSteps.length > 0
+      ? rawSteps.map(s => ({
+          icon: (s.status >= 200 && s.status < 300) || s.status === undefined ? 'ok' : 'err',
+          label: `${s.action || s.label || ''}${s.result ? ' \u2014 ' + s.result : ''}${s.elapsed_ms ? ' (' + s.elapsed_ms + 'ms)' : ''}`,
+        }))
+      : [
+          { icon: 'ok', label: 'K8s: bootstrap token (10min, auth only)' },
+          { icon: 'ok', label: 'Gateway: POST /v1/tokens' },
+          { icon: 'ok', label: 'Authorino: validated \u2192 ' + state.selectedUser.tier },
+          { icon: 'ok', label: 'MaaS API: production token issued (1h)' },
+        ];
+
+    const issuedBy = data.issuedBy || 'MaaS API';
+    const audience = data.audience || 'vsr-demo-gateway-sa';
+    const expiresLabel = computeExpiryLabel(state.tokenExpiry);
+
+    body.innerHTML = `
+      <div class="token-display" id="token-raw">${esc(state.currentToken)}</div>
+      <div class="token-actions">
+        <button class="token-btn" id="btn-copy" onclick="copyToken()">Copy</button>
+        <button class="token-btn" id="btn-decode" onclick="toggleDecode()">Decode</button>
+      </div>
+      <div class="token-meta">
+        <div><span>Issued by: </span><strong>${esc(issuedBy)}</strong></div>
+        <div><span>Audience: </span><strong>${esc(audience)}</strong></div>
+        <div><span>Expires: </span><strong>${esc(expiresLabel)}</strong></div>
+      </div>
+      <div class="jwt-decode" id="jwt-decode"></div>
+      <div class="issuance-log">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Token Issuance Log</div>
+        ${displaySteps.map((s, i) => `<div class="issuance-step">
+          <span class="step-num">${i + 1}.</span>
+          <span class="step-icon ${s.icon === 'ok' ? 'ok' : 'err'}">${s.icon === 'ok' ? '\u2713' : '\u2717'}</span>
+          <span class="step-text">${esc(s.label)}</span>
+        </div>`).join('')}
+      </div>
+    `;
+
+    // Enable test requests
+    document.getElementById('btn-send').disabled = false;
+    document.getElementById('test-no-token').style.display = 'none';
+
+  } catch (e) {
+    body.innerHTML = `<div class="error-state">Failed to issue token: ${esc(e.message)}</div>`;
+  }
+}
+
+function computeExpiryLabel(expiresAt) {
+  if (!expiresAt) return 'unknown';
+  try {
+    const exp = new Date(expiresAt);
+    const now = new Date();
+    const diffMs = exp - now;
+    if (diffMs <= 0) return 'expired';
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 60) return `in ${mins} minute${mins !== 1 ? 's' : ''}`;
+    const hours = Math.round(mins / 60);
+    return `in ${hours} hour${hours !== 1 ? 's' : ''}`;
+  } catch {
+    return expiresAt;
+  }
+}
+
+function copyToken() {
+  if (!state.currentToken) return;
+  navigator.clipboard.writeText(state.currentToken).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function toggleDecode() {
+  const el = document.getElementById('jwt-decode');
+  if (el.style.display === 'block') {
+    el.style.display = 'none';
+    return;
+  }
+  if (!state.currentToken) return;
+  try {
+    const parts = state.currentToken.split('.');
+    if (parts.length < 2) { el.textContent = 'Not a valid JWT'; el.style.display = 'block'; return; }
+    // Decode the payload (second part)
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    el.textContent = JSON.stringify(payload, null, 2);
+  } catch {
+    el.textContent = 'Failed to decode JWT payload.';
+  }
+  el.style.display = 'block';
+}
+
+// ─── Tiers ──────────────────────────────────────────
+
+async function loadTiers() {
+  const panel = document.getElementById('tier-panel');
+  try {
+    const { data } = await apiFetch('/api/admin/tiers');
+    state.tiers = data.tiers || [];
+    state.rateLimits = data.rateLimits || [];
+    renderTiers();
+  } catch (e) {
+    panel.innerHTML = `<div class="error-state">Failed to load tiers: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderTiers() {
+  const panel = document.getElementById('tier-panel');
+  if (!state.tiers || state.tiers.length === 0) {
+    panel.innerHTML = '<span class="empty-state">No tier data available.</span>';
+    return;
+  }
+
+  panel.innerHTML = '<div class="tier-cards">' + state.tiers.map(t => {
+    const tierCls = t.name.toLowerCase();
+    const models = (t.models || []).map(m =>
+      `<span class="model-name">${esc(m === '*' ? '* (all models)' : m)}</span>`
+    ).join(' ');
+    const rateLimit = state.rateLimits
+      ? state.rateLimits.find(r => r.tier === t.name.toLowerCase())
+      : null;
+    // Server returns {tier, limit} where limit is a string like "100 tokens/min"
+    const rateStr = rateLimit
+      ? `<strong>${esc(rateLimit.limit || rateLimit.tokensPerMinute || '?')}</strong>`
+      : '<em>not set</em>';
+    return `<div class="tier-card ${tierCls}">
+      <h4>${esc(t.displayName || t.name)}</h4>
+      <div class="level">Level ${t.level !== undefined ? t.level : '?'}</div>
+      <div class="models">${models || '<span style="color:var(--text-muted);">none</span>'}</div>
+      <div class="rate-limit">Rate: ${rateStr}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function formatRate(n) {
+  if (n === undefined || n === null) return '?';
+  if (n >= 1000) return (n / 1000) + 'k';
+  return String(n);
+}
+
+// ─── Providers ──────────────────────────────────────
+
+async function loadProviders() {
+  const panel = document.getElementById('provider-panel');
+  try {
+    const { data } = await apiFetch('/api/admin/providers');
+    // Server returns a flat array (not {providers: [...]})
+    state.providers = Array.isArray(data) ? data : (data.providers || []);
+    renderProviders();
+  } catch (e) {
+    panel.innerHTML = `<div class="error-state">Failed to load providers: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderProviders() {
+  const panel = document.getElementById('provider-panel');
+  if (!state.providers || state.providers.length === 0) {
+    panel.innerHTML = '<span class="empty-state">No provider data available.</span>';
+    return;
+  }
+
+  const rows = state.providers.map(p => {
+    // Server returns {model, endpoint, format, hasKey, keyPreview, keyInfo}
+    const providerName = p.endpoint || p.provider || 'Unknown';
+    const keyDisplay = p.hasKey && p.keyPreview
+      ? esc(p.keyPreview)
+      : p.apiKey
+        ? esc(p.apiKey.substring(0, 12)) + '...' + esc(p.apiKey.slice(-4))
+        : 'none (' + esc(p.keyInfo || p.keyNote || 'pass-through') + ')';
+    return `<div class="provider-row">
+      <span class="model-label">${esc(p.model)}</span>
+      <span class="arrow">&rarr;</span>
+      <span class="provider-name">${esc(providerName)}</span>
+      <span class="api-key">Key: ${keyDisplay}</span>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = rows + `
+    <div class="provider-info">
+      In production, provider keys come from ATM or K8s Secrets. vSR injects the appropriate key when routing to each external provider.
+    </div>`;
+}
+
+// ─── Test Request ───────────────────────────────────
+
+// Fallback map if /api/admin/providers hasn't loaded yet
+const PROVIDER_MAP = {
+  'qwen2.5:1.5b': { provider: 'OpenAI External', format: 'openai' },
+  'claude-sonnet': { provider: 'Anthropic External', format: 'anthropic' },
+  'mock-llama3': { provider: 'Internal KServe', format: 'openai' },
+};
+
+function getProviderInfo(model) {
+  // Prefer live provider data from API
+  const pd = findProviderData(model);
+  if (pd) return { provider: pd.provider || pd.endpoint, format: pd.format || 'openai' };
+  return PROVIDER_MAP[model] || { provider: 'Unknown', format: 'openai' };
+}
+
+async function sendTestRequest() {
+  if (!state.currentToken || !state.selectedUser) return;
+  const model = document.getElementById('test-model').value;
+  const message = document.getElementById('test-message').value.trim() || 'Hello';
+  const user = state.selectedUser;
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  // Reset UI
+  resetArchDiagram();
+  document.getElementById('component-log').innerHTML = '<span class="spinner"></span> Processing...';
+  hidCredSwitch();
+
+  const reqBody = { model, messages: [{ role: 'user', content: message }], max_tokens: 50 };
+  const hdrs = { 'Content-Type': 'application/json' };
+
+  try {
+    const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
+      method: 'POST',
+      body: JSON.stringify({ token: state.currentToken, model, message }),
+    });
+
+    // Server returns {status, elapsed_ms, headers, response} or {error}
+    const totalMs = data.elapsed_ms || 0;
+    const respStatus = data.status || httpStatus;
+    const respBody = data.response || data;
+    const isBlocked = respStatus === 403 || (respBody && respBody.error && respBody.error.code === 403);
+    const respHeaders = data.headers || {};
+    const reqHeaders = {};
+
+    // Update architecture diagram
+    updateArchDiagram(model, user, isBlocked, totalMs);
+
+    // Update component log
+    updateComponentLog(model, user, isBlocked, respHeaders, data);
+
+    // Show credential switch for external providers on success
+    const provInfo = getProviderInfo(model);
+    if (!isBlocked && provInfo && provInfo.provider !== 'Internal KServe') {
+      showCredSwitch(user, model, provInfo);
+    }
+
+    // Update inspector
+    updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
+
+  } catch (e) {
+    document.getElementById('component-log').innerHTML = `<div class="error-state">Request failed: ${esc(e.message)}</div>`;
+    updateInspector(model, message, {}, 0, {}, { error: e.message }, true, 0);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send Request';
+}
+
+// ─── Architecture Diagram ───────────────────────────
+
+function resetArchDiagram() {
+  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+  allIds.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','auth-glow');
+  });
+  ['ms-gw','ms-auth','ms-1','ms-2','ms-3'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
+  document.getElementById('backend-label').textContent = 'Backend';
+  document.getElementById('backend-detail').textContent = '...';
+}
+
+function updateArchDiagram(model, user, isBlocked, totalMs) {
+  resetArchDiagram();
+
+  const provInfo = getProviderInfo(model);
+  document.getElementById('backend-label').textContent = provInfo.provider.split(' ')[0];
+  document.getElementById('backend-detail').textContent = provInfo.provider;
+
+  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+
+  if (isBlocked) {
+    // Auth + envoy active, vSR blocked, backend dimmed
+    ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2'].forEach(id =>
+      document.getElementById(id).classList.add('active'));
+    document.getElementById('box-gateway').classList.add('auth-glow');
+    document.getElementById('box-authorino').classList.add('auth-glow');
+    document.getElementById('box-vsr').classList.add('blocked');
+    document.getElementById('arr-3').classList.add('blocked');
+    document.getElementById('box-backend').classList.add('dimmed');
+    if (totalMs > 0) document.getElementById('ms-2').textContent = totalMs + 'ms';
+  } else {
+    // Full success
+    allIds.forEach(id => document.getElementById(id).classList.add('active'));
+    document.getElementById('box-gateway').classList.add('auth-glow');
+    document.getElementById('box-authorino').classList.add('auth-glow');
+    document.getElementById('box-backend').classList.add('neon');
+    document.getElementById('box-vsr').classList.add('extproc-glow');
+    if (totalMs > 0) document.getElementById('ms-3').textContent = totalMs + 'ms total';
+  }
+}
+
+// ─── Component Log ──────────────────────────────────
+
+function updateComponentLog(model, user, isBlocked, respHeaders, data) {
+  const log = document.getElementById('component-log');
+  const provInfo = getProviderInfo(model);
+  const isExternal = provInfo.provider !== 'Internal KServe';
+  const isAnthropic = provInfo.format === 'anthropic';
+
+  let steps = [];
+  let n = 1;
+
+  steps.push({ n: n++, icon: 'ok', cls: '', action: 'Gateway: received POST /v1/chat/completions', value: '', box: 'box-gateway' });
+  steps.push({ n: n++, icon: 'ok', cls: 'auth', action: `Authorino: token validated (${esc(user.name)}, ${esc(user.tier)} tier)`, value: '', box: 'box-authorino' });
+  steps.push({ n: n++, icon: 'ok', cls: 'auth', action: `MaaS API: tier lookup`, value: `${esc(user.tier)} (level ${tierLevel(user.tier)})`, box: 'box-authorino' });
+  steps.push({ n: n++, icon: 'ok', cls: 'auth', action: `Authorino: injected X-MaaS-Tier: ${esc(user.tier)}`, value: '', box: 'box-authorino' });
+  steps.push({ n: n++, icon: 'ok', cls: '', action: `vSR: extracted model ${esc(model)} from body`, value: '', box: 'box-vsr' });
+
+  if (isBlocked) {
+    steps.push({
+      n: n++, icon: 'err', cls: 'blocked',
+      action: `vSR: tier check \u2014 ${esc(user.tier)} \u2192 ${esc(model)} NOT allowed`,
+      value: '403: Model not available for your subscription tier',
+      box: 'box-vsr',
+    });
+  } else {
+    steps.push({
+      n: n++, icon: 'ok', cls: 'success',
+      action: `vSR: tier check \u2014 ${esc(user.tier)} \u2192 ${esc(model)}`,
+      value: 'PASS',
+      box: 'box-vsr',
+    });
+
+    if (isExternal) {
+      // Credential switch step
+      const provData = findProviderData(model);
+      const keyDisplay = provData && provData.apiKey
+        ? provData.apiKey.substring(0, 8) + '...' + provData.apiKey.slice(-4)
+        : 'none';
+      steps.push({
+        n: n++, icon: 'ok', cls: '',
+        action: 'vSR: credential switch',
+        value: '',
+        sub: `User token (SA: ${esc(user.name)}) \u2192 Provider key (${esc(keyDisplay)})`,
+        box: 'box-vsr',
+      });
+    }
+
+    if (isAnthropic) {
+      steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: API translation OpenAI \u2192 Anthropic format', value: '', box: 'box-vsr' });
+    }
+
+    const backendName = provInfo.provider.toLowerCase().includes('anthropic') ? 'mock-anthropic'
+      : provInfo.provider.toLowerCase().includes('openai') ? 'mock-openai'
+      : 'mock-kserve';
+    const backendStatus = data.status || 200;
+    steps.push({ n: n++, icon: 'ok', cls: 'success', action: `Backend: ${backendName} responded (${backendStatus})`, value: '', box: 'box-backend' });
+
+    if (isAnthropic) {
+      steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: response translation Anthropic \u2192 OpenAI format', value: '', box: 'box-vsr' });
+    }
+  }
+
+  log.innerHTML = steps.map(s => {
+    const iconHtml = `<span class="icon ${s.icon === 'ok' ? 'ok' : 'err'}">${s.icon === 'ok' ? '\u2713' : '\u2717'}</span>`;
+    let html = `<div class="trace-step ${s.cls || ''}" data-box="${s.box || ''}">
+      <span class="num">${s.n}.</span>${iconHtml}
+      <span class="action">${s.action}${s.value ? ': ' : ''}</span>
+      ${s.value ? `<span class="value">${s.value}</span>` : ''}
+    </div>`;
+    if (s.sub) {
+      html += `<div class="trace-step"><span class="sub-detail">${s.sub}</span></div>`;
+    }
+    return html;
+  }).join('');
+}
+
+function tierLevel(tier) {
+  switch (tier) {
+    case 'free': return 0;
+    case 'premium': return 1;
+    case 'enterprise': return 2;
+    default: return '?';
+  }
+}
+
+function findProviderData(model) {
+  if (!state.providers) return null;
+  const p = state.providers.find(p => p.model === model);
+  if (!p) return null;
+  // Normalize: server uses {endpoint, hasKey, keyPreview, keyInfo}
+  return {
+    ...p,
+    provider: p.endpoint || p.provider,
+    apiKey: p.hasKey ? (p.keyPreview || '') : null,
+    keyNote: p.keyInfo || '',
+  };
+}
+
+// ─── Credential Switch ─────────────────────────────
+
+function showCredSwitch(user, model, provInfo) {
+  const el = document.getElementById('cred-switch');
+  const provData = findProviderData(model);
+
+  document.getElementById('cred-user-sa').textContent = user.name;
+  document.getElementById('cred-user-tier').textContent = user.tier;
+  document.getElementById('cred-user-exp').textContent = computeExpiryLabel(state.tokenExpiry);
+
+  const keyDisplay = provData && provData.apiKey
+    ? provData.apiKey.substring(0, 8) + '...' + provData.apiKey.slice(-4)
+    : 'none';
+  document.getElementById('cred-prov-key').textContent = keyDisplay;
+  document.getElementById('cred-prov-target').textContent = provInfo.provider;
+
+  el.classList.add('visible');
+
+  // Trigger animations
+  setTimeout(() => {
+    document.getElementById('cred-user').classList.add('animate');
+  }, 200);
+  setTimeout(() => {
+    document.getElementById('cred-arrow').classList.add('animate');
+  }, 600);
+  setTimeout(() => {
+    document.getElementById('cred-provider').classList.add('animate');
+  }, 1000);
+}
+
+function hidCredSwitch() {
+  const el = document.getElementById('cred-switch');
+  el.classList.remove('visible');
+  document.getElementById('cred-user').classList.remove('animate');
+  document.getElementById('cred-arrow').classList.remove('animate');
+  document.getElementById('cred-provider').classList.remove('animate');
+}
+
+// ─── Inspector ──────────────────────────────────────
+
+function toggleInspector() {
+  const toggle = document.getElementById('inspector-toggle');
+  const content = document.getElementById('inspector-content');
+  toggle.classList.toggle('open');
+  content.classList.toggle('open');
+}
+
+function updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs) {
+  const reqPre = document.getElementById('inspector-request');
+  const resPre = document.getElementById('inspector-response');
+  const badge = document.getElementById('inspector-badge');
+
+  // Request
+  let reqText = `POST /auth/v1/chat/completions HTTP/1.1\n`;
+  reqText += `<span class="header-key">Content-Type</span>: <span class="header-val">application/json</span>\n`;
+  reqText += `<span class="header-auth">Authorization</span>: <span class="header-val">Bearer ${state.currentToken ? state.currentToken.substring(0, 20) + '...' : '(none)'}</span>\n`;
+  if (reqHeaders && typeof reqHeaders === 'object') {
+    Object.entries(reqHeaders).forEach(([k, v]) => {
+      if (k.toLowerCase().startsWith('x-')) {
+        reqText += `<span class="header-vsr">${esc(k)}</span>: <span class="header-val">${esc(v)}</span>\n`;
+      }
+    });
+  }
+  reqText += `\n${JSON.stringify({ model, messages: [{ role: 'user', content: message }], max_tokens: 50 }, null, 2)}`;
+  reqPre.innerHTML = reqText;
+
+  // Response
+  if (isBlocked) {
+    badge.textContent = `${respStatus || 403} BLOCKED${totalMs ? ' (' + totalMs + 'ms)' : ''}`;
+    badge.className = 'badge badge-err';
+  } else {
+    badge.textContent = `${respStatus || 200} OK${totalMs ? ' (' + totalMs + 'ms)' : ''}`;
+    badge.className = 'badge badge-ok';
+  }
+
+  let resText = `HTTP/1.1 ${respStatus || '???'}\n`;
+  if (respHeaders && typeof respHeaders === 'object') {
+    Object.entries(respHeaders).forEach(([k, v]) => {
+      if (k.toLowerCase().startsWith('x-vsr-') || k.toLowerCase().startsWith('x-selected-')) {
+        resText += `<span class="header-vsr">${esc(k)}</span>: <span class="header-val">${esc(v)}</span>\n`;
+      } else if (k.toLowerCase().startsWith('x-maas-')) {
+        resText += `<span class="header-auth">${esc(k)}</span>: <span class="header-val">${esc(v)}</span>\n`;
+      }
+    });
+  }
+  resText += `\n${JSON.stringify(respBody, null, 2)}`;
+  resPre.innerHTML = resText;
+
+  // Auto-open inspector
+  const toggle = document.getElementById('inspector-toggle');
+  const content = document.getElementById('inspector-content');
+  if (!content.classList.contains('open')) {
+    toggle.classList.add('open');
+    content.classList.add('open');
+  }
+}
+
+// ─── Arch box click to highlight log ────────────────
+
+document.getElementById('arch-flow').addEventListener('click', function(e) {
+  const box = e.target.closest('.arch-box');
+  if (!box) return;
+  const boxId = box.id;
+  const traceSteps = document.querySelectorAll('.trace-step');
+  const anyHighlighted = document.querySelector('.trace-step.highlight[data-box="'+boxId+'"]');
+  traceSteps.forEach(el => el.classList.remove('highlight'));
+  if (!anyHighlighted) {
+    traceSteps.forEach(el => {
+      if (el.dataset.box === boxId) el.classList.add('highlight');
+    });
+  }
+});
+
+// ─── Utilities ──────────────────────────────────────
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
+// ─── Init ───────────────────────────────────────────
+
+async function init() {
+  // Load all data in parallel; each handles its own errors
+  await Promise.allSettled([
+    loadUsers(),
+    loadTiers(),
+    loadProviders(),
+  ]);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -35,3 +35,11 @@ metadata:
     app: vsr-egress-demo
     role: demo-user
     tier: premium
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vsr-demo-tier-enterprise
+  labels:
+    app: vsr-egress-demo
+    tier: enterprise
