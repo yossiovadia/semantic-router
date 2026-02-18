@@ -848,32 +848,33 @@ function renderTiers() {
       <div class="models">${models || '<span style="color:var(--text-muted);">none</span>'}</div>
       <div class="rate-limit">Rate: ${rateStr}</div>
       <div class="token-usage" id="usage-${tierCls}" style="display:none; font-size:11px; color:var(--orange); margin-top:4px;">
-        Used: <strong id="usage-count-${tierCls}">0</strong> tokens
+        <span id="usage-label-${tierCls}"></span>
       </div>
     </div>`;
   }).join('') + '</div>';
 }
 
-function updateTokenUsage(tier, tokensUsed) {
-  if (!tier || !tokensUsed) return;
+function trackRequest(tier, wasRateLimited, tokensUsed) {
+  if (!tier) return;
   const key = tier.toLowerCase();
-  state.tokenUsage[key] = (state.tokenUsage[key] || 0) + tokensUsed;
-  const el = document.getElementById('usage-' + key);
-  const countEl = document.getElementById('usage-count-' + key);
-  if (el && countEl) {
-    countEl.textContent = state.tokenUsage[key];
-    el.style.display = '';
-    el.style.color = 'var(--orange)';
-  }
+  if (!state.tokenUsage[key]) state.tokenUsage[key] = { tokens: 0, limited: false };
+  if (!wasRateLimited && tokensUsed) state.tokenUsage[key].tokens += tokensUsed;
+  state.tokenUsage[key].limited = wasRateLimited;
+  renderUsageLabel(key);
 }
 
-function showRateLimitExceeded(tier) {
-  const key = (tier || '').toLowerCase();
+function renderUsageLabel(key) {
   const el = document.getElementById('usage-' + key);
-  if (el) {
-    el.innerHTML = '<strong style="color:var(--red);">RATE LIMITED (429) — 10 req/min exceeded</strong>';
-    el.style.display = '';
+  const labelEl = document.getElementById('usage-label-' + key);
+  if (!el || !labelEl) return;
+  const usage = state.tokenUsage[key] || { tokens: 0, limited: false };
+  el.style.display = '';
+  if (usage.limited) {
+    labelEl.innerHTML = '<strong style="color:var(--red);">RATE LIMITED (429)</strong> — ' + usage.tokens + '/100 tokens used';
     el.style.color = 'var(--red)';
+  } else {
+    labelEl.innerHTML = 'Used: <strong>' + usage.tokens + '</strong>/100 tokens this window';
+    el.style.color = usage.tokens >= 80 ? 'var(--orange)' : 'var(--text-muted)';
   }
 }
 
@@ -988,8 +989,8 @@ async function sendTestRequest() {
         { n: 2, icon: 'err', cls: 'blocked', action: 'Limitador: rate limit exceeded', value: '429 Too Many Requests', box: 'box-gateway' },
         { n: 3, icon: 'err', cls: 'blocked', action: 'Request rejected at Gateway', value: `Limit: 10 requests/min`, box: 'box-gateway' },
       ]);
-      // Show rate limit exceeded in tier card
-      showRateLimitExceeded(user.tier);
+      // Track rate-limited request
+      trackRequest(user.tier, true);
       updateInspector(model, message, reqHeaders, 429, respHeaders, respBody, true, totalMs);
     } else {
       // Update architecture diagram
@@ -1007,10 +1008,9 @@ async function sendTestRequest() {
       // Update inspector
       updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
 
-      // Track token usage from response
-      if (!isBlocked && respBody && respBody.usage) {
-        updateTokenUsage(user.tier, respBody.usage.total_tokens || 0);
-      }
+      // Track token usage for rate limit counter
+      const tokensUsed = (!isBlocked && respBody && respBody.usage) ? (respBody.usage.total_tokens || 0) : 0;
+      trackRequest(user.tier, false, tokensUsed);
     } // end else (not rate limited)
 
   } catch (e) {
