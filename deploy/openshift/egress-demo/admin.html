@@ -1129,7 +1129,11 @@ function updateComponentLog(model, user, isBlocked, respHeaders, data) {
     }
   }
 
-  log.innerHTML = steps.map(s => {
+  log.innerHTML = renderSteps(steps);
+}
+
+function renderSteps(steps) {
+  return steps.map(s => {
     const iconHtml = `<span class="icon ${s.icon === 'ok' ? 'ok' : 'err'}">${s.icon === 'ok' ? '\u2713' : '\u2717'}</span>`;
     let html = `<div class="trace-step ${s.cls || ''}" data-box="${s.box || ''}">
       <span class="num">${s.n}.</span>${iconHtml}
