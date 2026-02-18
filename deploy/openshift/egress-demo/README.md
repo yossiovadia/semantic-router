@@ -1,84 +1,118 @@
-# vSR Egress Routing Demo
+# Egress Inference Routing Demo
 
-Interactive demo of vLLM Semantic Router's egress inference routing capabilities.
+Interactive demo of egress inference routing with real Kubernetes authentication,
+per-model tier enforcement, API translation, and external provider simulation.
+
+## Architecture
+
+![Phase C Deployment Architecture](architecture.png)
+
+### Traffic Flow
+
+1. Client sends `POST /v1/chat/completions` with a ServiceAccount token
+2. **Gateway** (OpenShift Gateway API) receives the request
+3. **Authorino** validates the token via KubernetesTokenReview
+4. Authorino calls **MaaS API** `/v1/tiers/lookup` to resolve the user's tier from group membership
+5. Authorino injects `X-MaaS-Tier` and `X-MaaS-Username` headers into the request
+6. **HTTPRoute** forwards to the vSR gateway service
+7. **Envoy** invokes **vSR ExtProc** via gRPC with headers + body
+8. vSR checks tier policy, routes to correct backend, switches credentials, translates API format if needed
+
+### Namespaces
+
+| Namespace | Zone | Components |
+|-----------|------|------------|
+| `openshift-ingress` | Gateway | Gateway, AuthPolicy, HTTPRoute |
+| `kuadrant-system` | Auth | Kuadrant operator, Authorino, Limitador |
+| `vsr-egress-demo` | Internal | Envoy + vSR ExtProc, MaaS API, Demo UI, llm-katan-internal |
+| `external-providers` | External | mock-anthropic (simulates Anthropic), llm-katan-external (simulates OpenAI) |
+| `vsr-demo-tier-premium` | Tier | premium-user ServiceAccount |
 
 ## What It Demonstrates
 
-| Capability | Scenario | What Happens |
-|------------|----------|-------------|
-| **Body-based routing** | External Provider | Model name extracted from JSON body, routed to correct backend |
-| **Multi-provider routing** | All scenarios | Single endpoint routes to OpenAI, Anthropic, and internal KServe models |
-| **API translation** | API Translation | OpenAI Chat Completions format converted to Anthropic Messages API and back |
-| **Tier-based access** | Free/Premium tiers | Model access restricted by subscription tier via X-MaaS-Tier header |
+| Capability | How |
+|------------|-----|
+| **Real Kubernetes auth** | SA tokens validated by Authorino, tier resolved via MaaS API |
+| **Per-model tier enforcement** | Free tier blocked from external models, premium allowed |
+| **Body-based routing** | Model name extracted from JSON body, routed to correct backend |
+| **API translation** | OpenAI format converted to Anthropic Messages API and back |
+| **Credential switching** | User's SA token stays internal; vSR injects provider-specific API key |
+| **Egress simulation** | External providers in separate namespace, cross-namespace routing |
 
 ## Quick Start
-
-### Local (with Ollama)
-
-```bash
-# Prerequisites: Ollama running, models downloaded (make download-models), router built (make build-router)
-make run-egress-demo          # Start services
-make run-egress-scenarios     # Run demo scenarios (separate terminal)
-
-# Interactive web UI
-python3 e2e/testing/demo/demo-server.py
-# Open http://localhost:8888
-```
 
 ### OpenShift
 
 ```bash
-# Prerequisites: oc login to an OpenShift cluster
+# Prerequisites: oc login to an OpenShift cluster with admin access
 ./deploy/openshift/egress-demo/deploy.sh
 
-# Output includes the shareable Demo UI URL (HTTPS)
-# Cleanup: ./deploy/openshift/egress-demo/deploy.sh --cleanup
+# Output includes:
+#   - Demo UI URL (HTTPS)
+#   - Auth Gateway URL (Kuadrant-enforced)
+#   - Direct Gateway URL (no auth, for comparison)
+#   - Pre-generated demo tokens (24h expiry)
+
+# Cleanup
+./deploy/openshift/egress-demo/deploy.sh --cleanup
 ```
 
 **Options:**
 - `--real-model` — Use Qwen3-0.6B for real inference (CPU, slower startup)
 - Default: echo backend (instant responses, no model download)
 
+### Local (with Ollama)
+
+```bash
+make run-egress-demo          # Start services
+make run-egress-scenarios     # Run demo scenarios
+
+# Interactive web UI
+python3 deploy/openshift/egress-demo/demo-server.py
+# Open http://localhost:8888
+```
+
+## Smoke Test
+
+```bash
+# Phase 1: Direct routing (no auth)
+./deploy/openshift/egress-demo/smoke-test.sh http://<gateway-url> --phase 1
+
+# Phase 3: Full auth flow (Kuadrant + MaaS API + tier enforcement)
+./deploy/openshift/egress-demo/smoke-test.sh http://<gateway-url> --phase 3
+```
+
 ## Container Image
 
-The demo uses a custom extproc image with tier-based access control:
+Custom extproc image with tier-based access control:
 
 ```
 quay.io/jabadia/vsr-extproc:latest
 ```
 
-**Difference from upstream image (`ghcr.io/vllm-project/semantic-router/extproc:latest`):**
+Adds three changes to the upstream image (`ghcr.io/vllm-project/semantic-router/extproc:latest`):
+1. `ModelAccessPolicy` config type (`pkg/config/config.go`)
+2. `IsModelAllowedForTier()` helper (`pkg/config/helper.go`)
+3. Tier check in `handleModelRouting()` (`pkg/extproc/processor_req_body.go`)
 
-The custom image includes three additions to the Go source code:
-1. `ModelAccessPolicy` config type — maps tiers to allowed models (`pkg/config/config.go`)
-2. `IsModelAllowedForTier()` helper — checks if a model is accessible for a tier (`pkg/config/helper.go`)
-3. Tier check in `handleModelRouting()` — reads `X-MaaS-Tier` header and enforces the policy (`pkg/extproc/processor_req_body.go`)
+Backward-compatible: without `model_access_policy` in config, access is unrestricted.
 
-These changes are backward-compatible: if `model_access_policy` is not in the config, access is unrestricted (existing behavior preserved).
+## Phase C Infrastructure
 
-**To rebuild:**
-```bash
-docker build -t quay.io/jabadia/vsr-extproc:latest -f src/vllm-sr/Dockerfile .
-docker push quay.io/jabadia/vsr-extproc:latest
-```
+Phase C manifests live in `phase-c/`:
 
-## Architecture
-
-```
-Client
-  │
-  ▼
-Envoy (:8801) ──ExtProc──▶ vSR Router (:50051)
-  │                            │
-  │  ◀── routing headers ──────┘
-  │     (x-selected-model, x-vsr-destination-endpoint)
-  │
-  ├──▶ OpenAI (External Provider)     [model: qwen2.5:1.5b]
-  ├──▶ Anthropic (External Provider)  [model: claude-sonnet, API translated]
-  └──▶ KServe (Internal Model)        [model: mock-llama3]
-```
-
-**Tier enforcement** happens inside vSR before routing. If `X-MaaS-Tier` header is present, vSR checks the `model_access_policy` config. In production, Authorino (via Kuadrant AuthPolicy) injects this header after consulting the MaaS API's tier resolution endpoint.
+| File | What |
+|------|------|
+| `gatewayclass.yaml` | GatewayClass for OpenShift Gateway API |
+| `gateway.yaml` | Gateway with cluster domain hostname |
+| `httproute.yaml` | Routes /v1/* to vsr-gateway |
+| `auth-policy.yaml` | Kuadrant AuthPolicy (token review + tier lookup + header injection) |
+| `maas-api.yaml` | MaaS API deployment + RBAC + tier ConfigMap |
+| `kuadrant-install.yaml` | Kuadrant operator v1.3.1 subscription |
+| `kuadrant-cr.yaml` | Kuadrant CR activation |
+| `demo-users.yaml` | Demo ServiceAccounts + tier namespace |
+| `external-providers.yaml` | External zone namespace + mock providers |
+| `serviceentry-reference.yaml` | Production Istio egress configs (reference only) |
 
 ## Tracking
 
