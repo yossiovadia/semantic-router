@@ -373,7 +373,7 @@ FREE_TOKEN=$(oc create token free-user -n "$NAMESPACE" --audience vsr-demo-gatew
 PREMIUM_TOKEN=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=24h 2>/dev/null || echo "")
 
 if [[ -n "$FREE_TOKEN" && -n "$PREMIUM_TOKEN" ]]; then
-    oc create configmap demo-tokens \
+    oc create secret generic demo-tokens \
         --from-literal=free-token="$FREE_TOKEN" \
         --from-literal=premium-token="$PREMIUM_TOKEN" \
         -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
@@ -419,8 +419,8 @@ echo -e "    ${EXT_NAMESPACE}    — external zone (mock providers)"
 echo ""
 if [[ -n "$FREE_TOKEN" ]]; then
     echo -e "  ${YELLOW}Demo tokens (24h expiry):${NC}"
-    echo -e "    Free user:    ${FREE_TOKEN:0:30}..."
-    echo -e "    Premium user: ${PREMIUM_TOKEN:0:30}..."
+    echo -e "    Free user:    ${FREE_TOKEN:0:10}... (24h expiry)"
+    echo -e "    Premium user: ${PREMIUM_TOKEN:0:10}... (24h expiry)"
     echo ""
     echo -e "  ${YELLOW}Quick test:${NC}"
     echo -e "    curl -H 'Authorization: Bearer <token>' http://${AUTH_GW_URL}/v1/chat/completions \\"

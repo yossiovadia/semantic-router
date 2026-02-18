@@ -25,13 +25,13 @@ spec:
         env:
         - name: FREE_USER_TOKEN
           valueFrom:
-            configMapKeyRef:
+            secretKeyRef:
               name: demo-tokens
               key: free-token
               optional: true
         - name: PREMIUM_USER_TOKEN
           valueFrom:
-            configMapKeyRef:
+            secretKeyRef:
               name: demo-tokens
               key: premium-token
               optional: true

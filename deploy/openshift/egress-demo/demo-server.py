@@ -32,12 +32,18 @@ class DemoHandler(SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[Demo UI] {args[0]}")
 
+    # Only serve these files — prevent directory traversal to deploy scripts/configs
+    ALLOWED_FILES = {"/demo.html", "/architecture.png"}
+
     def do_GET(self):
         if self.path == "/api/tokens":
             self._serve_tokens()
             return
         if self.path == "/" or self.path == "":
             self.path = "/demo.html"
+        if self.path not in self.ALLOWED_FILES:
+            self.send_error(404)
+            return
         super().do_GET()
 
     def _serve_tokens(self):
@@ -52,17 +58,26 @@ class DemoHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # Only proxy to known API paths — prevents SSRF to admin endpoints
+    ALLOWED_API_PATHS = {"/v1/chat/completions", "/v1/models"}
+
     def do_POST(self):
+        target_gw = GATEWAY
+        api_path = self.path
+
         if self.path.startswith("/auth/v1/"):
-            self.path = self.path[5:]  # Strip /auth prefix
-            self._proxy_to_gateway(AUTH_GATEWAY)
+            api_path = self.path[5:]  # Strip /auth prefix
+            target_gw = AUTH_GATEWAY
         elif self.path.startswith("/bbr/v1/"):
-            self.path = self.path[4:]  # Strip /bbr prefix
-            self._proxy_to_gateway(BBR_GATEWAY)
-        elif self.path.startswith("/v1/"):
-            self._proxy_to_gateway(GATEWAY)
-        else:
+            api_path = self.path[4:]  # Strip /bbr prefix
+            target_gw = BBR_GATEWAY
+
+        if api_path not in self.ALLOWED_API_PATHS:
             self.send_error(404)
+            return
+
+        self.path = api_path
+        self._proxy_to_gateway(target_gw)
 
     def do_OPTIONS(self):
         if (

@@ -286,23 +286,17 @@ if [[ "$PHASE" -ge 3 ]]; then
     # Auto-detect gateway URL for Phase 3 if not provided
     if [[ -z "$GATEWAY_AUTH_URL" ]]; then
         if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
-            GW_ADDR=$(oc get gateway vsr-demo-gateway -n openshift-ingress -o jsonpath='{.status.addresses[0].value}' 2>/dev/null || true)
-            if [[ -n "$GW_ADDR" ]]; then
-                GATEWAY_AUTH_URL="https://${GW_ADDR}"
-                echo -e "${GREEN}Auto-detected${RESET} Gateway API address: $GATEWAY_AUTH_URL"
-            else
-                # Try constructing from cluster domain
-                CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)
-                if [[ -n "$CLUSTER_DOMAIN" ]]; then
-                    GATEWAY_AUTH_URL="https://vsr-demo-gateway-istio.${CLUSTER_DOMAIN}"
-                    echo -e "${YELLOW}Constructed${RESET} Gateway URL from cluster domain: $GATEWAY_AUTH_URL"
-                fi
+            # Construct from Gateway listener hostname (vsr-demo.<cluster-domain>)
+            CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)
+            if [[ -n "$CLUSTER_DOMAIN" ]]; then
+                GATEWAY_AUTH_URL="http://vsr-demo.${CLUSTER_DOMAIN}"
+                echo -e "${GREEN}Auto-detected${RESET} Gateway Auth URL: $GATEWAY_AUTH_URL"
             fi
         fi
 
         if [[ -z "$GATEWAY_AUTH_URL" ]]; then
             echo -e "${RED}ERROR${RESET}: Phase 3 requires --gateway-url <url> (Gateway API endpoint with auth)"
-            echo "  Example: ./smoke-test.sh --phase 3 --gateway-url https://vsr-demo-gateway-istio.apps.cluster.example.com"
+            echo "  Example: ./smoke-test.sh --phase 3 --gateway-url http://vsr-demo.apps.cluster.example.com"
             echo ""
             echo "  Auto-detection failed. Provide the URL explicitly or ensure 'oc' is logged in."
             ((FAIL++))
@@ -399,7 +393,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             echo -e "  ${RED}FAIL${RESET} No maas-api pod found in vsr-egress-demo"
             ((FAIL++))
         else
-            HEALTH_STATUS=$(oc exec "$MAAS_POD" -n vsr-egress-demo -- curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/healthz 2>/dev/null || echo "000")
+            HEALTH_STATUS=$(oc exec "$MAAS_POD" -n vsr-egress-demo -- curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null || echo "000")
             if [[ "$HEALTH_STATUS" == "200" ]]; then
                 echo -e "  ${GREEN}PASS${RESET} MaaS API health: HTTP $HEALTH_STATUS"
                 ((PASS++))

@@ -26,6 +26,7 @@ model_config:
     preferred_endpoints: ["external-provider"]
   "claude-sonnet":
     api_format: "anthropic"
+    # DEMO ONLY: Mock API key. In production, use K8s Secrets or ATM.
     access_key: "mock-anthropic-key-for-demo"
     preferred_endpoints: ["anthropic-endpoint"]
   "mock-llama3":

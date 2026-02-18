@@ -74,7 +74,8 @@ static_resources:
                 response_body_mode: "BUFFERED"
                 request_trailer_mode: "SKIP"
                 response_trailer_mode: "SKIP"
-              failure_mode_allow: true
+              # Fail-closed: reject requests if ExtProc is unavailable
+              failure_mode_allow: false
               message_timeout: 300s
           - name: envoy.filters.http.router
             typed_config:
@@ -152,5 +153,5 @@ static_resources:
 admin:
   address:
     socket_address:
-      address: "0.0.0.0"
+      address: "127.0.0.1"
       port_value: 19000
