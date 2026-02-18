@@ -863,6 +863,17 @@ function updateTokenUsage(tier, tokensUsed) {
   if (el && countEl) {
     countEl.textContent = state.tokenUsage[key];
     el.style.display = '';
+    el.style.color = 'var(--orange)';
+  }
+}
+
+function showRateLimitExceeded(tier) {
+  const key = (tier || '').toLowerCase();
+  const el = document.getElementById('usage-' + key);
+  if (el) {
+    el.innerHTML = '<strong style="color:var(--red);">RATE LIMITED (429) — 10 req/min exceeded</strong>';
+    el.style.display = '';
+    el.style.color = 'var(--red)';
   }
 }
 
@@ -960,28 +971,47 @@ async function sendTestRequest() {
     const respStatus = data.status || httpStatus;
     const respBody = data.response || data;
     const isBlocked = respStatus === 403 || (respBody && respBody.error && respBody.error.code === 403);
+    const isRateLimited = respStatus === 429;
     const respHeaders = data.headers || {};
     const reqHeaders = {};
 
-    // Update architecture diagram
-    updateArchDiagram(model, user, isBlocked, totalMs);
+    if (isRateLimited) {
+      // Rate limited by Limitador — show in arch diagram and log
+      resetArchDiagram();
+      document.getElementById('box-client').classList.add('active');
+      document.getElementById('arr-gw').classList.add('active');
+      document.getElementById('box-gateway').classList.add('blocked');
+      ['arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'].forEach(id =>
+        document.getElementById(id).classList.add('dimmed'));
+      document.getElementById('component-log').innerHTML = renderSteps([
+        { n: 1, icon: 'ok', cls: '', action: 'Gateway: received request', value: '', box: 'box-gateway' },
+        { n: 2, icon: 'err', cls: 'blocked', action: 'Limitador: rate limit exceeded', value: '429 Too Many Requests', box: 'box-gateway' },
+        { n: 3, icon: 'err', cls: 'blocked', action: 'Request rejected at Gateway', value: `Limit: 10 requests/min`, box: 'box-gateway' },
+      ]);
+      // Show rate limit exceeded in tier card
+      showRateLimitExceeded(user.tier);
+      updateInspector(model, message, reqHeaders, 429, respHeaders, respBody, true, totalMs);
+    } else {
+      // Update architecture diagram
+      updateArchDiagram(model, user, isBlocked, totalMs);
 
-    // Update component log
-    updateComponentLog(model, user, isBlocked, respHeaders, data);
+      // Update component log
+      updateComponentLog(model, user, isBlocked, respHeaders, data);
 
-    // Show credential switch for external providers on success
-    const provInfo = getProviderInfo(model);
-    if (!isBlocked && provInfo && provInfo.provider !== 'Internal KServe') {
-      showCredSwitch(user, model, provInfo);
-    }
+      // Show credential switch for external providers on success
+      const provInfo = getProviderInfo(model);
+      if (!isBlocked && provInfo && provInfo.provider !== 'Internal KServe') {
+        showCredSwitch(user, model, provInfo);
+      }
 
-    // Update inspector
-    updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
+      // Update inspector
+      updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
 
-    // Track token usage from response
-    if (!isBlocked && respBody && respBody.usage) {
-      updateTokenUsage(user.tier, respBody.usage.total_tokens || 0);
-    }
+      // Track token usage from response
+      if (!isBlocked && respBody && respBody.usage) {
+        updateTokenUsage(user.tier, respBody.usage.total_tokens || 0);
+      }
+    } // end else (not rate limited)
 
   } catch (e) {
     document.getElementById('component-log').innerHTML = `<div class="error-state">Request failed: ${esc(e.message)}</div>`;

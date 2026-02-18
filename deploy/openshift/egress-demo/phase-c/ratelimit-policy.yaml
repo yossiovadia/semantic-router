@@ -1,0 +1,21 @@
+# Request rate limiting via Kuadrant/Limitador
+# Enforced at the Gateway level — returns 429 when exceeded
+# Note: Per-tier differentiation requires Authorino to inject tier metadata
+# before Limitador evaluates, which needs upstream Kuadrant changes.
+# For now, a global per-gateway limit is enforced.
+---
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: vsr-demo-rate-limits
+  namespace: openshift-ingress
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: vsr-demo-gateway
+  limits:
+    per-user-limit:
+      rates:
+        - limit: 10
+          window: 1m

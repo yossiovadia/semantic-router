@@ -182,9 +182,9 @@ class DemoHandler(SimpleHTTPRequestHandler):
             },
         ]
         rate_limits = [
-            {"tier": "free", "limit": "100 tokens/min"},
-            {"tier": "premium", "limit": "50,000 tokens/min"},
-            {"tier": "enterprise", "limit": "100,000 tokens/min"},
+            {"tier": "free", "limit": "10 requests/min (Limitador)"},
+            {"tier": "premium", "limit": "10 requests/min (Limitador)"},
+            {"tier": "enterprise", "limit": "10 requests/min (Limitador)"},
         ]
         self._send_json({"tiers": tiers, "rateLimits": rate_limits})
 
