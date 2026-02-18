@@ -98,13 +98,15 @@
   /* Trace panel */
   .trace-panel { padding: 16px 32px; border-bottom: 1px solid var(--border); max-height: 220px; overflow-y: auto; }
   .trace-panel h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; }
+  .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; border-radius: 4px; transition: background 0.3s, box-shadow 0.3s; }
   .trace-step .num { color: var(--text-muted); min-width: 18px; }
   .trace-step .action { color: var(--text); }
   .trace-step .value { color: var(--accent); font-family: monospace; }
   .trace-step.blocked .action { color: var(--red); }
   .trace-step.success .action { color: var(--green); }
   .trace-step.auth .action { color: var(--orange); }
+  .trace-step.highlight { background: rgba(0,200,255,0.08); box-shadow: inset 3px 0 0 var(--accent); padding-left: 8px; }
+  .arch-box { cursor: pointer; }
 
   /* Request/Response panels */
   .io-panels { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
@@ -471,65 +473,82 @@ function setTrace(scenario, respHeaders, blocked) {
 
   if (isAuthRejected) {
     // Auth rejected trace
-    steps.push({ n: 1, a: 'Request received at Gateway', v: 'POST /auth/v1/chat/completions', cls: 'auth' });
-    steps.push({ n: 2, a: 'No Authorization header found', v: 'missing Bearer token', cls: 'blocked' });
-    steps.push({ n: 3, a: 'Gateway rejected request', v: '\u2718 401 Unauthorized', cls: 'blocked' });
-    steps.push({ n: 4, a: 'Request never reached vSR', v: 'blocked at Gateway layer', cls: 'blocked' });
+    steps.push({ n: 1, a: 'Request received at Gateway', v: 'POST /auth/v1/chat/completions', cls: 'auth', box: 'box-gateway' });
+    steps.push({ n: 2, a: 'No Authorization header found', v: 'missing Bearer token', cls: 'blocked', box: 'box-gateway' });
+    steps.push({ n: 3, a: 'Gateway rejected request', v: '\u2718 401 Unauthorized', cls: 'blocked', box: 'box-gateway' });
+    steps.push({ n: 4, a: 'Request never reached vSR', v: 'blocked at Gateway layer', cls: 'blocked', box: 'box-gateway' });
   } else if (isAuth) {
     // Auth flow trace
-    steps.push({ n: 1, a: 'Token validated', v: 'Authorino \u2192 KubernetesTokenReview', cls: 'auth' });
-    steps.push({ n: 2, a: 'Tier resolved', v: `MaaS API \u2192 ${tier}`, cls: 'auth' });
-    steps.push({ n: 3, a: 'Header injected', v: `X-MaaS-Tier: ${tier} (by Authorino)`, cls: 'auth' });
-    steps.push({ n: 4, a: 'Model extracted', v: body.model });
+    steps.push({ n: 1, a: 'Token validated', v: 'Authorino \u2192 KubernetesTokenReview', cls: 'auth', box: 'box-gateway' });
+    steps.push({ n: 2, a: 'Tier resolved', v: `MaaS API \u2192 ${tier}`, cls: 'auth', box: 'box-authorino' });
+    steps.push({ n: 3, a: 'Header injected', v: `X-MaaS-Tier: ${tier} (by Authorino)`, cls: 'auth', box: 'box-authorino' });
+    steps.push({ n: 4, a: 'Model extracted', v: body.model, box: 'box-vsr' });
 
     if (blocked) {
-      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" NOT in allowed list`, v: '\u2718 BLOCKED (403)', cls: 'blocked' });
+      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" NOT in allowed list`, v: '\u2718 BLOCKED (403)', cls: 'blocked', box: 'box-vsr' });
     } else {
-      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" allowed`, v: '\u2714 PASS', cls: 'success' });
+      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" allowed`, v: '\u2714 PASS', cls: 'success', box: 'box-vsr' });
 
       if (cat) {
-        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})` });
+        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})`, box: 'box-vsr' });
       }
       if (body.model === 'claude-sonnet') {
-        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body', box: 'box-vsr' });
       } else {
-        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
+        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success', box: 'box-vsr' });
       }
       const ep = s.backend.detail.split(' ')[0];
-      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
-      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
+      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}`, box: 'box-vsr' });
+      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success', box: 'box-envoy' });
       if (body.model === 'claude-sonnet') {
-        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format', box: 'box-vsr' });
       }
     }
   } else {
-    // Direct flow trace (unchanged)
-    steps.push({ n: 1, a: 'Received request', v: 'POST /v1/chat/completions' });
-    steps.push({ n: 2, a: 'Extracted model from body', v: body.model });
+    // Direct flow trace
+    steps.push({ n: 1, a: 'Received request', v: 'POST /v1/chat/completions', box: 'box-envoy' });
+    steps.push({ n: 2, a: 'Extracted model from body', v: body.model, box: 'box-vsr' });
 
     if (!blocked) {
       if (cat) {
-        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})` });
+        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})`, box: 'box-vsr' });
       }
       if (body.model === 'claude-sonnet') {
-        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body', box: 'box-vsr' });
       } else {
-        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
+        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success', box: 'box-vsr' });
       }
       const ep = s.backend.detail.split(' ')[0];
-      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
-      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
+      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}`, box: 'box-vsr' });
+      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success', box: 'box-envoy' });
       if (body.model === 'claude-sonnet') {
-        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format', box: 'box-vsr' });
       }
     }
   }
 
   const html = steps.map(s =>
-    `<div class="trace-step ${s.cls||''}"><span class="num">${s.n}.</span><span class="action">${s.a}: </span><span class="value">${s.v}</span></div>`
+    `<div class="trace-step ${s.cls||''}" data-box="${s.box||''}""><span class="num">${s.n}.</span><span class="action">${s.a}: </span><span class="value">${s.v}</span></div>`
   ).join('');
   document.getElementById('trace').innerHTML = html;
 }
+
+// Click an arch box to highlight its related trace steps
+document.getElementById('arch-flow').addEventListener('click', function(e) {
+  const box = e.target.closest('.arch-box');
+  if (!box) return;
+  const boxId = box.id;
+  const traceSteps = document.querySelectorAll('.trace-step');
+  const anyHighlighted = document.querySelector('.trace-step.highlight[data-box="'+boxId+'"]');
+  // Toggle: clear all highlights first
+  traceSteps.forEach(el => el.classList.remove('highlight'));
+  if (!anyHighlighted) {
+    // Highlight steps matching this box
+    traceSteps.forEach(el => {
+      if (el.dataset.box === boxId) el.classList.add('highlight');
+    });
+  }
+});
 
 function formatHeaders(headers, isVsr) {
   let lines = [];
