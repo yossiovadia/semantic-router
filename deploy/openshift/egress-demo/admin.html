@@ -508,6 +508,10 @@ let state = {
   tiers: null,
   rateLimits: null,
   providers: null,
+  // Per-user token cache: { "name:tier": { token, expiry } }
+  userTokens: {},
+  // Token usage tracking per user
+  tokenUsage: {},
 };
 
 // ─── API helpers ────────────────────────────────────
@@ -557,16 +561,56 @@ function renderUserList() {
 
 function selectUser(name, tier) {
   state.selectedUser = { name, tier };
-  state.currentToken = null;
-  state.tokenExpiry = null;
   renderUserList();
   document.getElementById('btn-issue-token').disabled = false;
   document.getElementById('btn-delete-user').disabled = false;
   document.getElementById('selected-info').textContent = `Selected: ${name} (${tier})`;
-  document.getElementById('token-panel').style.display = 'none';
-  document.getElementById('btn-send').disabled = true;
-  document.getElementById('test-no-token').style.display = '';
+
+  // Reset visual state
+  resetArchDiagram();
   hidCredSwitch();
+  document.getElementById('component-log').innerHTML = '';
+
+  // Restore cached token for this user (if any)
+  const key = `${name}:${tier}`;
+  const cached = state.userTokens[key];
+  if (cached && cached.token) {
+    state.currentToken = cached.token;
+    state.tokenExpiry = cached.expiry;
+    document.getElementById('token-panel').style.display = '';
+    document.getElementById('btn-send').disabled = false;
+    document.getElementById('test-no-token').style.display = 'none';
+    // Re-render the token panel with cached data
+    renderCachedToken(cached);
+  } else {
+    state.currentToken = null;
+    state.tokenExpiry = null;
+    document.getElementById('token-panel').style.display = 'none';
+    document.getElementById('btn-send').disabled = true;
+    document.getElementById('test-no-token').style.display = '';
+  }
+}
+
+function renderCachedToken(cached) {
+  const panel = document.getElementById('token-panel');
+  const body = document.getElementById('token-body');
+  const label = document.getElementById('token-user-label');
+  label.innerHTML = `${esc(state.selectedUser.name)} <span class="tier-badge tier-${state.selectedUser.tier}">${state.selectedUser.tier}</span>`;
+  const expiresLabel = computeExpiryLabel(cached.expiry);
+  body.innerHTML = `
+    <div class="token-display" id="token-raw">${esc(cached.token)}</div>
+    <div class="token-actions">
+      <button class="token-btn" id="btn-copy" onclick="copyToken()">Copy</button>
+      <button class="token-btn" id="btn-decode" onclick="toggleDecode()">Decode</button>
+    </div>
+    <div class="token-meta">
+      <div><span>Issued by: </span><strong>${esc(cached.issuedBy || 'cached')}</strong></div>
+      <div><span>Audience: </span><strong>vsr-demo-gateway-sa</strong></div>
+      <div><span>Expires: </span><strong>${esc(expiresLabel)}</strong></div>
+    </div>
+    <div class="jwt-decode" id="jwt-decode"></div>
+  `;
+  panel.style.display = '';
 }
 
 function toggleCreateForm() {
@@ -622,9 +666,13 @@ async function deleteUser() {
     await apiFetch(`/api/admin/users?name=${encodeURIComponent(name)}&tier=${encodeURIComponent(tier)}`, {
       method: 'DELETE',
     });
+    // Clear cached token for deleted user
+    delete state.userTokens[`${name}:${tier}`];
     state.selectedUser = null;
     state.currentToken = null;
     state.tokenExpiry = null;
+    resetArchDiagram();
+    document.getElementById('component-log').innerHTML = '';
     document.getElementById('btn-issue-token').disabled = true;
     document.getElementById('btn-delete-user').disabled = true;
     document.getElementById('selected-info').textContent = 'Select a user to see actions.';
@@ -658,6 +706,13 @@ async function issueToken() {
 
     state.currentToken = data.token || '';
     state.tokenExpiry = data.expiresAt || '';
+    // Cache token for this user
+    const cacheKey = `${state.selectedUser.name}:${state.selectedUser.tier}`;
+    state.userTokens[cacheKey] = {
+      token: state.currentToken,
+      expiry: state.tokenExpiry,
+      issuedBy: data.issuedBy || 'MaaS API',
+    };
 
     // Server returns steps as [{step, action, detail, status, elapsed_ms, result}, ...]
     // Normalize to display format with icon and label
@@ -792,8 +847,23 @@ function renderTiers() {
       <div class="level">Level ${t.level !== undefined ? t.level : '?'}</div>
       <div class="models">${models || '<span style="color:var(--text-muted);">none</span>'}</div>
       <div class="rate-limit">Rate: ${rateStr}</div>
+      <div class="token-usage" id="usage-${tierCls}" style="display:none; font-size:11px; color:var(--orange); margin-top:4px;">
+        Used: <strong id="usage-count-${tierCls}">0</strong> tokens
+      </div>
     </div>`;
   }).join('') + '</div>';
+}
+
+function updateTokenUsage(tier, tokensUsed) {
+  if (!tier || !tokensUsed) return;
+  const key = tier.toLowerCase();
+  state.tokenUsage[key] = (state.tokenUsage[key] || 0) + tokensUsed;
+  const el = document.getElementById('usage-' + key);
+  const countEl = document.getElementById('usage-count-' + key);
+  if (el && countEl) {
+    countEl.textContent = state.tokenUsage[key];
+    el.style.display = '';
+  }
 }
 
 function formatRate(n) {
@@ -907,6 +977,11 @@ async function sendTestRequest() {
 
     // Update inspector
     updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
+
+    // Track token usage from response
+    if (!isBlocked && respBody && respBody.usage) {
+      updateTokenUsage(user.tier, respBody.usage.total_tokens || 0);
+    }
 
   } catch (e) {
     document.getElementById('component-log').innerHTML = `<div class="error-state">Request failed: ${esc(e.message)}</div>`;
