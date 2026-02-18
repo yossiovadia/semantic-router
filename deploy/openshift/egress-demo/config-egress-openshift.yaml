@@ -9,11 +9,11 @@ semantic_cache:
 
 vllm_endpoints:
   - name: "external-provider"
-    address: "llm-katan-external"
+    address: "llm-katan-external.external-providers.svc.cluster.local"
     port: 8000
     weight: 1
   - name: "anthropic-endpoint"
-    address: "mock-anthropic"
+    address: "mock-anthropic.external-providers.svc.cluster.local"
     port: 8003
     weight: 1
   - name: "internal-endpoint"

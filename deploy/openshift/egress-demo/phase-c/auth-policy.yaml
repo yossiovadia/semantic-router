@@ -1,0 +1,49 @@
+# AuthPolicy for the vSR demo Gateway
+# Validates SA tokens, resolves tier via MaaS API, injects X-MaaS-Tier header
+---
+apiVersion: kuadrant.io/v1
+kind: AuthPolicy
+metadata:
+  name: vsr-demo-auth-policy
+  namespace: openshift-ingress
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: vsr-demo-gateway
+  rules:
+    authentication:
+      service-accounts:
+        kubernetesTokenReview:
+          audiences:
+            - vsr-demo-gateway-sa
+        defaults:
+          userid:
+            expression: |
+              auth.identity.user.username.split(":")[3]
+        cache:
+          key:
+            selector: context.request.http.headers.authorization.@case:lower
+          ttl: 300
+    metadata:
+      matchedTier:
+        http:
+          url: http://maas-api.vsr-egress-demo.svc.cluster.local:8080/v1/tiers/lookup
+          contentType: application/json
+          method: POST
+          body:
+            expression: |-
+              { "groups": auth.identity.user.groups }
+        cache:
+          key:
+            selector: auth.identity.user.username
+          ttl: 300
+    response:
+      success:
+        headers:
+          X-MaaS-Username:
+            plain:
+              selector: auth.identity.userid
+          X-MaaS-Tier:
+            plain:
+              selector: auth.metadata.matchedTier.tier

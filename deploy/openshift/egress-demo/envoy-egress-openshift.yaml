@@ -104,7 +104,7 @@ static_resources:
                 address: 127.0.0.1
                 port_value: 50051
 
-  # External provider (llm-katan-external service)
+  # External provider (llm-katan-external in external-providers namespace)
   - name: external_cluster
     type: STRICT_DNS
     connect_timeout: 10s
@@ -116,10 +116,10 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: llm-katan-external
+                address: llm-katan-external.external-providers.svc.cluster.local
                 port_value: 8000
 
-  # Mock Anthropic service
+  # Mock Anthropic service (in external-providers namespace)
   - name: anthropic_cluster
     type: STRICT_DNS
     connect_timeout: 10s
@@ -131,7 +131,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: mock-anthropic
+                address: mock-anthropic.external-providers.svc.cluster.local
                 port_value: 8003
 
   # Internal model (llm-katan-internal service)

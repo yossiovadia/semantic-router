@@ -1,0 +1,93 @@
+# =============================================================================
+# REFERENCE ONLY — Production Egress Configuration
+# =============================================================================
+# These ServiceEntry + DestinationRule resources show how to configure
+# real egress to external LLM providers using Istio/OpenShift Service Mesh.
+#
+# In the demo, external providers are simulated with mock services in the
+# external-providers namespace. In production, replace with these configs
+# after installing OpenShift Service Mesh.
+#
+# Prerequisites:
+#   - OpenShift Service Mesh (OSSM) installed
+#   - Demo namespace enrolled in the mesh
+#   - outboundTrafficPolicy: REGISTRY_ONLY (recommended for security)
+# =============================================================================
+
+# --- OpenAI ---
+# apiVersion: networking.istio.io/v1
+# kind: ServiceEntry
+# metadata:
+#   name: openai-api
+#   namespace: vsr-egress-demo
+# spec:
+#   hosts: ["api.openai.com"]
+#   location: MESH_EXTERNAL
+#   ports:
+#   - number: 443
+#     name: https
+#     protocol: TLS
+#   resolution: DNS
+# ---
+# apiVersion: networking.istio.io/v1
+# kind: DestinationRule
+# metadata:
+#   name: openai-tls
+#   namespace: vsr-egress-demo
+# spec:
+#   host: api.openai.com
+#   trafficPolicy:
+#     tls:
+#       mode: SIMPLE
+
+# --- Anthropic ---
+# apiVersion: networking.istio.io/v1
+# kind: ServiceEntry
+# metadata:
+#   name: anthropic-api
+#   namespace: vsr-egress-demo
+# spec:
+#   hosts: ["api.anthropic.com"]
+#   location: MESH_EXTERNAL
+#   ports:
+#   - number: 443
+#     name: https
+#     protocol: TLS
+#   resolution: DNS
+# ---
+# apiVersion: networking.istio.io/v1
+# kind: DestinationRule
+# metadata:
+#   name: anthropic-tls
+#   namespace: vsr-egress-demo
+# spec:
+#   host: api.anthropic.com
+#   trafficPolicy:
+#     tls:
+#       mode: SIMPLE
+
+# --- Amazon Bedrock ---
+# apiVersion: networking.istio.io/v1
+# kind: ServiceEntry
+# metadata:
+#   name: bedrock-api
+#   namespace: vsr-egress-demo
+# spec:
+#   hosts: ["bedrock-runtime.us-east-1.amazonaws.com"]
+#   location: MESH_EXTERNAL
+#   ports:
+#   - number: 443
+#     name: https
+#     protocol: TLS
+#   resolution: DNS
+# ---
+# apiVersion: networking.istio.io/v1
+# kind: DestinationRule
+# metadata:
+#   name: bedrock-tls
+#   namespace: vsr-egress-demo
+# spec:
+#   host: bedrock-runtime.us-east-1.amazonaws.com
+#   trafficPolicy:
+#     tls:
+#       mode: SIMPLE

@@ -38,6 +38,7 @@
   .tag-translate { background: rgba(188,140,255,0.15); color: var(--purple); }
   .tag-tier { background: rgba(240,136,62,0.15); color: var(--orange); }
   .tag-classify { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag-auth { background: rgba(248,81,73,0.15); color: var(--red); }
 
   /* Main content */
   .main { display: flex; flex-direction: column; overflow: hidden; }
@@ -58,6 +59,8 @@
   .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
   .arch-box.active.extproc-glow { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
   .arch-box.active.bbr-glow { border-color: var(--purple); box-shadow: 0 0 12px rgba(188,140,255,0.3); animation: neon-pulse-bbr 1.5s ease-in-out infinite; }
+  .arch-box.active.auth-glow { border-color: var(--orange); box-shadow: 0 0 12px rgba(240,136,62,0.3); animation: neon-pulse-auth 1.5s ease-in-out infinite; }
+  .arch-box.hidden { display: none; }
 
   @keyframes neon-pulse-red {
     0%, 100% { box-shadow: 0 0 8px rgba(248,81,73,0.2), 0 0 20px rgba(248,81,73,0.1); }
@@ -77,6 +80,10 @@
     0%, 100% { box-shadow: 0 0 8px rgba(188,140,255,0.2), 0 0 20px rgba(188,140,255,0.1); }
     50% { box-shadow: 0 0 16px rgba(188,140,255,0.5), 0 0 40px rgba(188,140,255,0.3), 0 0 60px rgba(188,140,255,0.1); border-color: #d2a8ff; }
   }
+  @keyframes neon-pulse-auth {
+    0%, 100% { box-shadow: 0 0 8px rgba(240,136,62,0.2), 0 0 20px rgba(240,136,62,0.1); }
+    50% { box-shadow: 0 0 16px rgba(240,136,62,0.5), 0 0 40px rgba(240,136,62,0.3), 0 0 60px rgba(240,136,62,0.1); border-color: #f4a261; }
+  }
 
   .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .arch-arrow .arrow-icon { line-height: 1; }
@@ -86,9 +93,10 @@
   .arch-arrow.active { color: var(--green); }
   .arch-arrow.blocked { color: var(--red); }
   .arch-arrow.dimmed { opacity: 0.3; }
+  .arch-arrow.hidden { display: none; }
 
   /* Trace panel */
-  .trace-panel { padding: 16px 32px; border-bottom: 1px solid var(--border); max-height: 180px; overflow-y: auto; }
+  .trace-panel { padding: 16px 32px; border-bottom: 1px solid var(--border); max-height: 220px; overflow-y: auto; }
   .trace-panel h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
   .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; }
   .trace-step .num { color: var(--text-muted); min-width: 18px; }
@@ -96,6 +104,7 @@
   .trace-step .value { color: var(--accent); font-family: monospace; }
   .trace-step.blocked .action { color: var(--red); }
   .trace-step.success .action { color: var(--green); }
+  .trace-step.auth .action { color: var(--orange); }
 
   /* Request/Response panels */
   .io-panels { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
@@ -115,6 +124,15 @@
   .header-key { color: var(--yellow); }
   .header-val { color: var(--text); }
   .header-vsr { color: var(--accent); font-weight: 600; }
+  .header-auth { color: var(--orange); font-weight: 600; }
+
+  .user-identity {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 600;
+    margin-left: 4px; vertical-align: middle;
+  }
+  .user-identity.free { background: rgba(240,136,62,0.15); color: var(--orange); }
+  .user-identity.premium { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .user-identity.none { background: rgba(248,81,73,0.15); color: var(--red); }
 
   .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 14px; }
 
@@ -127,10 +145,11 @@
 <header>
   <h1>Egress Inference Routing</h1>
   <span class="subtitle">Multi-Provider Gateway Demo</span>
-  <span class="status" id="status">Checking...</span>
+  <span class="status" id="status" style="display:none;"></span>
 </header>
 
-<div style="display:flex; border-bottom:1px solid var(--border); padding:0 32px;">
+<!-- Tab bar hidden — BBR tab deferred for now -->
+<div style="display:none; border-bottom:1px solid var(--border); padding:0 32px;">
   <button class="scenario-btn active" id="tab-extproc" onclick="switchTab('extproc')" style="border-radius:6px 6px 0 0; border-bottom:2px solid var(--accent); margin-bottom:-1px;">
     ExtProc (standalone vSR)
   </button>
@@ -142,7 +161,7 @@
 <div class="layout">
   <div class="sidebar">
     <div id="sidebar-extproc">
-    <h2>Egress Routing</h2>
+    <h2>Egress Routing (Direct)</h2>
     <button class="scenario-btn" onclick="run('openai')">
       <span class="tag tag-route">ROUTE</span> OpenAI (pass-through)
     </button>
@@ -150,7 +169,7 @@
       <span class="tag tag-translate">TRANSLATE</span> Anthropic (API translated)
     </button>
 
-    <h2>Tier-Based Access Control</h2>
+    <h2>Authenticated Routing (via Gateway)</h2>
     <button class="scenario-btn" onclick="run('tier_free_blocked')">
       <span class="tag tag-tier">TIER</span> Free &rarr; External (blocked)
     </button>
@@ -162,6 +181,9 @@
     </button>
     <button class="scenario-btn" onclick="run('tier_premium_anthropic')">
       <span class="tag tag-tier">TIER</span> Premium &rarr; Anthropic (translated)
+    </button>
+    <button class="scenario-btn" onclick="run('auth_rejected')">
+      <span class="tag tag-auth">AUTH</span> No Token &rarr; Rejected (401)
     </button>
     </div>
 
@@ -187,7 +209,11 @@
       <h3>Request Flow</h3>
       <div class="arch-flow" id="arch-flow">
         <div class="arch-box" id="box-client"><div class="label">Client</div><div class="detail">curl / app</div></div>
-        <div class="arch-arrow" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
+        <div class="arch-arrow" id="arr-gw"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-gw"></span></div>
+        <div class="arch-box hidden" id="box-gateway"><div class="label">Gateway</div><div class="detail">Kuadrant</div></div>
+        <div class="arch-arrow hidden" id="arr-auth"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-auth"></span></div>
+        <div class="arch-box hidden" id="box-authorino"><div class="label">Authorino/MaaS</div><div class="detail">Token + Tier</div></div>
+        <div class="arch-arrow hidden" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
         <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
         <div class="arch-arrow" id="arr-2"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-2"></span></div>
         <div class="arch-box" id="box-vsr"><div class="label" id="vsr-label">vSR ExtProc</div><div class="detail" id="vsr-detail">:50051</div></div>
@@ -215,7 +241,10 @@
 </div>
 
 <script>
-const GW = '';  // Same origin — proxied by demo-server.py
+const GW = '';  // Same origin \u2014 proxied by demo-server.py
+
+let TOKENS = {};
+fetch('/api/tokens').then(r => r.json()).then(t => { TOKENS = t; }).catch(() => {});
 
 const SCENARIOS = {
   openai: {
@@ -252,35 +281,53 @@ const SCENARIOS = {
   },
   tier_free_blocked: {
     name: 'Free Tier \u2192 External (Blocked)',
-    desc: 'Free tier user requests external model. vSR reads X-MaaS-Tier header (injected by Authorino in production), checks model_access_policy, denies access.',
+    desc: 'Free tier user requests external model. Authorino validates token, resolves tier from MaaS API, injects X-MaaS-Tier header. vSR checks model_access_policy, denies access.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
-    headers: { 'X-MaaS-Tier': 'free' },
+    headers: {},
+    user: 'free',
+    useGateway: true,
     backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: true
   },
   tier_free_allowed: {
     name: 'Free Tier \u2192 Internal (Allowed)',
-    desc: 'Free tier user requests internal model. Policy allows mock-llama3 for free tier. Request passes through to KServe.',
+    desc: 'Free tier user requests internal model. Authorino validates token, resolves tier from MaaS API. Policy allows mock-llama3 for free tier. Request passes through to KServe.',
     body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello'}] },
-    headers: { 'X-MaaS-Tier': 'free' },
+    headers: {},
+    user: 'free',
+    useGateway: true,
     backend: { label: 'KServe', detail: 'Internal Model' },
     expectBlock: false
   },
   tier_premium: {
     name: 'Premium Tier \u2192 OpenAI (Allowed)',
-    desc: 'Premium tier user requests external model. Policy allows access for premium tier. Request passes through to OpenAI-compatible provider.',
+    desc: 'Premium tier user requests external model. Authorino validates token, resolves tier from MaaS API. Policy allows access for premium tier. Request passes through to OpenAI-compatible provider.',
     body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? One word.'}], max_tokens: 10 },
-    headers: { 'X-MaaS-Tier': 'premium' },
+    headers: {},
+    user: 'premium',
+    useGateway: true,
     backend: { label: 'OpenAI', detail: 'External Provider' },
     expectBlock: false
   },
   tier_premium_anthropic: {
     name: 'Premium Tier \u2192 Anthropic (Translated)',
-    desc: 'Premium tier user requests Anthropic model. Tier check passes, then vSR translates from OpenAI to Anthropic format, routes to Anthropic, translates response back.',
+    desc: 'Premium tier user requests Anthropic model. Authorino validates token, resolves tier from MaaS API. Tier check passes, then vSR translates from OpenAI to Anthropic format, routes to Anthropic, translates response back.',
     body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the speed of light?'}], max_tokens: 50 },
-    headers: { 'X-MaaS-Tier': 'premium' },
+    headers: {},
+    user: 'premium',
+    useGateway: true,
     backend: { label: 'Anthropic', detail: 'External Provider' },
     expectBlock: false
+  },
+  auth_rejected: {
+    name: 'No Token \u2192 Rejected (401)',
+    desc: 'Request without authentication token. Gateway (Kuadrant/Authorino) rejects before reaching vSR.',
+    body: { model: 'mock-llama3', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
+    headers: {},
+    useGateway: true,
+    // no user property = no token
+    backend: { label: 'None', detail: 'Rejected at Gateway' },
+    expectBlock: true
   },
   // BBR Plugin scenarios (same backends, different architecture)
   bbr_openai: {
@@ -324,23 +371,34 @@ async function checkHealth() {
 
 function setArch(scenario, blocked, totalMs) {
   const s = SCENARIOS[scenario];
-  const ids = ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
-  ids.forEach(id => {
+  const isAuth = !!s.useGateway;
+  const isAuthRejected = scenario === 'auth_rejected';
+
+  // All possible box/arrow IDs
+  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+  allIds.forEach(id => {
     const el = document.getElementById(id);
-    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow');
+    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow','auth-glow','hidden');
   });
 
-  // Show total round-trip time on the last active arrow
-  document.getElementById('ms-1').textContent = '';
-  document.getElementById('ms-2').textContent = '';
-  document.getElementById('ms-3').textContent = '';
+  // Clear all timing labels
+  ['ms-gw','ms-auth','ms-1','ms-2','ms-3'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
 
-  if (totalMs > 0) {
-    if (blocked) {
-      document.getElementById('ms-2').textContent = totalMs + 'ms';
-    } else {
-      document.getElementById('ms-3').textContent = totalMs + 'ms total';
-    }
+  // Show/hide auth boxes based on scenario type
+  if (isAuth) {
+    // Auth flow: Client -> Gateway -> Authorino/MaaS -> Envoy -> vSR -> Backend
+    document.getElementById('box-gateway').classList.remove('hidden');
+    document.getElementById('arr-auth').classList.remove('hidden');
+    document.getElementById('box-authorino').classList.remove('hidden');
+    document.getElementById('arr-1').classList.remove('hidden');
+  } else {
+    // Direct flow: Client -> Envoy -> vSR -> Backend (hide auth boxes)
+    document.getElementById('box-gateway').classList.add('hidden');
+    document.getElementById('arr-auth').classList.add('hidden');
+    document.getElementById('box-authorino').classList.add('hidden');
+    document.getElementById('arr-1').classList.add('hidden');
   }
 
   document.getElementById('backend-label').textContent = s.backend.label;
@@ -348,13 +406,53 @@ function setArch(scenario, blocked, totalMs) {
   document.getElementById('vsr-label').textContent = s.bbr ? 'BBR + vSR Plugin' : 'vSR ExtProc';
   document.getElementById('vsr-detail').textContent = s.bbr ? ':9002 (in-process)' : ':50051';
 
-  if (blocked) {
-    ['box-client','arr-1','box-envoy','arr-2'].forEach(id => document.getElementById(id).classList.add('active'));
+  if (totalMs > 0) {
+    if (isAuthRejected) {
+      document.getElementById('ms-gw').textContent = totalMs + 'ms';
+    } else if (blocked) {
+      document.getElementById('ms-2').textContent = totalMs + 'ms';
+    } else {
+      document.getElementById('ms-3').textContent = totalMs + 'ms total';
+    }
+  }
+
+  if (isAuthRejected) {
+    // Auth rejected: Client -> Gateway (blocked), everything else dimmed
+    document.getElementById('box-client').classList.add('active');
+    document.getElementById('arr-gw').classList.add('active');
+    document.getElementById('box-gateway').classList.add('blocked');
+    document.getElementById('arr-auth').classList.add('blocked');
+    document.getElementById('box-authorino').classList.add('dimmed');
+    document.getElementById('arr-1').classList.add('dimmed');
+    document.getElementById('box-envoy').classList.add('dimmed');
+    document.getElementById('arr-2').classList.add('dimmed');
+    document.getElementById('box-vsr').classList.add('dimmed');
+    document.getElementById('arr-3').classList.add('dimmed');
+    document.getElementById('box-backend').classList.add('dimmed');
+  } else if (blocked) {
+    // Tier blocked: auth boxes active, vSR blocked
+    if (isAuth) {
+      ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2'].forEach(id =>
+        document.getElementById(id).classList.add('active'));
+      document.getElementById('box-gateway').classList.add('auth-glow');
+      document.getElementById('box-authorino').classList.add('auth-glow');
+    } else {
+      ['box-client','arr-gw','box-envoy','arr-2'].forEach(id =>
+        document.getElementById(id).classList.add('active'));
+    }
     document.getElementById('box-vsr').classList.add('blocked');
     document.getElementById('arr-3').classList.add('blocked');
     document.getElementById('box-backend').classList.add('dimmed');
   } else {
-    ids.forEach(id => document.getElementById(id).classList.add('active'));
+    // Success flow
+    if (isAuth) {
+      allIds.forEach(id => document.getElementById(id).classList.add('active'));
+      document.getElementById('box-gateway').classList.add('auth-glow');
+      document.getElementById('box-authorino').classList.add('auth-glow');
+    } else {
+      ['box-client','arr-gw','box-envoy','arr-2','box-vsr','arr-3','box-backend'].forEach(id =>
+        document.getElementById(id).classList.add('active'));
+    }
     document.getElementById('box-backend').classList.add('neon');
     document.getElementById('box-vsr').classList.add(s.bbr ? 'bbr-glow' : 'extproc-glow');
   }
@@ -363,36 +461,67 @@ function setArch(scenario, blocked, totalMs) {
 function setTrace(scenario, respHeaders, blocked) {
   const s = SCENARIOS[scenario];
   const body = s.body;
-  const tier = s.headers['X-MaaS-Tier'] || '(none)';
+  const isAuth = !!s.useGateway;
+  const isAuthRejected = scenario === 'auth_rejected';
+  const tier = s.user || '(none)';
   const cat = respHeaders['x-vsr-selected-category'] || '';
   const conf = respHeaders['x-vsr-selected-confidence'] || '';
 
   let steps = [];
-  steps.push({ n: 1, a: 'Received request', v: `POST /v1/chat/completions` });
-  steps.push({ n: 2, a: 'Extracted model from body', v: body.model });
 
-  if (s.headers['X-MaaS-Tier']) {
+  if (isAuthRejected) {
+    // Auth rejected trace
+    steps.push({ n: 1, a: 'Request received at Gateway', v: 'POST /auth/v1/chat/completions', cls: 'auth' });
+    steps.push({ n: 2, a: 'No Authorization header found', v: 'missing Bearer token', cls: 'blocked' });
+    steps.push({ n: 3, a: 'Gateway rejected request', v: '\u2718 401 Unauthorized', cls: 'blocked' });
+    steps.push({ n: 4, a: 'Request never reached vSR', v: 'blocked at Gateway layer', cls: 'blocked' });
+  } else if (isAuth) {
+    // Auth flow trace
+    steps.push({ n: 1, a: 'Token validated', v: 'Authorino \u2192 KubernetesTokenReview', cls: 'auth' });
+    steps.push({ n: 2, a: 'Tier resolved', v: `MaaS API \u2192 ${tier}`, cls: 'auth' });
+    steps.push({ n: 3, a: 'Header injected', v: `X-MaaS-Tier: ${tier} (by Authorino)`, cls: 'auth' });
+    steps.push({ n: 4, a: 'Model extracted', v: body.model });
+
     if (blocked) {
-      steps.push({ n: 3, a: `Tier check: ${tier} \u2192 model "${body.model}" NOT in allowed list`, v: '\u2718 BLOCKED (403)', cls: 'blocked' });
+      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" NOT in allowed list`, v: '\u2718 BLOCKED (403)', cls: 'blocked' });
     } else {
-      steps.push({ n: 3, a: `Tier check: ${tier} \u2192 model "${body.model}" allowed`, v: '\u2714 PASS', cls: 'success' });
-    }
-  }
+      steps.push({ n: 5, a: `Tier check: ${tier} \u2192 model "${body.model}" allowed`, v: '\u2714 PASS', cls: 'success' });
 
-  if (!blocked) {
-    if (cat) {
-      steps.push({ n: steps.length+1, a: `Classified domain`, v: `${cat} (confidence: ${conf})` });
+      if (cat) {
+        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})` });
+      }
+      if (body.model === 'claude-sonnet') {
+        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+      } else {
+        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
+      }
+      const ep = s.backend.detail.split(' ')[0];
+      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
+      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
+      if (body.model === 'claude-sonnet') {
+        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+      }
     }
-    if (body.model === 'claude-sonnet') {
-      steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
-    } else {
-      steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
-    }
-    const ep = s.backend.detail.split(' ')[0];
-    steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
-    steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
-    if (body.model === 'claude-sonnet') {
-      steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+  } else {
+    // Direct flow trace (unchanged)
+    steps.push({ n: 1, a: 'Received request', v: 'POST /v1/chat/completions' });
+    steps.push({ n: 2, a: 'Extracted model from body', v: body.model });
+
+    if (!blocked) {
+      if (cat) {
+        steps.push({ n: steps.length+1, a: 'Classified domain', v: `${cat} (confidence: ${conf})` });
+      }
+      if (body.model === 'claude-sonnet') {
+        steps.push({ n: steps.length+1, a: 'API format detected', v: 'anthropic \u2192 translating request body' });
+      } else {
+        steps.push({ n: steps.length+1, a: 'API format', v: 'OpenAI (native, no translation needed)', cls: 'success' });
+      }
+      const ep = s.backend.detail.split(' ')[0];
+      steps.push({ n: steps.length+1, a: 'Resolved endpoint', v: `${s.backend.label} ${ep}` });
+      steps.push({ n: steps.length+1, a: 'Routed via header', v: `x-selected-model: ${body.model}`, cls: 'success' });
+      if (body.model === 'claude-sonnet') {
+        steps.push({ n: steps.length+1, a: 'Response translated', v: 'Anthropic \u2192 OpenAI format' });
+      }
     }
   }
 
@@ -424,12 +553,19 @@ function switchTab(tab) {
   document.getElementById('sidebar-bbr').style.display = tab === 'bbr' ? 'block' : 'none';
 
   // Reset all state
-  ['box-client','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'].forEach(id => {
-    document.getElementById(id).classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow');
+  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+  allIds.forEach(id => {
+    document.getElementById(id).classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow','auth-glow');
   });
-  document.getElementById('ms-1').textContent = '';
-  document.getElementById('ms-2').textContent = '';
-  document.getElementById('ms-3').textContent = '';
+  // Hide auth boxes on reset
+  document.getElementById('box-gateway').classList.add('hidden');
+  document.getElementById('arr-auth').classList.add('hidden');
+  document.getElementById('box-authorino').classList.add('hidden');
+  document.getElementById('arr-1').classList.add('hidden');
+
+  ['ms-gw','ms-auth','ms-1','ms-2','ms-3'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
   document.getElementById('vsr-label').textContent = tab === 'bbr' ? 'BBR + vSR Plugin' : 'vSR ExtProc';
   document.getElementById('vsr-detail').textContent = tab === 'bbr' ? ':9002 (in-process)' : ':50051';
   document.getElementById('backend-label').textContent = 'Backend';
@@ -451,12 +587,36 @@ async function run(scenario) {
   const resPre = document.getElementById('response-pre');
   const badge = document.getElementById('resp-badge');
 
-  // Show request
+  // Build request path and headers based on auth mode
+  const isAuth = !!s.useGateway;
+  const apiPath = s.bbr ? '/bbr/v1/chat/completions'
+    : isAuth ? '/auth/v1/chat/completions'
+    : '/v1/chat/completions';
+
   const hdrs = { 'Content-Type': 'application/json', ...s.headers };
-  let reqText = `POST /v1/chat/completions HTTP/1.1\nHost: localhost:8801\n`;
+  if (isAuth && s.user && TOKENS[s.user]) {
+    hdrs['Authorization'] = 'Bearer ' + TOKENS[s.user];
+  }
+
+  // Show request panel
+  let reqText = `POST ${apiPath} HTTP/1.1\nHost: localhost:8801\n`;
+
+  // User identity indicator for auth scenarios
+  if (isAuth) {
+    if (s.user) {
+      reqText += `<span class="user-identity ${s.user}">\u25CF ${s.user} user</span>\n`;
+    } else {
+      reqText += `<span class="user-identity none">\u25CF no identity (unauthenticated)</span>\n`;
+    }
+  }
+
   Object.entries(hdrs).forEach(([k,v]) => {
-    if (k === 'X-MaaS-Tier') reqText += `<span class="header-vsr">${k}: ${v}</span>\n`;
-    else reqText += `<span class="header-key">${k}</span>: <span class="header-val">${v}</span>\n`;
+    if (k === 'Authorization') {
+      const truncated = v.substring(0, 20) + '...';
+      reqText += `<span class="header-auth">${k}</span>: <span class="header-val">${truncated}</span>\n`;
+    } else {
+      reqText += `<span class="header-key">${k}</span>: <span class="header-val">${v}</span>\n`;
+    }
   });
   reqText += `\n${JSON.stringify(s.body, null, 2)}`;
   reqPre.innerHTML = reqText;
@@ -468,15 +628,32 @@ async function run(scenario) {
 
   try {
     const t0 = performance.now();
-    const apiPath = s.bbr ? '/bbr/v1/chat/completions' : '/v1/chat/completions';
     const resp = await fetch(GW + apiPath, {
       method: 'POST',
       headers: hdrs,
       body: JSON.stringify(s.body)
     });
 
-    const data = await resp.json();
     const totalMs = Math.round(performance.now() - t0);
+
+    // Handle auth rejection (401) separately
+    if (resp.status === 401) {
+      let data;
+      try { data = await resp.json(); } catch(e) { data = { error: { message: 'Unauthorized', code: 401 } }; }
+
+      badge.textContent = `401 UNAUTHORIZED (${totalMs}ms)`; badge.className = 'badge badge-err';
+
+      let resText = `HTTP/1.1 ${resp.status} ${resp.statusText}\n`;
+      resText += formatHeaders(resp.headers) + '\n\n';
+      resText += JSON.stringify(data, null, 2);
+      resPre.innerHTML = resText;
+
+      setArch(scenario, true, totalMs);
+      setTrace(scenario, {}, true);
+      return;
+    }
+
+    const data = await resp.json();
     const isBlocked = data.error && data.error.code === 403;
 
     // Badge

@@ -1,0 +1,37 @@
+# Demo user ServiceAccounts in tier namespaces
+#
+# This mirrors the real MaaS architecture where each tier has its own namespace.
+# The SA's namespace group (system:serviceaccounts:<tier-ns>) maps to the tier
+# via the tier-to-group-mapping ConfigMap.
+#
+# Tier resolution:
+#   free-user    -> system:serviceaccounts:vsr-egress-demo -> free tier (level 0)
+#   premium-user -> system:serviceaccounts:vsr-demo-tier-premium -> premium tier (level 1, wins)
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: free-user
+  namespace: vsr-egress-demo
+  labels:
+    app: vsr-egress-demo
+    role: demo-user
+    tier: free
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vsr-demo-tier-premium
+  labels:
+    app: vsr-egress-demo
+    tier: premium
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: premium-user
+  namespace: vsr-demo-tier-premium
+  labels:
+    app: vsr-egress-demo
+    role: demo-user
+    tier: premium

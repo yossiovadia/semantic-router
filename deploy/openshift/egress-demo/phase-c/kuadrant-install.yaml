@@ -1,0 +1,39 @@
+# Kuadrant operator v1.3.1 installation from upstream community catalog
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kuadrant-system
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: kuadrant-operator-catalog
+  namespace: kuadrant-system
+spec:
+  sourceType: grpc
+  image: quay.io/kuadrant/kuadrant-operator-catalog:v1.3.1
+  displayName: Kuadrant Operator Catalog
+  publisher: Kuadrant
+  updateStrategy:
+    registryPoll:
+      interval: 45m
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: kuadrant-operator-group
+  namespace: kuadrant-system
+spec: {}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kuadrant-operator
+  namespace: kuadrant-system
+spec:
+  channel: stable
+  name: kuadrant-operator
+  source: kuadrant-operator-catalog
+  sourceNamespace: kuadrant-system
+  installPlanApproval: Automatic

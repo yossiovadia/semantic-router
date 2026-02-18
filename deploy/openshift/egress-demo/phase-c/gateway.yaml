@@ -1,0 +1,20 @@
+# Gateway for the vSR egress routing demo
+# Hostname uses envsubst: CLUSTER_DOMAIN must be set before applying
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: vsr-demo-gateway
+  namespace: openshift-ingress
+  labels:
+    app: vsr-egress-demo
+spec:
+  gatewayClassName: openshift-default
+  listeners:
+  - name: http
+    hostname: "vsr-demo.${CLUSTER_DOMAIN}"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All

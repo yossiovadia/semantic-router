@@ -22,6 +22,25 @@ spec:
         ports:
         - containerPort: 8888
           name: http
+        env:
+        - name: FREE_USER_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: demo-tokens
+              key: free-token
+              optional: true
+        - name: PREMIUM_USER_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: demo-tokens
+              key: premium-token
+              optional: true
+        - name: AUTH_GATEWAY_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: demo-config
+              key: auth-gateway-host
+              optional: true
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

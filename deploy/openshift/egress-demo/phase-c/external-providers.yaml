@@ -1,0 +1,154 @@
+# External providers namespace — simulates models outside the cluster
+# In production, these would be real external APIs (api.openai.com, api.anthropic.com)
+# accessed via Istio ServiceEntry + DestinationRule
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-providers
+  labels:
+    app: vsr-egress-demo
+    zone: external
+---
+# Mock Anthropic endpoint (simulates api.anthropic.com)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-anthropic
+  namespace: external-providers
+  labels:
+    app: mock-anthropic
+    zone: external
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-anthropic
+  template:
+    metadata:
+      labels:
+        app: mock-anthropic
+        zone: external
+    spec:
+      containers:
+      - name: mock-anthropic
+        image: image-registry.openshift-image-registry.svc:5000/vsr-egress-demo/mock-anthropic:latest
+        ports:
+        - containerPort: 8003
+          name: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "1Gi"
+            cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-anthropic
+  namespace: external-providers
+  labels:
+    app: mock-anthropic
+    zone: external
+spec:
+  ports:
+  - name: http
+    port: 8003
+    targetPort: 8003
+  selector:
+    app: mock-anthropic
+---
+# External model provider (simulates api.openai.com-compatible endpoint)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-katan-external
+  namespace: external-providers
+  labels:
+    app: llm-katan
+    role: external-provider
+    zone: external
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-katan
+      role: external-provider
+  template:
+    metadata:
+      labels:
+        app: llm-katan
+        role: external-provider
+        zone: external
+    spec:
+      containers:
+      - name: llm-katan
+        image: ghcr.io/vllm-project/semantic-router/llm-katan:latest
+        command: ["llm-katan"]
+        args: ["--model", "echo-model", "--backend", "echo", "--served-model-name", "qwen2.5:1.5b", "--port", "8000", "--host", "0.0.0.0"]
+        ports:
+        - containerPort: 8000
+          name: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-katan-external
+  namespace: external-providers
+  labels:
+    app: llm-katan
+    role: external-provider
+    zone: external
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    app: llm-katan
+    role: external-provider
