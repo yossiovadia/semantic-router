@@ -97,9 +97,9 @@ Adds three changes to the upstream image (`ghcr.io/vllm-project/semantic-router/
 
 Backward-compatible: without `model_access_policy` in config, access is unrestricted.
 
-## Phase C Infrastructure
+## Infrastructure Manifests
 
-Phase C manifests live in `phase-c/`:
+Platform infrastructure manifests live in `infra/`:
 
 | File | What |
 |------|------|

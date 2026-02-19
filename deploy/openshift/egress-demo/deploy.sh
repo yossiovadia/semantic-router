@@ -116,7 +116,7 @@ success "demo-ui image built"
 
 # ─── Deploy external providers (separate namespace) ───
 log "Deploying external providers (simulated external zone)..."
-oc apply -f "$SCRIPT_DIR/phase-c/external-providers.yaml"
+oc apply -f "$SCRIPT_DIR/infra/external-providers.yaml"
 
 # ─── Deploy internal model only ───
 log "Deploying internal model (llm-katan-internal)..."
@@ -186,7 +186,7 @@ log "═════════════════════════
 
 # ─── Install Kuadrant operator ───
 log "Installing Kuadrant operator v1.3.1..."
-oc apply -f "$SCRIPT_DIR/phase-c/kuadrant-install.yaml"
+oc apply -f "$SCRIPT_DIR/infra/kuadrant-install.yaml"
 
 # Wait for Kuadrant subscription to be installed
 log "Waiting for Kuadrant operator subscription..."
@@ -252,7 +252,7 @@ fi
 
 # ─── Apply GatewayClass ───
 log "Creating GatewayClass..."
-oc apply -f "$SCRIPT_DIR/phase-c/gatewayclass.yaml"
+oc apply -f "$SCRIPT_DIR/infra/gatewayclass.yaml"
 success "GatewayClass ready"
 
 # ─── Create Gateway ───
@@ -262,7 +262,7 @@ if [[ -z "$CLUSTER_DOMAIN" ]]; then
     error "Could not determine cluster domain"
 fi
 export CLUSTER_DOMAIN
-envsubst '${CLUSTER_DOMAIN}' < "$SCRIPT_DIR/phase-c/gateway.yaml" | oc apply -f -
+envsubst '${CLUSTER_DOMAIN}' < "$SCRIPT_DIR/infra/gateway.yaml" | oc apply -f -
 success "Gateway created (hostname: vsr-demo.${CLUSTER_DOMAIN})"
 
 # Wait for Gateway to be Programmed
@@ -275,7 +275,7 @@ fi
 
 # ─── Apply Kuadrant CR ───
 log "Activating Kuadrant (Authorino + Limitador)..."
-oc apply -f "$SCRIPT_DIR/phase-c/kuadrant-cr.yaml"
+oc apply -f "$SCRIPT_DIR/infra/kuadrant-cr.yaml"
 
 # Wait for Kuadrant to be ready
 log "Waiting for Kuadrant to become ready..."
@@ -329,7 +329,7 @@ fi
 
 # ─── Deploy MaaS API ───
 log "Deploying MaaS API (tier lookup)..."
-oc apply -f "$SCRIPT_DIR/phase-c/maas-api.yaml"
+oc apply -f "$SCRIPT_DIR/infra/maas-api.yaml"
 oc wait --for=condition=Ready pod -l app=maas-api -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "MaaS API not ready yet"
 
 # Verify MaaS API health
@@ -342,12 +342,12 @@ fi
 
 # ─── Create demo users ───
 log "Creating demo users and tier groups..."
-oc apply -f "$SCRIPT_DIR/phase-c/demo-users.yaml"
+oc apply -f "$SCRIPT_DIR/infra/demo-users.yaml"
 success "Demo users created (free-user, premium-user)"
 
 # ─── Apply AuthPolicy ───
 log "Applying AuthPolicy..."
-oc apply -f "$SCRIPT_DIR/phase-c/auth-policy.yaml"
+oc apply -f "$SCRIPT_DIR/infra/auth-policy.yaml"
 
 # Wait for AuthPolicy to be accepted
 log "Waiting for AuthPolicy to be accepted..."
@@ -365,13 +365,13 @@ done
 
 # ─── Apply HTTPRoutes ───
 log "Applying HTTPRoutes..."
-oc apply -f "$SCRIPT_DIR/phase-c/httproute.yaml"
-oc apply -f "$SCRIPT_DIR/phase-c/httproute-maas.yaml"
+oc apply -f "$SCRIPT_DIR/infra/httproute.yaml"
+oc apply -f "$SCRIPT_DIR/infra/httproute-maas.yaml"
 success "HTTPRoutes created"
 
 # ─── Apply RateLimitPolicy ───
 log "Applying RateLimitPolicy..."
-oc apply -f "$SCRIPT_DIR/phase-c/ratelimit-policy.yaml"
+oc apply -f "$SCRIPT_DIR/infra/ratelimit-policy.yaml"
 success "RateLimitPolicy applied"
 
 # ─── Generate demo tokens ───
