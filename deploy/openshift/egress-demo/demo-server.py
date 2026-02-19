@@ -166,13 +166,13 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 "name": "free",
                 "level": 0,
                 "displayName": "Free Tier",
-                "models": ["mock-llama3"],
+                "models": ["qwen3-0.6b"],
             },
             {
                 "name": "premium",
                 "level": 1,
                 "displayName": "Premium Tier",
-                "models": ["mock-llama3", "qwen2.5:1.5b", "claude-sonnet"],
+                "models": ["qwen3-0.6b", "qwen2.5:1.5b", "claude-sonnet"],
             },
             {
                 "name": "enterprise",
@@ -207,7 +207,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 "keyInfo": "Configured in vSR config (model_config.access_key)",
             },
             {
-                "model": "mock-llama3",
+                "model": "qwen3-0.6b",
                 "endpoint": "Internal KServe",
                 "format": "openai",
                 "hasKey": False,
@@ -487,7 +487,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         token = body.get("token", "").strip()
-        model = body.get("model", "mock-llama3").strip()
+        model = body.get("model", "qwen3-0.6b").strip()
         message = body.get("message", "Hello").strip()
 
         if not token:

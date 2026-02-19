@@ -77,7 +77,7 @@ spec:
       - name: llm-katan
         image: ghcr.io/vllm-project/semantic-router/llm-katan:latest
         command: ["llm-katan"]
-        args: ["--model", "echo-model", "--backend", "echo", "--served-model-name", "mock-llama3", "--port", "8000", "--host", "0.0.0.0"]
+        args: ["--model", "echo-model", "--backend", "echo", "--served-model-name", "qwen3-0.6b", "--port", "8000", "--host", "0.0.0.0"]
         ports:
         - containerPort: 8000
           name: http

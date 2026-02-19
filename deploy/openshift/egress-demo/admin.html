@@ -405,7 +405,7 @@
           <div class="field">
             <label>Model</label>
             <select id="test-model">
-              <option value="mock-llama3">mock-llama3</option>
+              <option value="qwen3-0.6b">qwen3-0.6b</option>
               <option value="qwen2.5:1.5b">qwen2.5:1.5b</option>
               <option value="claude-sonnet">claude-sonnet</option>
             </select>
@@ -943,7 +943,7 @@ function renderProviders() {
 const PROVIDER_MAP = {
   'qwen2.5:1.5b': { provider: 'OpenAI External', format: 'openai' },
   'claude-sonnet': { provider: 'Anthropic External', format: 'anthropic' },
-  'mock-llama3': { provider: 'Internal KServe', format: 'openai' },
+  'qwen3-0.6b': { provider: 'Internal KServe', format: 'openai' },
 };
 
 function getProviderInfo(model) {

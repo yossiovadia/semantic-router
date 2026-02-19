@@ -29,7 +29,7 @@ model_config:
     # DEMO ONLY: Mock API key. In production, use K8s Secrets or ATM.
     access_key: "mock-anthropic-key-for-demo"
     preferred_endpoints: ["anthropic-endpoint"]
-  "mock-llama3":
+  "qwen3-0.6b":
     preferred_endpoints: ["internal-endpoint"]
 
 categories:
@@ -56,10 +56,10 @@ default_model: "qwen2.5:1.5b"
 model_access_policy:
   free:
     allowed_models:
-      - "mock-llama3"
+      - "qwen3-0.6b"
   premium:
     allowed_models:
-      - "mock-llama3"
+      - "qwen3-0.6b"
       - "qwen2.5:1.5b"
       - "claude-sonnet"
   enterprise:

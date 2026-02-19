@@ -432,7 +432,7 @@ if [[ -n "$FREE_TOKEN" ]]; then
     echo -e "  ${YELLOW}Quick test:${NC}"
     echo -e "    curl -H 'Authorization: Bearer <token>' http://${AUTH_GW_URL}/v1/chat/completions \\"
     echo -e "      -H 'Content-Type: application/json' \\"
-    echo -e "      -d '{\"model\":\"mock-llama3\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'"
+    echo -e "      -d '{\"model\":\"qwen3-0.6b\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'"
 fi
 echo ""
 echo -e "  Cleanup:  $0 --cleanup"

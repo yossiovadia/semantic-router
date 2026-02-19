@@ -202,10 +202,10 @@ echo ""
 echo "Test 1.3: Internal Model Routing"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"mock-llama3","messages":[{"role":"user","content":"Hello"}]}'
+    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
 assert_status "Internal routing" "$HEADERS" "200"
-assert_response "Internal routing" "$(cat $BODY)" "model" "mock-llama3"
-assert_header "Internal routing" "$HEADERS" "x-vsr-selected-model" "mock-llama3"
+assert_response "Internal routing" "$(cat $BODY)" "model" "qwen3-0.6b"
+assert_header "Internal routing" "$HEADERS" "x-vsr-selected-model" "qwen3-0.6b"
 echo ""
 
 # Test 1.4: Tier — free user blocked from external
@@ -223,9 +223,9 @@ echo "Test 1.5: Tier — Free User Allowed Internal"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -H "X-MaaS-Tier: free" \
-    -d '{"model":"mock-llama3","messages":[{"role":"user","content":"Hello"}]}'
+    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
 assert_status "Free allowed" "$HEADERS" "200"
-assert_response "Free allowed" "$(cat $BODY)" "model" "mock-llama3"
+assert_response "Free allowed" "$(cat $BODY)" "model" "qwen3-0.6b"
 echo ""
 
 # Test 1.6: Tier — premium user allowed external
@@ -311,7 +311,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         echo "Test 3.1: Unauthenticated Request → 401"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
-            -d '{"model":"mock-llama3","messages":[{"role":"user","content":"Hello"}]}'
+            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
         assert_status "Unauthenticated" "$HEADERS" "401"
         echo ""
 
@@ -325,9 +325,9 @@ if [[ "$PHASE" -ge 3 ]]; then
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${FREE_TOKEN}" \
-                -d '{"model":"mock-llama3","messages":[{"role":"user","content":"Hello"}]}'
+                -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
             assert_status "Free+internal" "$HEADERS" "200"
-            assert_response "Free+internal" "$(cat $BODY)" "model" "mock-llama3"
+            assert_response "Free+internal" "$(cat $BODY)" "model" "qwen3-0.6b"
         fi
         echo ""
 
@@ -382,7 +382,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer invalid-token" \
-            -d '{"model":"mock-llama3","messages":[{"role":"user","content":"Hello"}]}'
+            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
         assert_status "Invalid token" "$HEADERS" "401"
         echo ""
 

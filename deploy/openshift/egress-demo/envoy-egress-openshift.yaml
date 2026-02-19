@@ -31,23 +31,23 @@ static_resources:
                 route:
                   cluster: anthropic_cluster
                   timeout: 300s
-              # External provider route (model starts with qwen)
+              # External provider route (model starts with qwen2)
               - match:
                   prefix: "/"
                   headers:
                   - name: x-selected-model
                     string_match:
-                      prefix: "qwen"
+                      prefix: "qwen2"
                 route:
                   cluster: external_cluster
                   timeout: 300s
-              # Internal model route (model starts with mock-)
+              # Internal model route (model starts with qwen3)
               - match:
                   prefix: "/"
                   headers:
                   - name: x-selected-model
                     string_match:
-                      prefix: "mock-"
+                      prefix: "qwen3"
                 route:
                   cluster: internal_cluster
                   timeout: 300s
