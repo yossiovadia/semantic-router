@@ -149,6 +149,7 @@
   .issuance-step .step-num { color: var(--text-muted); min-width: 16px; }
   .issuance-step .step-icon { min-width: 16px; }
   .issuance-step .step-icon.ok { color: var(--green); }
+  .issuance-step .step-icon.warn { color: var(--orange); }
   .issuance-step .step-icon.err { color: var(--red); }
   .issuance-step .step-text { color: var(--text); }
   .issuance-step .step-detail { color: var(--text-muted); }
@@ -719,7 +720,7 @@ async function issueToken() {
     const rawSteps = data.steps || [];
     const displaySteps = rawSteps.length > 0
       ? rawSteps.map(s => ({
-          icon: (s.status >= 200 && s.status < 300) || s.status === undefined ? 'ok' : 'err',
+          icon: (s.status >= 200 && s.status < 300) || s.status === undefined ? 'ok' : (s.action || '').includes('Fallback') ? 'warn' : 'warn',
           label: `${s.action || s.label || ''}${s.result ? ' \u2014 ' + s.result : ''}${s.elapsed_ms ? ' (' + s.elapsed_ms + 'ms)' : ''}`,
         }))
       : [
@@ -749,7 +750,7 @@ async function issueToken() {
         <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Token Issuance Log</div>
         ${displaySteps.map((s, i) => `<div class="issuance-step">
           <span class="step-num">${i + 1}.</span>
-          <span class="step-icon ${s.icon === 'ok' ? 'ok' : 'err'}">${s.icon === 'ok' ? '\u2713' : '\u2717'}</span>
+          <span class="step-icon ${s.icon === 'ok' ? 'ok' : s.icon === 'warn' ? 'warn' : 'err'}">${s.icon === 'ok' ? '\u2713' : s.icon === 'warn' ? '\u26A0' : '\u2717'}</span>
           <span class="step-text">${esc(s.label)}</span>
         </div>`).join('')}
       </div>
