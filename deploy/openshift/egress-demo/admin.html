@@ -1284,6 +1284,9 @@ function showModelResponse(respBody, isBlocked, model, totalMs) {
   try {
     if (respBody && respBody.choices && respBody.choices[0]) {
       replyText = respBody.choices[0].message.content || '';
+      // Clean up small-model artifacts: trim at first "User:" hallucination
+      const userIdx = replyText.search(/\n\s*(User:|Human:|Q:|A:|\n\n\n)/);
+      if (userIdx > 0) replyText = replyText.substring(0, userIdx).trim();
     }
     if (respBody && respBody.usage) {
       tokensUsed = `${respBody.usage.total_tokens} tokens`;

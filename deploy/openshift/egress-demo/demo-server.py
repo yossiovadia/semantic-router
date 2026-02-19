@@ -503,7 +503,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             {
                 "model": model,
                 "messages": [{"role": "user", "content": message}],
-                "max_tokens": 128,
+                "max_tokens": 60,
             }
         ).encode()
 
