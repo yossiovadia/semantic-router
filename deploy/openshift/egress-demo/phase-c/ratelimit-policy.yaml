@@ -1,11 +1,17 @@
 # Request rate limiting via Kuadrant/Limitador
 # Enforced at the Gateway level — returns 429 when exceeded
 #
-# NOTE: TokenRateLimitPolicy (v1alpha1) is NOT used because it breaks
-# AuthPolicy enforcement when both are on the same Gateway. This is a
-# known issue in Kuadrant Wasm shim v0.11.1 — the token-based policy's
-# response body processing interferes with auth action dispatching.
-# Use RateLimitPolicy (v1, request-based) instead.
+# Known Kuadrant Wasm shim v0.11.1 limitations:
+#
+# 1. TokenRateLimitPolicy (v1alpha1) breaks AuthPolicy when both target
+#    the same Gateway. The token-based policy's response body processing
+#    causes the auth action to be skipped (unauth requests return 200).
+#    Workaround: use RateLimitPolicy (v1, request-based) only.
+#
+# 2. Per-tier rate limits (e.g. free=10, premium=50, enterprise=500)
+#    are not possible. The Wasm shim evaluates rate limits BEFORE auth,
+#    so auth.identity.tier is empty when the when-predicate runs.
+#    Workaround: use a global limit for all tiers.
 ---
 apiVersion: kuadrant.io/v1
 kind: RateLimitPolicy
