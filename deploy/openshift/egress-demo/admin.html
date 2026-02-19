@@ -854,11 +854,11 @@ function renderTiers() {
   }).join('') + '</div>';
 }
 
-function trackRequest(tier, wasRateLimited, tokensUsed) {
+function trackRequest(tier, wasRateLimited) {
   if (!tier) return;
   const key = tier.toLowerCase();
-  if (!state.tokenUsage[key]) state.tokenUsage[key] = { tokens: 0, limited: false };
-  if (!wasRateLimited && tokensUsed) state.tokenUsage[key].tokens += tokensUsed;
+  if (!state.tokenUsage[key]) state.tokenUsage[key] = { requests: 0, limited: false };
+  if (!wasRateLimited) state.tokenUsage[key].requests++;
   state.tokenUsage[key].limited = wasRateLimited;
   renderUsageLabel(key);
 }
@@ -867,14 +867,14 @@ function renderUsageLabel(key) {
   const el = document.getElementById('usage-' + key);
   const labelEl = document.getElementById('usage-label-' + key);
   if (!el || !labelEl) return;
-  const usage = state.tokenUsage[key] || { tokens: 0, limited: false };
+  const usage = state.tokenUsage[key] || { requests: 0, limited: false };
   el.style.display = '';
   if (usage.limited) {
-    labelEl.innerHTML = '<strong style="color:var(--red);">RATE LIMITED (429)</strong> — ' + usage.tokens + '/100 tokens used';
+    labelEl.innerHTML = '<strong style="color:var(--red);">RATE LIMITED (429)</strong> — ' + usage.requests + '/10 requests used';
     el.style.color = 'var(--red)';
   } else {
-    labelEl.innerHTML = 'Used: <strong>' + usage.tokens + '</strong>/100 tokens this window';
-    el.style.color = usage.tokens >= 80 ? 'var(--orange)' : 'var(--text-muted)';
+    labelEl.innerHTML = 'Used: <strong>' + usage.requests + '</strong>/10 requests this window';
+    el.style.color = usage.requests >= 8 ? 'var(--orange)' : 'var(--text-muted)';
   }
 }
 
@@ -1008,9 +1008,8 @@ async function sendTestRequest() {
       // Update inspector
       updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
 
-      // Track token usage for rate limit counter
-      const tokensUsed = (!isBlocked && respBody && respBody.usage) ? (respBody.usage.total_tokens || 0) : 0;
-      trackRequest(user.tier, false, tokensUsed);
+      // Track request for rate limit counter
+      trackRequest(user.tier, false);
     } // end else (not rate limited)
 
   } catch (e) {
