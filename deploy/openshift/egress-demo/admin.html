@@ -422,6 +422,15 @@
       </div>
     </div>
 
+    <!-- Model Response -->
+    <div class="panel" id="response-panel" style="display:none;">
+      <div class="panel-header">Model Response</div>
+      <div class="panel-body">
+        <div id="model-response" style="font-size:14px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-wrap:break-word; max-height:200px; overflow-y:auto;"></div>
+        <div id="response-meta" style="margin-top:8px; font-size:11px; color:var(--text-muted);"></div>
+      </div>
+    </div>
+
     <!-- Credential Switch Visualization -->
     <div class="cred-switch" id="cred-switch">
       <div class="cred-card user-cred" id="cred-user">
@@ -957,6 +966,7 @@ async function sendTestRequest() {
   // Reset UI
   resetArchDiagram();
   document.getElementById('component-log').innerHTML = '<span class="spinner"></span> Processing...';
+  document.getElementById('response-panel').style.display = 'none';
   hidCredSwitch();
 
   const reqBody = { model, messages: [{ role: 'user', content: message }], max_tokens: 50 };
@@ -1008,6 +1018,9 @@ async function sendTestRequest() {
 
       // Update inspector
       updateInspector(model, message, reqHeaders, respStatus, respHeaders, respBody, isBlocked, totalMs);
+
+      // Show model response prominently
+      showModelResponse(respBody, isBlocked, model, totalMs);
 
       // Track request for rate limit counter
       trackRequest(user.tier, false);
@@ -1208,6 +1221,40 @@ function hidCredSwitch() {
 }
 
 // ─── Inspector ──────────────────────────────────────
+
+function showModelResponse(respBody, isBlocked, model, totalMs) {
+  const panel = document.getElementById('response-panel');
+  const responseEl = document.getElementById('model-response');
+  const metaEl = document.getElementById('response-meta');
+
+  if (isBlocked) {
+    const errMsg = respBody && respBody.error ? respBody.error.message : 'Request blocked';
+    responseEl.innerHTML = `<span style="color:var(--red);">${esc(errMsg)}</span>`;
+    metaEl.textContent = `Model: ${model} | Blocked by tier policy`;
+    panel.style.display = '';
+    return;
+  }
+
+  // Extract the reply text from OpenAI-compatible response
+  let replyText = '';
+  let tokensUsed = '';
+  try {
+    if (respBody && respBody.choices && respBody.choices[0]) {
+      replyText = respBody.choices[0].message.content || '';
+    }
+    if (respBody && respBody.usage) {
+      tokensUsed = `${respBody.usage.total_tokens} tokens`;
+    }
+  } catch (e) {
+    replyText = JSON.stringify(respBody, null, 2);
+  }
+
+  if (replyText) {
+    responseEl.textContent = replyText;
+    metaEl.textContent = `Model: ${model} | ${totalMs}ms | ${tokensUsed}`;
+    panel.style.display = '';
+  }
+}
 
 function toggleInspector() {
   const toggle = document.getElementById('inspector-toggle');
