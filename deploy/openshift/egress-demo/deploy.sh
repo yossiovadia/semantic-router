@@ -363,10 +363,16 @@ for i in $(seq 1 24); do
     sleep 5
 done
 
-# ─── Apply HTTPRoute ───
-log "Applying HTTPRoute..."
+# ─── Apply HTTPRoutes ───
+log "Applying HTTPRoutes..."
 oc apply -f "$SCRIPT_DIR/phase-c/httproute.yaml"
-success "HTTPRoute created"
+oc apply -f "$SCRIPT_DIR/phase-c/httproute-maas.yaml"
+success "HTTPRoutes created"
+
+# ─── Apply RateLimitPolicy ───
+log "Applying RateLimitPolicy..."
+oc apply -f "$SCRIPT_DIR/phase-c/ratelimit-policy.yaml"
+success "RateLimitPolicy applied"
 
 # ─── Generate demo tokens ───
 log "Generating demo user tokens..."
