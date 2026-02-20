@@ -29,18 +29,14 @@ NAMESPACE="vsr-egress-demo"
 EXT_NAMESPACE="external-providers"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-USE_REAL_MODEL=false
-
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --real-model) USE_REAL_MODEL=true; shift ;;
         --cleanup) cleanup=true; shift ;;
         --namespace) NAMESPACE="$2"; shift 2 ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --real-model    Use Qwen3-0.6B for external provider (CPU, slower)"
             echo "  --cleanup       Remove all demo resources"
             echo "  --namespace NS  Custom namespace (default: vsr-egress-demo)"
             exit 0 ;;
@@ -138,17 +134,10 @@ success "demo-ui image built"
 log "Deploying external providers (simulated external zone)..."
 oc apply -f "$SCRIPT_DIR/infra/external-providers.yaml"
 
-# ─── Deploy internal model only ───
-log "Deploying internal model (llm-katan-internal)..."
-if [[ "$USE_REAL_MODEL" == "true" ]]; then
-    log "Using real model (Qwen3-0.6B) — pods will need time to download model"
-    # Apply only the internal model from llm-katan-real.yaml
-    oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/llm-katan-real.yaml"
-else
-    log "Using echo backend — instant responses, no model download"
-    # Apply only internal model — external is in external-providers namespace
-    oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/llm-katan-echo.yaml"
-fi
+# ─── Clean up legacy internal model (no longer needed) ───
+log "Cleaning up legacy internal model resources..."
+oc delete deployment llm-katan-internal -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
+oc delete service llm-katan-internal -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
 # Delete any leftover external provider deployments from the main namespace
 oc delete deployment llm-katan-external -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
 oc delete service llm-katan-external -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
@@ -598,7 +587,6 @@ oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/infra/vllm-gpu.yaml"
 log "Waiting for all pods to be ready..."
 oc wait --for=condition=Ready pod -l app=mock-anthropic -n "$EXT_NAMESPACE" --timeout=120s 2>/dev/null || warn "mock-anthropic not ready yet"
 oc wait --for=condition=Ready pod -l app=llm-katan,role=external-provider -n "$EXT_NAMESPACE" --timeout=120s 2>/dev/null || warn "llm-katan-external not ready yet"
-oc wait --for=condition=Ready pod -l app=llm-katan,role=internal-model -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "llm-katan-internal not ready yet"
 oc wait --for=condition=Ready pod -l app=vsr-router -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "vsr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=bbr-router -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "bbr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=demo-ui -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "demo-ui not ready yet"
@@ -632,7 +620,7 @@ if [[ -n "$FREE_TOKEN" ]]; then
     echo -e "  ${YELLOW}Quick test:${NC}"
     echo -e "    curl -H 'Authorization: Bearer <token>' http://${AUTH_GW_URL}/v1/chat/completions \\"
     echo -e "      -H 'Content-Type: application/json' \\"
-    echo -e "      -d '{\"model\":\"qwen3-0.6b\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'"
+    echo -e "      -d '{\"model\":\"qwen2.5-7b\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'"
 fi
 echo ""
 echo -e "  Cleanup:  $0 --cleanup"

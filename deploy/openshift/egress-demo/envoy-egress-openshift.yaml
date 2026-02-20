@@ -51,23 +51,13 @@ static_resources:
                 route:
                   cluster: external_cluster
                   timeout: 300s
-              # Internal model route (model starts with qwen3)
-              - match:
-                  prefix: "/"
-                  headers:
-                  - name: x-selected-model
-                    string_match:
-                      prefix: "qwen3"
-                route:
-                  cluster: internal_cluster
-                  timeout: 300s
               # Default fallback — before ExtProc sets headers, this catches the initial request.
               # After ExtProc processes and sets x-selected-model + ClearRouteCache,
               # the request is re-routed to one of the above header-matched routes.
               - match:
                   prefix: "/"
                 route:
-                  cluster: internal_cluster
+                  cluster: gpu_cluster
                   timeout: 300s
           http_filters:
           - name: envoy.filters.http.ext_proc
@@ -144,21 +134,6 @@ static_resources:
               socket_address:
                 address: mock-anthropic.external-providers.svc.cluster.local
                 port_value: 8003
-
-  # Internal model (llm-katan-internal service)
-  - name: internal_cluster
-    type: STRICT_DNS
-    connect_timeout: 10s
-    lb_policy: ROUND_ROBIN
-    load_assignment:
-      cluster_name: internal_cluster
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: llm-katan-internal
-                port_value: 8000
 
   # GPU model (vLLM on GPU node)
   - name: gpu_cluster

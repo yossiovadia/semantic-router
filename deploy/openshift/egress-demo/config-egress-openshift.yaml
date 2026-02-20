@@ -37,10 +37,6 @@ vllm_endpoints:
     address: "mock-anthropic.external-providers.svc.cluster.local"
     port: 8003
     weight: 1
-  - name: "internal-endpoint"
-    address: "llm-katan-internal"
-    port: 8000
-    weight: 1
   - name: "gpu-endpoint"
     address: "vllm-gpu"
     port: 8000
@@ -55,8 +51,6 @@ model_config:
     # DEMO ONLY: Mock API key. In production, use K8s Secrets or ATM.
     access_key: "mock-anthropic-key-for-demo"
     preferred_endpoints: ["anthropic-endpoint"]
-  "qwen3-0.6b":
-    preferred_endpoints: ["internal-endpoint"]
   "qwen2.5-7b":
     preferred_endpoints: ["gpu-endpoint"]
 
@@ -143,11 +137,9 @@ default_model: "qwen2.5-7b"
 model_access_policy:
   free:
     allowed_models:
-      - "qwen3-0.6b"
       - "qwen2.5-7b"
   premium:
     allowed_models:
-      - "qwen3-0.6b"
       - "qwen2.5-7b"
       - "qwen2.5:1.5b"
       - "claude-sonnet"

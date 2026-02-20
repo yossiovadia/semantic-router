@@ -271,8 +271,8 @@ const SCENARIOS = {
   },
   internal: {
     name: 'Internal Model Routing',
-    desc: 'Routes to internal KServe-hosted model. No egress, no API translation. Standard OpenAI-compatible endpoint within the cluster.',
-    body: { model: 'qwen3-0.6b', messages: [{role:'user', content:'Hello, how are you?'}] },
+    desc: 'Routes to internal GPU model. No egress, no API translation. Standard OpenAI-compatible endpoint within the cluster.',
+    body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello, how are you?'}] },
     headers: {},
     backend: { label: 'KServe', detail: 'Internal Model' },
     expectBlock: false
@@ -297,8 +297,8 @@ const SCENARIOS = {
   },
   tier_free_allowed: {
     name: 'Free Tier \u2192 Internal (Allowed)',
-    desc: 'Free tier user requests internal model. Authorino validates token, resolves tier from MaaS API. Policy allows qwen3-0.6b for free tier. Request passes through to KServe.',
-    body: { model: 'qwen3-0.6b', messages: [{role:'user', content:'Hello'}] },
+    desc: 'Free tier user requests internal model. Authorino validates token, resolves tier from MaaS API. Policy allows qwen2.5-7b for free tier. Request passes through to KServe.',
+    body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}] },
     headers: {},
     user: 'free',
     useGateway: true,
@@ -328,7 +328,7 @@ const SCENARIOS = {
   auth_rejected: {
     name: 'No Token \u2192 Rejected (401)',
     desc: 'Request without authentication token. Gateway (Kuadrant/Authorino) rejects before reaching vSR.',
-    body: { model: 'qwen3-0.6b', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
+    body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}], max_tokens: 10 },
     headers: {},
     useGateway: true,
     // no user property = no token
@@ -357,7 +357,7 @@ const SCENARIOS = {
   bbr_internal: {
     name: 'BBR: Internal Model',
     desc: 'vSR BBR plugin routes to internal KServe model. Same as ExtProc but plugin runs in-process \u2014 no network hop to a separate vSR service.',
-    body: { model: 'qwen3-0.6b', messages: [{role:'user', content:'Hello'}] },
+    body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}] },
     headers: {},
     backend: { label: 'KServe', detail: 'via BBR Plugin' },
     expectBlock: false,
@@ -369,7 +369,7 @@ async function checkHealth() {
   const el = document.getElementById('status');
   try {
     const r = await fetch(GW + '/v1/chat/completions', { method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({model:'qwen3-0.6b', messages:[{role:'user',content:'ping'}]}) });
+      body: JSON.stringify({model:'qwen2.5-7b', messages:[{role:'user',content:'ping'}]}) });
     if (r.ok) { el.textContent = 'Gateway Connected'; el.className = 'status ok'; }
     else { el.textContent = 'Gateway Error'; el.className = 'status err'; }
   } catch(e) { el.textContent = 'Gateway Unreachable'; el.className = 'status err'; }

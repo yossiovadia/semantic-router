@@ -299,7 +299,6 @@
               <label>Model</label>
               <select id="query-model">
                 <option value="auto">auto (AI classification for routing)</option>
-                <option value="qwen3-0.6b">qwen3-0.6b (internal CPU)</option>
                 <option value="qwen2.5-7b">qwen2.5-7b (internal GPU)</option>
                 <option value="qwen2.5:1.5b">qwen2.5:1.5b (external mock)</option>
                 <option value="claude-sonnet">claude-sonnet (external Anthropic mock)</option>
@@ -385,7 +384,7 @@ const DEPARTMENTS = {
     label: 'Intern',
     username: 'intern-user',
     tier: 'free',
-    models: ['qwen3-0.6b', 'qwen2.5-7b'],
+    models: ['qwen2.5-7b'],
     description: 'Cost-optimized, on-prem only',
   },
   finance: {
@@ -507,7 +506,7 @@ function classifyMessage(message) {
 
 function resolveModel(classification, dept) {
   const d = DEPARTMENTS[dept];
-  if (!d) return { model: 'qwen3-0.6b', reason: 'unknown department', type: 'internal' };
+  if (!d) return { model: 'qwen2.5-7b', reason: 'unknown department', type: 'internal' };
 
   // PII detected: always route internal for compliance
   if (classification.piiDetected) {
@@ -528,8 +527,8 @@ function resolveModel(classification, dept) {
       };
     }
     return {
-      model: 'qwen3-0.6b',
-      reason: 'cost optimized, simple query on internal CPU',
+      model: 'qwen2.5-7b',
+      reason: 'cost optimized, simple query on internal GPU',
       type: 'internal',
     };
   }
@@ -549,8 +548,8 @@ function resolveModel(classification, dept) {
     };
   } else {
     return {
-      model: 'qwen3-0.6b',
-      reason: 'simple query, cost optimized internal CPU',
+      model: 'qwen2.5-7b',
+      reason: 'simple query, cost optimized internal GPU',
       type: 'internal',
     };
   }
@@ -917,7 +916,6 @@ function getProviderInfo(model) {
   const map = {
     'qwen2.5:1.5b': { provider: 'OpenAI External', format: 'openai' },
     'claude-sonnet': { provider: 'Anthropic External', format: 'anthropic' },
-    'qwen3-0.6b': { provider: 'Internal KServe', format: 'openai' },
     'qwen2.5-7b': { provider: 'Internal KServe', format: 'openai' },
   };
   return map[model] || { provider: 'Unknown', format: 'openai' };

@@ -134,11 +134,11 @@ assert_model_is_internal() {
     local label=$1 body=$2
     local model
     model=$(python3 -c "import sys,json; d=json.load(open('$body')); print(d.get('model',''))" 2>/dev/null || echo "")
-    if [[ "$model" == "qwen3-0.6b" || "$model" == "qwen2.5-7b" ]]; then
+    if [[ "$model" == "qwen2.5-7b" ]]; then
         echo -e "  ${GREEN}PASS${RESET} $label: routed to internal model ($model)"
         ((PASS++))
     else
-        echo -e "  ${RED}FAIL${RESET} $label: routed to $model (expected internal: qwen3-0.6b or qwen2.5-7b)"
+        echo -e "  ${RED}FAIL${RESET} $label: routed to $model (expected internal: qwen2.5-7b)"
         ((FAIL++))
     fi
 }
@@ -335,11 +335,11 @@ else
 fi
 
 echo ""
-echo "Test 5.2: CPU model also gives real response"
+echo "Test 5.2: GPU model also responds to simple query"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
-assert_status "CPU model" "$HEADERS" "200"
+    -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
+assert_status "GPU model simple" "$HEADERS" "200"
 
 echo ""
 

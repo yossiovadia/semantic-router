@@ -168,13 +168,13 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 "name": "free",
                 "level": 0,
                 "displayName": "Free Tier",
-                "models": ["qwen3-0.6b"],
+                "models": ["qwen2.5-7b"],
             },
             {
                 "name": "premium",
                 "level": 1,
                 "displayName": "Premium Tier",
-                "models": ["qwen3-0.6b", "qwen2.5:1.5b", "claude-sonnet"],
+                "models": ["qwen2.5-7b", "qwen2.5:1.5b", "claude-sonnet"],
             },
             {
                 "name": "enterprise",
@@ -207,13 +207,6 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 "hasKey": True,
                 "keyPreview": "mock-ant...demo",
                 "keyInfo": "Configured in vSR config (model_config.access_key)",
-            },
-            {
-                "model": "qwen3-0.6b",
-                "endpoint": "Internal (CPU)",
-                "format": "openai",
-                "hasKey": False,
-                "keyInfo": "internal model, CPU inference (Qwen3-0.6B)",
             },
             {
                 "model": "qwen2.5-7b",
@@ -496,7 +489,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         token = body.get("token", "").strip()
-        model = body.get("model", "qwen3-0.6b").strip()
+        model = body.get("model", "qwen2.5-7b").strip()
         message = body.get("message", "Hello").strip()
 
         if not token:
