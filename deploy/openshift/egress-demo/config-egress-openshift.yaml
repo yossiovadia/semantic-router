@@ -84,8 +84,8 @@ categories:
 strategy: "priority"
 
 decisions:
-  # High complexity / specialized domains → external model (when tier allows)
-  - name: "math_external"
+  # High complexity + specialized domain → external model (when tier allows)
+  - name: "complex_math_external"
     description: "Route complex math to powerful external model"
     priority: 100
     rules:
@@ -93,6 +93,8 @@ decisions:
       conditions:
         - type: "domain"
           name: "math"
+        - type: "complexity"
+          name: "hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -102,14 +104,16 @@ decisions:
         threshold: 0.7
         pii_types_allowed: []
 
-  - name: "cs_external"
-    description: "Route CS/coding to external model"
+  - name: "complex_cs_external"
+    description: "Route complex CS/coding to external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "computer_science"
+        - type: "complexity"
+          name: "hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -120,6 +124,7 @@ decisions:
         pii_types_allowed: []
 
   # Default → GPU model (internal, high quality, data stays on-prem)
+  # Simple/medium queries stay internal regardless of domain
   - name: "default_internal"
     description: "Default: route to internal GPU model"
     priority: 1

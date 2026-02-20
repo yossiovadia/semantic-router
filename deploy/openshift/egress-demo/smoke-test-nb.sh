@@ -153,15 +153,15 @@ echo "--- Group 1: Classification Headers ---"
 echo "Test 1.1: Domain classification header present"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is the derivative of x squared?"}],"max_tokens":10}'
-assert_header_exists "Domain classification" "$HEADERS" "x-vsr-selected-category"
+    -d '{"model":"auto","messages":[{"role":"user","content":"What is the derivative of x squared?"}],"max_tokens":10}'
+assert_header_exists "Domain classification" "$HEADERS" "x-vsr-matched-domains"
 
 echo ""
 echo "Test 1.2: Math query classified as math/STEM domain"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Prove that the square root of 2 is irrational using proof by contradiction"}],"max_tokens":10}'
-assert_header_contains "Math classification" "$HEADERS" "x-vsr-selected-category" "math"
+    -d '{"model":"auto","messages":[{"role":"user","content":"Prove that the square root of 2 is irrational using proof by contradiction"}],"max_tokens":10}'
+assert_header_contains "Math classification" "$HEADERS" "x-vsr-matched-domains" "math"
 
 echo ""
 
@@ -202,11 +202,18 @@ echo ""
 
 echo "--- Group 3: Complexity-Based Routing ---"
 
-echo "Test 3.1: Simple non-math query → routed to internal model (default)"
+echo "Test 3.1: Simple query → routed to internal model (low complexity)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"auto","messages":[{"role":"user","content":"How is the weather today?"}],"max_tokens":10}'
-assert_model_is_internal "General → internal" "$BODY"
+    -d '{"model":"auto","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
+assert_model_is_internal "Simple math → internal" "$BODY"
+
+echo ""
+echo "Test 3.1b: Simple greeting → routed to internal model"
+curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
+    -H "Content-Type: application/json" \
+    -d '{"model":"auto","messages":[{"role":"user","content":"Hi, how are you?"}],"max_tokens":10}'
+assert_model_is_internal "Greeting → internal" "$BODY"
 
 echo ""
 echo "Test 3.2: Complex query with enterprise tier → can route to external"
