@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Egress Inference Routing — Financial Services Demo</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #c9d1d9;
+    --text-muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: var(--bg); color: var(--text); }
+
+  header { padding: 20px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .subtitle { color: var(--text-muted); font-size: 13px; }
+  header .nav-links { margin-left: auto; display: flex; gap: 8px; }
+  header .nav-link {
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.15s;
+  }
+  header .nav-link:hover { background: var(--surface); border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 61px); }
+
+  /* Sidebar */
+  .sidebar { border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 16px 0 8px; }
+  .sidebar h2:first-child { margin-top: 0; }
+
+  .dept-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 2px;
+    border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s;
+    font-size: 13px;
+  }
+  .dept-item:hover { background: var(--surface); border-color: var(--border); }
+  .dept-item.selected { background: var(--surface); border-color: var(--accent); }
+  .dept-item .radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .dept-item.selected .radio { border-color: var(--accent); }
+  .dept-item.selected .radio::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .dept-item .dept-info { flex: 1; min-width: 0; }
+  .dept-item .dept-name { font-weight: 600; font-size: 13px; }
+  .dept-item .dept-tier { font-size: 10px; color: var(--text-muted); }
+
+  .tier-badge {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 3px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tier-free { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tier-premium { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .tier-enterprise { background: rgba(240,136,62,0.15); color: var(--orange); }
+
+  .dept-info-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px;
+    font-size: 12px; margin-top: 8px;
+  }
+  .dept-info-box .info-row { margin: 4px 0; }
+  .dept-info-box .info-label { color: var(--text-muted); }
+  .dept-info-box .info-value { color: var(--text); font-weight: 600; }
+  .dept-info-box .model-tag {
+    display: inline-block; padding: 2px 6px; margin: 2px 0; background: rgba(88,166,255,0.1);
+    border-radius: 3px; font-family: monospace; font-size: 11px; color: var(--accent);
+  }
+
+  .preset-btn {
+    display: block; width: 100%; padding: 8px 12px; margin-bottom: 4px;
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.15s;
+    text-align: left; line-height: 1.4;
+  }
+  .preset-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .preset-btn .preset-label { font-weight: 600; display: block; }
+  .preset-btn .preset-hint { font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px; }
+  .preset-btn:hover .preset-hint { color: var(--accent); opacity: 0.7; }
+
+  /* Main content */
+  .main { overflow-y: auto; padding: 24px 32px; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+    font-weight: 600; display: flex; align-items: center; gap: 8px;
+  }
+  .panel-body { padding: 16px; }
+
+  /* Query form */
+  .query-form { display: flex; flex-direction: column; gap: 12px; }
+  .query-form .field { display: flex; flex-direction: column; gap: 4px; }
+  .query-form .field-row { display: flex; gap: 12px; align-items: flex-end; }
+  .query-form label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .query-form select {
+    padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  .query-form select:focus { outline: none; border-color: var(--accent); }
+  .query-form textarea {
+    padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 13px; font-family: inherit;
+    resize: vertical; min-height: 72px; line-height: 1.5;
+  }
+  .query-form textarea:focus { outline: none; border-color: var(--accent); }
+  .model-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .send-btn {
+    padding: 8px 20px; background: var(--accent); border: none; border-radius: 4px;
+    color: var(--bg); font-weight: 600; cursor: pointer; font-size: 13px; font-family: inherit;
+    transition: opacity 0.15s; align-self: flex-start;
+  }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Routing Decision */
+  .routing-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .routing-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .routing-item .routing-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; }
+  .routing-item .routing-value { font-size: 14px; font-weight: 600; }
+  .routing-item .routing-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .routing-decision {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px;
+    font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+  }
+  .routing-decision .decision-arrow { font-size: 16px; }
+  .routing-decision .decision-reason { font-size: 12px; font-weight: 400; color: var(--text-muted); margin-top: 4px; }
+  .routing-decision.internal { border-left: 3px solid var(--green); }
+  .routing-decision.external { border-left: 3px solid var(--accent); }
+  .routing-decision.blocked { border-left: 3px solid var(--red); }
+  .routing-decision.pii-forced { border-left: 3px solid var(--orange); }
+
+  /* Model Response */
+  .model-response-text {
+    font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap;
+    word-wrap: break-word; max-height: 200px; overflow-y: auto;
+  }
+  .response-meta { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+  /* Architecture diagram */
+  .arch-flow { display: flex; align-items: center; gap: 0; justify-content: center; flex-wrap: nowrap; margin: 16px 0; }
+  .arch-box {
+    padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    text-align: center; min-width: 110px; transition: all 0.3s; cursor: pointer;
+  }
+  .arch-box .label { font-size: 12px; font-weight: 600; }
+  .arch-box .detail { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  .arch-box.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
+  .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
+  .arch-box.active.extproc-glow { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
+  .arch-box.active.auth-glow { border-color: var(--orange); box-shadow: 0 0 12px rgba(240,136,62,0.3); animation: neon-pulse-auth 1.5s ease-in-out infinite; }
+  .arch-box.dimmed { opacity: 0.3; }
+  .arch-box .classify-badge {
+    display: none; font-size: 9px; background: rgba(88,166,255,0.15); color: var(--accent);
+    padding: 1px 6px; border-radius: 3px; margin-top: 4px;
+  }
+  .arch-box.classify-active .classify-badge { display: inline-block; }
+
+  @keyframes neon-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(63,185,80,0.2), 0 0 20px rgba(63,185,80,0.1); }
+    50% { box-shadow: 0 0 16px rgba(63,185,80,0.5), 0 0 40px rgba(63,185,80,0.3), 0 0 60px rgba(63,185,80,0.1); border-color: #6fdd8b; }
+  }
+  @keyframes neon-pulse-red {
+    0%, 100% { box-shadow: 0 0 8px rgba(248,81,73,0.2), 0 0 20px rgba(248,81,73,0.1); }
+    50% { box-shadow: 0 0 16px rgba(248,81,73,0.5), 0 0 40px rgba(248,81,73,0.3), 0 0 60px rgba(248,81,73,0.1); border-color: #ff6b6b; }
+  }
+  @keyframes neon-pulse-extproc {
+    0%, 100% { box-shadow: 0 0 8px rgba(88,166,255,0.2), 0 0 20px rgba(88,166,255,0.1); }
+    50% { box-shadow: 0 0 16px rgba(88,166,255,0.5), 0 0 40px rgba(88,166,255,0.3), 0 0 60px rgba(88,166,255,0.1); border-color: #79c0ff; }
+  }
+  @keyframes neon-pulse-auth {
+    0%, 100% { box-shadow: 0 0 8px rgba(240,136,62,0.2), 0 0 20px rgba(240,136,62,0.1); }
+    50% { box-shadow: 0 0 16px rgba(240,136,62,0.5), 0 0 40px rgba(240,136,62,0.3), 0 0 60px rgba(240,136,62,0.1); border-color: #f4a261; }
+  }
+
+  .arch-arrow { font-size: 18px; color: var(--border); padding: 0 8px; transition: color 0.3s; min-width: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .arch-arrow .arrow-icon { line-height: 1; }
+  .arch-arrow .arrow-ms { font-size: 9px; color: var(--text-muted); font-family: monospace; opacity: 0; transition: opacity 0.3s; }
+  .arch-arrow.active .arrow-ms { opacity: 1; color: var(--green); }
+  .arch-arrow.blocked .arrow-ms { opacity: 1; color: var(--red); }
+  .arch-arrow.active { color: var(--green); }
+  .arch-arrow.blocked { color: var(--red); }
+  .arch-arrow.dimmed { opacity: 0.3; }
+
+  /* Component log */
+  .trace-step { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; border-radius: 4px; transition: background 0.3s, box-shadow 0.3s; }
+  .trace-step .num { color: var(--text-muted); min-width: 24px; }
+  .trace-step .icon { min-width: 16px; }
+  .trace-step .icon.ok { color: var(--green); }
+  .trace-step .icon.err { color: var(--red); }
+  .trace-step .icon.warn { color: var(--orange); }
+  .trace-step .action { color: var(--text); }
+  .trace-step .value { color: var(--accent); font-family: monospace; }
+  .trace-step.blocked .action { color: var(--red); }
+  .trace-step.success .action { color: var(--green); }
+  .trace-step.auth .action { color: var(--orange); }
+  .trace-step.classify .action { color: var(--accent); }
+  .trace-step .sub-detail { display: block; padding-left: 50px; font-size: 11px; color: var(--text-muted); }
+  .trace-step.highlight { background: rgba(0,200,255,0.08); box-shadow: inset 3px 0 0 var(--accent); padding-left: 8px; }
+
+  .empty-state { color: var(--text-muted); font-size: 13px; font-style: italic; }
+  .error-state { color: var(--red); font-size: 13px; padding: 12px; border: 1px solid rgba(248,81,73,0.3); border-radius: 6px; background: rgba(248,81,73,0.05); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .setup-status { font-size: 11px; color: var(--text-muted); padding: 8px 0; }
+  .setup-status.ready { color: var(--green); }
+  .setup-status.error { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Egress Inference Routing</h1>
+  <span class="subtitle">Financial Services Demo</span>
+  <div class="nav-links">
+    <a href="/" class="nav-link">&larr; Main Demo</a>
+    <a href="/admin" class="nav-link">Admin</a>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h2>Department</h2>
+    <div id="dept-list">
+      <div class="dept-item" onclick="selectDept('intern')" id="dept-intern">
+        <div class="radio"></div>
+        <div class="dept-info">
+          <div class="dept-name">Intern</div>
+          <div class="dept-tier"><span class="tier-badge tier-free">free</span></div>
+        </div>
+      </div>
+      <div class="dept-item" onclick="selectDept('finance')" id="dept-finance">
+        <div class="radio"></div>
+        <div class="dept-info">
+          <div class="dept-name">Finance</div>
+          <div class="dept-tier"><span class="tier-badge tier-premium">premium</span></div>
+        </div>
+      </div>
+      <div class="dept-item" onclick="selectDept('principal')" id="dept-principal">
+        <div class="radio"></div>
+        <div class="dept-info">
+          <div class="dept-name">Principal Engineer</div>
+          <div class="dept-tier"><span class="tier-badge tier-enterprise">enterprise</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dept-info-panel" style="display:none;">
+      <h2>Department Info</h2>
+      <div class="dept-info-box" id="dept-details"></div>
+    </div>
+
+    <div id="setup-status" class="setup-status">Initializing...</div>
+
+    <h2>Preset Queries</h2>
+    <div id="preset-list">
+      <button class="preset-btn" onclick="loadPreset('simple_math')">
+        <span class="preset-label">Simple math</span>
+        <span class="preset-hint">Low complexity, internal routing</span>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('complex_proof')">
+        <span class="preset-label">Complex proof</span>
+        <span class="preset-hint">High complexity, external routing</span>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('portfolio_pii')">
+        <span class="preset-label">Portfolio query (PII)</span>
+        <span class="preset-hint">PII detected, forced internal</span>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('market_analysis')">
+        <span class="preset-label">Market analysis</span>
+        <span class="preset-hint">General query, no PII</span>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('code_review')">
+        <span class="preset-label">Code review</span>
+        <span class="preset-hint">CS domain, high complexity</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- Query Panel -->
+    <div class="panel">
+      <div class="panel-header">Query</div>
+      <div class="panel-body">
+        <div class="query-form">
+          <div class="field-row">
+            <div class="field">
+              <label>Model</label>
+              <select id="query-model">
+                <option value="auto">auto (AI classification for routing)</option>
+                <option value="qwen3-0.6b">qwen3-0.6b (internal CPU)</option>
+                <option value="qwen2.5-7b">qwen2.5-7b (internal GPU)</option>
+                <option value="qwen2.5:1.5b">qwen2.5:1.5b (external mock)</option>
+                <option value="claude-sonnet">claude-sonnet (external Anthropic mock)</option>
+              </select>
+              <div class="model-hint" id="model-hint">Auto mode uses AI classification to route based on domain, complexity, and PII.</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Message</label>
+            <textarea id="query-message" placeholder="Enter your message..." rows="3">What is 2+2?</textarea>
+          </div>
+          <button class="send-btn" id="btn-send" onclick="sendRequest()" disabled>Send Request</button>
+        </div>
+        <div id="no-token-msg" style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+          Select a department to begin.
+        </div>
+      </div>
+    </div>
+
+    <!-- Routing Decision Panel -->
+    <div class="panel" id="routing-panel" style="display:none;">
+      <div class="panel-header">Routing Decision</div>
+      <div class="panel-body">
+        <div class="routing-grid" id="routing-grid"></div>
+        <div class="routing-decision" id="routing-decision"></div>
+      </div>
+    </div>
+
+    <!-- Model Response -->
+    <div class="panel" id="response-panel" style="display:none;">
+      <div class="panel-header">Model Response</div>
+      <div class="panel-body">
+        <div class="model-response-text" id="model-response"></div>
+        <div class="response-meta" id="response-meta"></div>
+      </div>
+    </div>
+
+    <!-- Request Flow -->
+    <div class="panel">
+      <div class="panel-header">Request Flow</div>
+      <div class="panel-body">
+        <div class="arch-flow" id="arch-flow">
+          <div class="arch-box" id="box-client"><div class="label">Client</div><div class="detail">NB demo</div></div>
+          <div class="arch-arrow" id="arr-gw"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-gw"></span></div>
+          <div class="arch-box" id="box-gateway"><div class="label">Gateway</div><div class="detail">Kuadrant</div></div>
+          <div class="arch-arrow" id="arr-auth"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-auth"></span></div>
+          <div class="arch-box" id="box-authorino"><div class="label">Authorino/MaaS</div><div class="detail">Token + Tier</div></div>
+          <div class="arch-arrow" id="arr-1"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-1"></span></div>
+          <div class="arch-box" id="box-envoy"><div class="label">Envoy</div><div class="detail">:8801</div></div>
+          <div class="arch-arrow" id="arr-2"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-2"></span></div>
+          <div class="arch-box" id="box-vsr"><div class="label">vSR ExtProc</div><div class="detail">:50051</div><div class="classify-badge" id="classify-badge">CLASSIFY</div></div>
+          <div class="arch-arrow" id="arr-3"><span class="arrow-icon">&rarr;</span><span class="arrow-ms" id="ms-3"></span></div>
+          <div class="arch-box" id="box-backend"><div class="label" id="backend-label">Backend</div><div class="detail" id="backend-detail">...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component Log -->
+    <div class="panel">
+      <div class="panel-header">Component Log</div>
+      <div class="panel-body" id="component-log">
+        <span class="empty-state">Send a request to see the component trace.</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ---- State ----
+const state = {
+  selectedDept: null,
+  tokens: {},       // dept key -> { token, expiry }
+  users: {},        // dept key -> { name, tier, created }
+  tiers: null,
+  providers: null,
+  lastRouting: null, // last routing decision for display
+};
+
+// ---- Department definitions ----
+const DEPARTMENTS = {
+  intern: {
+    label: 'Intern',
+    username: 'intern-user',
+    tier: 'free',
+    models: ['qwen3-0.6b', 'qwen2.5-7b'],
+    description: 'Cost-optimized, on-prem only',
+  },
+  finance: {
+    label: 'Finance',
+    username: 'finance-user',
+    tier: 'premium',
+    models: ['*'],
+    description: 'Full access, but PII forces internal',
+  },
+  principal: {
+    label: 'Principal Engineer',
+    username: 'principal-user',
+    tier: 'enterprise',
+    models: ['*'],
+    description: 'Unrestricted access',
+  },
+};
+
+// ---- Preset queries ----
+const PRESETS = {
+  simple_math: {
+    message: 'What is 2+2?',
+    model: 'auto',
+    expectedDomain: 'math',
+    expectedComplexity: 'easy',
+    expectedPII: false,
+  },
+  complex_proof: {
+    message: 'Prove that the square root of 2 is irrational using proof by contradiction',
+    model: 'auto',
+    expectedDomain: 'math',
+    expectedComplexity: 'hard',
+    expectedPII: false,
+  },
+  portfolio_pii: {
+    message: 'Check the portfolio for client John Smith, SSN 456-78-9012, and tell me the fixed income weighting',
+    model: 'auto',
+    expectedDomain: 'business',
+    expectedComplexity: 'medium',
+    expectedPII: true,
+    expectedPIITypes: ['SSN'],
+  },
+  market_analysis: {
+    message: 'What are the current market trends in technology sector bonds?',
+    model: 'auto',
+    expectedDomain: 'business',
+    expectedComplexity: 'medium',
+    expectedPII: false,
+  },
+  code_review: {
+    message: 'Review this Python function for security vulnerabilities: def process_payment(card_number, amount):',
+    model: 'auto',
+    expectedDomain: 'CS',
+    expectedComplexity: 'hard',
+    expectedPII: false,
+  },
+};
+
+// ---- API helpers ----
+async function apiFetch(path, opts = {}) {
+  const resp = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+  });
+  const data = await resp.json();
+  if (!resp.ok && !data) throw new Error('HTTP ' + resp.status);
+  return { status: resp.status, data, headers: resp.headers };
+}
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
+// ---- Classification logic (client-side heuristic for "auto" mode) ----
+// This simulates what vSR would do with ModernBERT classifiers
+
+function classifyMessage(message) {
+  const lower = message.toLowerCase();
+
+  // PII detection
+  const piiTypes = [];
+  if (/\b\d{3}-\d{2}-\d{4}\b/.test(message)) piiTypes.push('SSN');
+  if (/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/.test(message)) piiTypes.push('Credit Card');
+  if (/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/.test(message) && piiTypes.length > 0) piiTypes.push('Name');
+
+  // Domain classification
+  let domain = 'other';
+  let confidence = 0.75;
+
+  if (/\b(math|calculus|algebra|derivative|integral|equation|proof|square root|irrational|theorem|polynomial)\b/i.test(message) ||
+      /\b\d+\s*[\+\-\*\/]\s*\d+\b/.test(message)) {
+    domain = 'math';
+    confidence = 0.92;
+  } else if (/\b(code|function|python|javascript|programming|algorithm|debug|review|security|vulnerabilit|def |class |import )\b/i.test(message)) {
+    domain = 'CS';
+    confidence = 0.89;
+  } else if (/\b(health|medical|diagnosis|symptom|treatment|patient|clinical)\b/i.test(message)) {
+    domain = 'health';
+    confidence = 0.88;
+  } else if (/\b(market|portfolio|bond|stock|finance|investment|fiscal|revenue|trading|asset|weighting|fixed income)\b/i.test(message)) {
+    domain = 'business';
+    confidence = 0.87;
+  }
+
+  // Complexity assessment
+  let complexity = 'easy';
+  const wordCount = message.split(/\s+/).length;
+  if (wordCount > 20 || /\b(prove|analyze|evaluate|compare|explain in detail|comprehensive|review)\b/i.test(message)) {
+    complexity = 'hard';
+  } else if (wordCount > 10 || /\b(describe|explain|what are|how does|tell me)\b/i.test(message)) {
+    complexity = 'medium';
+  }
+
+  return { domain, confidence, complexity, piiDetected: piiTypes.length > 0, piiTypes };
+}
+
+function resolveModel(classification, dept) {
+  const d = DEPARTMENTS[dept];
+  if (!d) return { model: 'qwen3-0.6b', reason: 'unknown department', type: 'internal' };
+
+  // PII detected: always route internal for compliance
+  if (classification.piiDetected) {
+    return {
+      model: 'qwen2.5-7b',
+      reason: 'compliance: PII detected, data stays on-prem',
+      type: 'pii-forced',
+    };
+  }
+
+  // Intern tier: always internal
+  if (d.tier === 'free') {
+    if (classification.complexity === 'hard') {
+      return {
+        model: 'qwen2.5-7b',
+        reason: 'cost optimized, intern tier restricted to internal models',
+        type: 'internal',
+      };
+    }
+    return {
+      model: 'qwen3-0.6b',
+      reason: 'cost optimized, simple query on internal CPU',
+      type: 'internal',
+    };
+  }
+
+  // Premium/Enterprise: route based on complexity
+  if (classification.complexity === 'hard') {
+    return {
+      model: 'claude-sonnet',
+      reason: 'high complexity ' + classification.domain + ', routed to external',
+      type: 'external',
+    };
+  } else if (classification.complexity === 'medium') {
+    return {
+      model: 'qwen2.5-7b',
+      reason: 'medium complexity, internal GPU sufficient',
+      type: 'internal',
+    };
+  } else {
+    return {
+      model: 'qwen3-0.6b',
+      reason: 'simple query, cost optimized internal CPU',
+      type: 'internal',
+    };
+  }
+}
+
+// Check if a forced model is allowed for the department tier
+function isModelAllowed(model, dept) {
+  const d = DEPARTMENTS[dept];
+  if (!d) return false;
+  if (d.models[0] === '*') return true;
+  return d.models.includes(model);
+}
+
+// ---- Department selection ----
+
+async function selectDept(deptKey) {
+  state.selectedDept = deptKey;
+  const dept = DEPARTMENTS[deptKey];
+
+  // Update radio selection
+  document.querySelectorAll('.dept-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('dept-' + deptKey).classList.add('selected');
+
+  // Show department info
+  const infoPanel = document.getElementById('dept-info-panel');
+  const details = document.getElementById('dept-details');
+  const modelTags = dept.models[0] === '*'
+    ? '<span class="model-tag">* (all models)</span>'
+    : dept.models.map(m => '<span class="model-tag">' + esc(m) + '</span>').join(' ');
+
+  details.innerHTML =
+    '<div class="info-row"><span class="info-label">Role: </span><span class="info-value">' + esc(dept.label) + '</span></div>' +
+    '<div class="info-row"><span class="info-label">Tier: </span><span class="info-value"><span class="tier-badge tier-' + esc(dept.tier) + '">' + esc(dept.tier) + '</span></span></div>' +
+    '<div class="info-row"><span class="info-label">Models: </span><span class="info-value">' + modelTags + '</span></div>' +
+    '<div class="info-row" style="margin-top:4px;"><span class="info-label" style="font-size:11px;">' + esc(dept.description) + '</span></div>';
+  infoPanel.style.display = '';
+
+  // Reset panels
+  resetArchDiagram();
+  document.getElementById('routing-panel').style.display = 'none';
+  document.getElementById('response-panel').style.display = 'none';
+  document.getElementById('component-log').innerHTML = '<span class="empty-state">Send a request to see the component trace.</span>';
+
+  // Ensure user exists and get token
+  await ensureDeptUser(deptKey);
+}
+
+async function ensureDeptUser(deptKey) {
+  const dept = DEPARTMENTS[deptKey];
+  const statusEl = document.getElementById('setup-status');
+  const btnSend = document.getElementById('btn-send');
+  const noToken = document.getElementById('no-token-msg');
+
+  // Check if we already have a cached token
+  if (state.tokens[deptKey] && state.tokens[deptKey].token) {
+    btnSend.disabled = false;
+    noToken.style.display = 'none';
+    statusEl.textContent = 'Ready (' + esc(dept.label) + ')';
+    statusEl.className = 'setup-status ready';
+    return;
+  }
+
+  statusEl.textContent = 'Setting up ' + dept.label + '...';
+  statusEl.className = 'setup-status';
+  btnSend.disabled = true;
+  noToken.style.display = '';
+  noToken.textContent = 'Setting up department user...';
+
+  try {
+    // Check if user exists
+    const { data: users } = await apiFetch('/api/admin/users');
+    const userList = Array.isArray(users) ? users : (users.users || []);
+    const existing = userList.find(u => u.name === dept.username);
+
+    if (!existing) {
+      // Create user
+      statusEl.textContent = 'Creating user ' + dept.username + '...';
+      const { status, data } = await apiFetch('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({ username: dept.username, tier: dept.tier }),
+      });
+      if (status >= 400) {
+        throw new Error(data.error || 'Failed to create user (HTTP ' + status + ')');
+      }
+      state.users[deptKey] = { name: dept.username, tier: dept.tier, created: true };
+    } else {
+      state.users[deptKey] = { name: existing.name, tier: existing.tier, created: false };
+    }
+
+    // Issue token
+    statusEl.textContent = 'Issuing token for ' + dept.label + '...';
+    const { data: tokenData } = await apiFetch('/api/admin/token', {
+      method: 'POST',
+      body: JSON.stringify({ username: dept.username, tier: dept.tier }),
+    });
+
+    state.tokens[deptKey] = {
+      token: tokenData.token || '',
+      expiry: tokenData.expiresAt || '',
+    };
+
+    btnSend.disabled = false;
+    noToken.style.display = 'none';
+    statusEl.textContent = 'Ready (' + esc(dept.label) + ')';
+    statusEl.className = 'setup-status ready';
+
+  } catch (e) {
+    statusEl.textContent = 'Setup failed: ' + e.message;
+    statusEl.className = 'setup-status error';
+    noToken.textContent = 'Failed to set up department: ' + esc(e.message);
+    noToken.style.display = '';
+    btnSend.disabled = true;
+  }
+}
+
+// ---- Preset queries ----
+
+function loadPreset(presetKey) {
+  const preset = PRESETS[presetKey];
+  if (!preset) return;
+  document.getElementById('query-message').value = preset.message;
+  document.getElementById('query-model').value = preset.model;
+  updateModelHint();
+}
+
+function updateModelHint() {
+  const model = document.getElementById('query-model').value;
+  const hint = document.getElementById('model-hint');
+  if (model === 'auto') {
+    hint.textContent = 'Auto mode uses AI classification to route based on domain, complexity, and PII.';
+  } else {
+    hint.textContent = 'Force-routing to ' + model + '. Classification is skipped.';
+  }
+}
+
+document.getElementById('query-model').addEventListener('change', updateModelHint);
+
+// ---- Send Request ----
+
+async function sendRequest() {
+  if (!state.selectedDept) return;
+  const deptKey = state.selectedDept;
+  const dept = DEPARTMENTS[deptKey];
+  const tokenInfo = state.tokens[deptKey];
+  if (!tokenInfo || !tokenInfo.token) return;
+
+  const selectedModel = document.getElementById('query-model').value;
+  const message = document.getElementById('query-message').value.trim() || 'Hello';
+  const isAuto = selectedModel === 'auto';
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  // Reset UI
+  resetArchDiagram();
+  document.getElementById('component-log').innerHTML = '<span class="spinner"></span> Processing...';
+  document.getElementById('response-panel').style.display = 'none';
+  document.getElementById('routing-panel').style.display = 'none';
+
+  // Classification (for auto mode, or for display even in forced mode)
+  const classification = classifyMessage(message);
+
+  // Determine actual model to use
+  let actualModel;
+  let routingType;
+  let routingReason;
+  let isBlocked = false;
+
+  if (isAuto) {
+    const resolved = resolveModel(classification, deptKey);
+    actualModel = resolved.model;
+    routingReason = resolved.reason;
+    routingType = resolved.type;
+  } else {
+    actualModel = selectedModel;
+    // Check if forced model is allowed
+    if (!isModelAllowed(actualModel, deptKey)) {
+      routingType = 'blocked';
+      routingReason = dept.label + ' tier cannot access ' + actualModel;
+      isBlocked = true;
+    } else if (classification.piiDetected && (actualModel === 'qwen2.5:1.5b' || actualModel === 'claude-sonnet')) {
+      // PII + external: warn but allow if user forced it
+      routingType = 'pii-forced';
+      routingReason = 'PII detected but model was manually selected (override)';
+    } else {
+      routingType = (actualModel === 'qwen2.5:1.5b' || actualModel === 'claude-sonnet') ? 'external' : 'internal';
+      routingReason = 'manually selected model';
+    }
+  }
+
+  // Show routing decision
+  showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto);
+
+  // Build and send request
+  try {
+    const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
+      method: 'POST',
+      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message }),
+    });
+
+    const totalMs = data.elapsed_ms || 0;
+    const respStatus = data.status || httpStatus;
+    const respBody = data.response || data;
+    const serverBlocked = respStatus === 403 || (respBody && respBody.error && respBody.error.code === 403);
+    const isRateLimited = respStatus === 429;
+    const respHeaders = data.headers || {};
+
+    if (isRateLimited) {
+      updateArchDiagramRateLimited();
+      updateComponentLogRateLimited(dept);
+    } else if (serverBlocked || isBlocked) {
+      updateArchDiagram(actualModel, dept, true, totalMs);
+      updateComponentLog(actualModel, dept, classification, true, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+
+      // Override routing decision to blocked
+      if (serverBlocked && !isBlocked) {
+        showRoutingDecision(classification, actualModel, 'blocked',
+          dept.label + ' tier cannot access ' + actualModel, isAuto);
+      }
+    } else {
+      updateArchDiagram(actualModel, dept, false, totalMs);
+      updateComponentLog(actualModel, dept, classification, false, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+      showModelResponse(respBody, false, actualModel, totalMs);
+    }
+
+  } catch (e) {
+    document.getElementById('component-log').innerHTML = '<div class="error-state">Request failed: ' + esc(e.message) + '</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send Request';
+}
+
+// ---- Routing Decision panel ----
+
+function showRoutingDecision(classification, model, type, reason, isAuto) {
+  const panel = document.getElementById('routing-panel');
+  const grid = document.getElementById('routing-grid');
+  const decision = document.getElementById('routing-decision');
+
+  // Domain
+  const domainHtml = '<div class="routing-item">' +
+    '<div class="routing-label">Domain</div>' +
+    '<div class="routing-value">' + esc(classification.domain) + '</div>' +
+    '<div class="routing-detail">confidence: ' + classification.confidence.toFixed(2) + '</div>' +
+    '</div>';
+
+  // Complexity
+  const complexColor = classification.complexity === 'hard' ? 'var(--orange)' :
+    classification.complexity === 'medium' ? 'var(--yellow)' : 'var(--green)';
+  const complexHtml = '<div class="routing-item">' +
+    '<div class="routing-label">Complexity</div>' +
+    '<div class="routing-value" style="color:' + complexColor + ';">' + esc(classification.complexity) + '</div>' +
+    '<div class="routing-detail">' + (isAuto ? 'used for routing' : 'informational') + '</div>' +
+    '</div>';
+
+  // PII
+  let piiColor = 'var(--green)';
+  let piiText = 'none detected';
+  let piiDetail = 'clean';
+  if (classification.piiDetected) {
+    piiColor = 'var(--orange)';
+    piiText = 'detected';
+    piiDetail = classification.piiTypes.join(', ');
+  }
+  const piiHtml = '<div class="routing-item">' +
+    '<div class="routing-label">PII</div>' +
+    '<div class="routing-value" style="color:' + piiColor + ';">' + esc(piiText) + (classification.piiDetected ? ' &#9888;' : '') + '</div>' +
+    '<div class="routing-detail">' + esc(piiDetail) + '</div>' +
+    '</div>';
+
+  grid.innerHTML = domainHtml + complexHtml + piiHtml;
+
+  // Decision
+  let decisionColor;
+  let decisionCls;
+  switch (type) {
+    case 'internal':
+      decisionColor = 'var(--green)';
+      decisionCls = 'internal';
+      break;
+    case 'external':
+      decisionColor = 'var(--accent)';
+      decisionCls = 'external';
+      break;
+    case 'blocked':
+      decisionColor = 'var(--red)';
+      decisionCls = 'blocked';
+      break;
+    case 'pii-forced':
+      decisionColor = 'var(--orange)';
+      decisionCls = 'pii-forced';
+      break;
+    default:
+      decisionColor = 'var(--text)';
+      decisionCls = 'internal';
+  }
+
+  const arrow = type === 'blocked' ? '&#10007;' : '&#8594;';
+  decision.className = 'routing-decision ' + decisionCls;
+  decision.innerHTML = '<span class="decision-arrow" style="color:' + decisionColor + ';">' + arrow + '</span>' +
+    '<div><span style="color:' + decisionColor + ';">' + esc(model) + '</span>' +
+    '<div class="decision-reason">' + esc(reason) + '</div></div>';
+
+  panel.style.display = '';
+  panel.classList.add('fade-in');
+}
+
+// ---- Model Response ----
+
+function showModelResponse(respBody, isBlocked, model, totalMs) {
+  const panel = document.getElementById('response-panel');
+  const responseEl = document.getElementById('model-response');
+  const metaEl = document.getElementById('response-meta');
+
+  if (isBlocked) {
+    const errMsg = respBody && respBody.error ? respBody.error.message : 'Request blocked';
+    responseEl.innerHTML = '<span style="color:var(--red);">' + esc(errMsg) + '</span>';
+    metaEl.textContent = 'Model: ' + model + ' | Blocked by tier policy';
+    panel.style.display = '';
+    return;
+  }
+
+  let replyText = '';
+  let tokensUsed = '';
+  try {
+    if (respBody && respBody.choices && respBody.choices[0]) {
+      replyText = respBody.choices[0].message.content || '';
+      // Clean up small-model artifacts
+      const userIdx = replyText.search(/\n\s*(User:|Human:|Q:|A:|\n\n\n)/);
+      if (userIdx > 0) replyText = replyText.substring(0, userIdx).trim();
+    }
+    if (respBody && respBody.usage) {
+      tokensUsed = respBody.usage.total_tokens + ' tokens';
+    }
+  } catch (e) {
+    replyText = JSON.stringify(respBody, null, 2);
+  }
+
+  if (replyText) {
+    responseEl.textContent = replyText;
+    metaEl.textContent = 'Model: ' + model + ' | ' + totalMs + 'ms | ' + tokensUsed;
+    panel.style.display = '';
+  }
+}
+
+// ---- Architecture Diagram ----
+
+function resetArchDiagram() {
+  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+  allIds.forEach(function(id) {
+    var el = document.getElementById(id);
+    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','auth-glow','classify-active');
+  });
+  ['ms-gw','ms-auth','ms-1','ms-2','ms-3'].forEach(function(id) {
+    document.getElementById(id).textContent = '';
+  });
+  document.getElementById('backend-label').textContent = 'Backend';
+  document.getElementById('backend-detail').textContent = '...';
+}
+
+function getProviderInfo(model) {
+  const map = {
+    'qwen2.5:1.5b': { provider: 'OpenAI External', format: 'openai' },
+    'claude-sonnet': { provider: 'Anthropic External', format: 'anthropic' },
+    'qwen3-0.6b': { provider: 'Internal KServe', format: 'openai' },
+    'qwen2.5-7b': { provider: 'Internal KServe', format: 'openai' },
+  };
+  return map[model] || { provider: 'Unknown', format: 'openai' };
+}
+
+function updateArchDiagram(model, dept, isBlocked, totalMs) {
+  resetArchDiagram();
+  var provInfo = getProviderInfo(model);
+  document.getElementById('backend-label').textContent = provInfo.provider.split(' ')[0];
+  document.getElementById('backend-detail').textContent = provInfo.provider;
+
+  var allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
+
+  if (isBlocked) {
+    ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2'].forEach(function(id) {
+      document.getElementById(id).classList.add('active');
+    });
+    document.getElementById('box-gateway').classList.add('auth-glow');
+    document.getElementById('box-authorino').classList.add('auth-glow');
+    document.getElementById('box-vsr').classList.add('blocked');
+    document.getElementById('arr-3').classList.add('blocked');
+    document.getElementById('box-backend').classList.add('dimmed');
+    if (totalMs > 0) document.getElementById('ms-2').textContent = totalMs + 'ms';
+  } else {
+    allIds.forEach(function(id) { document.getElementById(id).classList.add('active'); });
+    document.getElementById('box-gateway').classList.add('auth-glow');
+    document.getElementById('box-authorino').classList.add('auth-glow');
+    document.getElementById('box-backend').classList.add('neon');
+    document.getElementById('box-vsr').classList.add('extproc-glow');
+    document.getElementById('box-vsr').classList.add('classify-active');
+    if (totalMs > 0) document.getElementById('ms-3').textContent = totalMs + 'ms total';
+  }
+}
+
+function updateArchDiagramRateLimited() {
+  resetArchDiagram();
+  document.getElementById('box-client').classList.add('active');
+  document.getElementById('arr-gw').classList.add('active');
+  document.getElementById('box-gateway').classList.add('blocked');
+  ['arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'].forEach(function(id) {
+    document.getElementById(id).classList.add('dimmed');
+  });
+}
+
+// ---- Component Log ----
+
+function renderSteps(steps) {
+  return steps.map(function(s) {
+    var iconHtml = '<span class="icon ' + (s.icon === 'ok' ? 'ok' : s.icon === 'warn' ? 'warn' : 'err') + '">' +
+      (s.icon === 'ok' ? '\u2713' : s.icon === 'warn' ? '\u26A0' : '\u2717') + '</span>';
+    var html = '<div class="trace-step ' + (s.cls || '') + '" data-box="' + (s.box || '') + '">' +
+      '<span class="num">' + s.n + '.</span>' + iconHtml +
+      '<span class="action">' + s.action + (s.value ? ': ' : '') + '</span>' +
+      (s.value ? '<span class="value">' + s.value + '</span>' : '') +
+      '</div>';
+    if (s.sub) {
+      html += '<div class="trace-step"><span class="sub-detail">' + s.sub + '</span></div>';
+    }
+    return html;
+  }).join('');
+}
+
+function tierLevel(tier) {
+  switch (tier) {
+    case 'free': return 0;
+    case 'premium': return 1;
+    case 'enterprise': return 2;
+    default: return '?';
+  }
+}
+
+function updateComponentLog(model, dept, classification, isBlocked, isAuto, routingType, routingReason, respHeaders, data, totalMs) {
+  var log = document.getElementById('component-log');
+  var provInfo = getProviderInfo(model);
+  var isExternal = provInfo.provider !== 'Internal KServe';
+  var isAnthropic = provInfo.format === 'anthropic';
+
+  var steps = [];
+  var n = 1;
+
+  steps.push({ n: n++, icon: 'ok', cls: '', action: 'Gateway: received POST /v1/chat/completions', value: '', box: 'box-gateway' });
+  steps.push({ n: n++, icon: 'ok', cls: 'auth', action: 'Authorino: token validated (' + esc(dept.username) + ', ' + esc(dept.tier) + ' tier)', value: '', box: 'box-authorino' });
+  steps.push({ n: n++, icon: 'ok', cls: 'auth', action: 'MaaS API: tier lookup', value: esc(dept.tier) + ' (level ' + tierLevel(dept.tier) + ')', box: 'box-authorino' });
+
+  if (isAuto) {
+    steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: extracted model "auto" from body', value: '', box: 'box-vsr' });
+    steps.push({ n: n++, icon: 'ok', cls: 'classify', action: 'vSR: classification', value: 'domain: ' + esc(classification.domain) + ' (' + classification.confidence.toFixed(2) + '), complexity: ' + esc(classification.complexity), box: 'box-vsr' });
+    steps.push({ n: n++, icon: classification.piiDetected ? 'warn' : 'ok', cls: classification.piiDetected ? 'auth' : '', action: 'vSR: PII scan', value: classification.piiDetected ? esc(classification.piiTypes.join(', ')) + ' detected' : 'none detected', box: 'box-vsr' });
+    steps.push({ n: n++, icon: 'ok', cls: 'classify', action: 'vSR: decision', value: '"' + esc(routingReason) + '" \u2192 ' + esc(model), box: 'box-vsr' });
+  } else {
+    steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: extracted model "' + esc(model) + '" from body', value: '', box: 'box-vsr' });
+  }
+
+  if (isBlocked) {
+    steps.push({ n: n++, icon: 'err', cls: 'blocked', action: 'vSR: tier check \u2014 ' + esc(dept.tier) + ' \u2192 ' + esc(model) + ' NOT allowed', value: '403: Model not available for your subscription tier', box: 'box-vsr' });
+  } else {
+    steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'vSR: tier check \u2014 ' + esc(dept.tier) + ' can access ' + esc(model), value: '\u2714', box: 'box-vsr' });
+
+    if (isExternal) {
+      steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: credential switch', value: 'provider API key injected', box: 'box-vsr' });
+    }
+
+    if (isAnthropic) {
+      steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: API translation OpenAI \u2192 Anthropic format', value: '', box: 'box-vsr' });
+    }
+
+    var backendName = provInfo.provider.toLowerCase().indexOf('anthropic') >= 0 ? 'mock-anthropic'
+      : provInfo.provider.toLowerCase().indexOf('openai') >= 0 ? 'mock-openai'
+      : 'mock-kserve';
+    var backendStatus = data.status || 200;
+    steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'Backend: ' + backendName + ' responded (' + backendStatus + ')', value: totalMs ? totalMs + 'ms' : '', box: 'box-backend' });
+
+    if (isAnthropic) {
+      steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: response translation Anthropic \u2192 OpenAI format', value: '', box: 'box-vsr' });
+    }
+  }
+
+  log.innerHTML = renderSteps(steps);
+}
+
+function updateComponentLogRateLimited(dept) {
+  var log = document.getElementById('component-log');
+  log.innerHTML = renderSteps([
+    { n: 1, icon: 'ok', cls: '', action: 'Gateway: received request', value: '', box: 'box-gateway' },
+    { n: 2, icon: 'err', cls: 'blocked', action: 'Limitador: rate limit exceeded', value: '429 Too Many Requests', box: 'box-gateway' },
+    { n: 3, icon: 'err', cls: 'blocked', action: 'Request rejected at Gateway', value: 'Limit: 10 requests/min', box: 'box-gateway' },
+  ]);
+}
+
+// ---- Arch box click to highlight log ----
+
+document.getElementById('arch-flow').addEventListener('click', function(e) {
+  var box = e.target.closest('.arch-box');
+  if (!box) return;
+  var boxId = box.id;
+  var traceSteps = document.querySelectorAll('.trace-step');
+  var anyHighlighted = document.querySelector('.trace-step.highlight[data-box="' + boxId + '"]');
+  traceSteps.forEach(function(el) { el.classList.remove('highlight'); });
+  if (!anyHighlighted) {
+    traceSteps.forEach(function(el) {
+      if (el.dataset.box === boxId) el.classList.add('highlight');
+    });
+  }
+});
+
+// ---- Init ----
+
+async function init() {
+  // Auto-select intern by default
+  selectDept('intern');
+}
+
+init();
+</script>
+</body>
+</html>
