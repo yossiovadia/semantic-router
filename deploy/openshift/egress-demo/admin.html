@@ -970,9 +970,6 @@ async function sendTestRequest() {
   document.getElementById('response-panel').style.display = 'none';
   hidCredSwitch();
 
-  // Animate the flow progressively while waiting for the response
-  animateFlowProgressive(model);
-
   const reqBody = { model, messages: [{ role: 'user', content: message }], max_tokens: 50 };
   const hdrs = { 'Content-Type': 'application/json' };
 
@@ -1041,47 +1038,7 @@ async function sendTestRequest() {
 
 // ─── Architecture Diagram ───────────────────────────
 
-let flowAnimationTimers = [];
-
-function animateFlowProgressive(model) {
-  // Clear any previous animation timers
-  flowAnimationTimers.forEach(t => clearTimeout(t));
-  flowAnimationTimers = [];
-
-  const provInfo = getProviderInfo(model);
-  document.getElementById('backend-label').textContent = provInfo.provider.split(' ')[0];
-  document.getElementById('backend-detail').textContent = provInfo.provider;
-
-  // Animate each box/arrow in sequence
-  const steps = [
-    { ids: ['box-client'], cls: 'active', delay: 0 },
-    { ids: ['arr-gw'], cls: 'active', delay: 150 },
-    { ids: ['box-gateway'], cls: 'active auth-glow', delay: 300 },
-    { ids: ['arr-auth'], cls: 'active', delay: 450 },
-    { ids: ['box-authorino'], cls: 'active auth-glow', delay: 600 },
-    { ids: ['arr-1'], cls: 'active', delay: 750 },
-    { ids: ['box-envoy'], cls: 'active', delay: 900 },
-    { ids: ['arr-2'], cls: 'active', delay: 1050 },
-    { ids: ['box-vsr'], cls: 'active extproc-glow', delay: 1200 },
-    { ids: ['arr-3'], cls: 'active', delay: 1350 },
-    { ids: ['box-backend'], cls: 'active neon', delay: 1500 },
-  ];
-
-  steps.forEach(step => {
-    const t = setTimeout(() => {
-      step.ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) step.cls.split(' ').forEach(c => el.classList.add(c));
-      });
-    }, step.delay);
-    flowAnimationTimers.push(t);
-  });
-}
-
 function resetArchDiagram() {
-  // Clear progressive animation timers
-  flowAnimationTimers.forEach(t => clearTimeout(t));
-  flowAnimationTimers = [];
   const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
   allIds.forEach(id => {
     const el = document.getElementById(id);
