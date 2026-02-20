@@ -69,12 +69,23 @@ if [[ "${cleanup:-}" == "true" ]]; then
         oc scale machineset "$GPU_MS" --replicas=0 -n openshift-machine-api 2>/dev/null || true
         oc delete machineset "$GPU_MS" -n openshift-machine-api --ignore-not-found=true 2>/dev/null || true
     fi
+    # Kuadrant resources
+    oc delete kuadrant kuadrant -n kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete subscription kuadrant-operator -n kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete csv -n kuadrant-system -l operators.coreos.com/kuadrant-operator.kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete operatorgroup kuadrant-operator-group -n kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete catalogsource kuadrant-operator-catalog -n kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete namespace kuadrant-system --ignore-not-found=true 2>/dev/null || true
+    oc delete gatewayclass openshift-default --ignore-not-found=true 2>/dev/null || true
+    oc delete clusterrolebinding demo-ui-admin --ignore-not-found=true 2>/dev/null || true
+    oc delete clusterrole demo-ui-admin --ignore-not-found=true 2>/dev/null || true
+    oc delete crd llminferenceservices.serving.kserve.io --ignore-not-found=true 2>/dev/null || true
     # Namespaces
     oc delete namespace vsr-demo-tier-premium --ignore-not-found=true 2>/dev/null || true
     oc delete namespace vsr-demo-tier-enterprise --ignore-not-found=true 2>/dev/null || true
     oc delete namespace "$EXT_NAMESPACE" --ignore-not-found=true 2>/dev/null || true
     oc delete namespace "$NAMESPACE" --ignore-not-found=true
-    # Note: kuadrant-system, nvidia-gpu-operator, openshift-nfd left in place (reusable)
+    # Note: nvidia-gpu-operator, openshift-nfd left in place (reusable across deploys)
     success "Cleanup complete"
     exit 0
 fi
