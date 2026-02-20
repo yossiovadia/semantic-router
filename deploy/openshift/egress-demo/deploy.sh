@@ -154,6 +154,19 @@ oc delete service llm-katan-external -n "$NAMESPACE" --ignore-not-found=true 2>/
 oc delete deployment mock-anthropic -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
 oc delete service mock-anthropic -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
 
+# ─── Detect cluster domain (needed for Gateway hostname + demo-config) ───
+CLUSTER_DOMAIN=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "")
+if [[ -z "$CLUSTER_DOMAIN" ]]; then
+    error "Could not determine cluster domain"
+fi
+export CLUSTER_DOMAIN
+
+# ─── Create demo-config (must exist before demo-ui pod starts) ───
+AUTH_GW_HOST="vsr-demo.${CLUSTER_DOMAIN}"
+oc create configmap demo-config \
+    --from-literal=auth-gateway-host="$AUTH_GW_HOST" \
+    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+
 # ─── Deploy vSR router + Envoy ───
 log "Creating ConfigMaps..."
 oc create configmap vsr-egress-config \
@@ -276,11 +289,6 @@ success "GatewayClass ready"
 
 # ─── Create Gateway ───
 log "Creating Gateway..."
-CLUSTER_DOMAIN=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "")
-if [[ -z "$CLUSTER_DOMAIN" ]]; then
-    error "Could not determine cluster domain"
-fi
-export CLUSTER_DOMAIN
 envsubst '${CLUSTER_DOMAIN}' < "$SCRIPT_DIR/infra/gateway.yaml" | oc apply -f -
 success "Gateway created (hostname: vsr-demo.${CLUSTER_DOMAIN})"
 
@@ -407,12 +415,6 @@ if [[ -n "$FREE_TOKEN" && -n "$PREMIUM_TOKEN" ]]; then
 else
     warn "Failed to generate demo tokens"
 fi
-
-# ─── Store Gateway host for demo UI ───
-AUTH_GW_HOST="vsr-demo.${CLUSTER_DOMAIN}"
-oc create configmap demo-config \
-    --from-literal=auth-gateway-host="$AUTH_GW_HOST" \
-    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
 # =============================================================================
 # GPU INFRASTRUCTURE
