@@ -202,7 +202,7 @@ echo ""
 echo "Test 1.3: Internal Model Routing"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
+    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
 assert_status "Internal routing" "$HEADERS" "200"
 assert_response "Internal routing" "$(cat $BODY)" "model" "qwen3-0.6b"
 assert_header "Internal routing" "$HEADERS" "x-vsr-selected-model" "qwen3-0.6b"
@@ -223,7 +223,7 @@ echo "Test 1.5: Tier — Free User Allowed Internal"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -H "X-MaaS-Tier: free" \
-    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
+    -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
 assert_status "Free allowed" "$HEADERS" "200"
 assert_response "Free allowed" "$(cat $BODY)" "model" "qwen3-0.6b"
 echo ""
@@ -311,7 +311,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         echo "Test 3.1: Unauthenticated Request → 401"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
-            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
+            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
         assert_status "Unauthenticated" "$HEADERS" "401"
         echo ""
 
@@ -325,7 +325,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${FREE_TOKEN}" \
-                -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
+                -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
             assert_status "Free+internal" "$HEADERS" "200"
             assert_response "Free+internal" "$(cat $BODY)" "model" "qwen3-0.6b"
         fi
@@ -382,7 +382,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer invalid-token" \
-            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}]}'
+            -d '{"model":"qwen3-0.6b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
         assert_status "Invalid token" "$HEADERS" "401"
         echo ""
 
@@ -402,6 +402,43 @@ if [[ "$PHASE" -ge 3 ]]; then
                 ((FAIL++))
             fi
         fi
+        echo ""
+
+        # Test 3.8: GPU model (qwen2.5-7b) direct — should return real response
+        echo "Test 3.8: GPU Model (qwen2.5-7b) → 200 (real inference)"
+        curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":20}'
+        HTTP_CODE=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
+        if [[ "$HTTP_CODE" == "200" ]]; then
+            REPLY=$(python3 -c "import sys,json; d=json.load(open('$BODY')); print(d.get('choices',[{}])[0].get('message',{}).get('content','')[:50])" 2>/dev/null || echo "")
+            if [[ -n "$REPLY" && "$REPLY" != *"echo"* ]]; then
+                echo -e "  ${GREEN}PASS${RESET} GPU model: HTTP 200, reply: ${REPLY}"
+                ((PASS++))
+            else
+                echo -e "  ${RED}FAIL${RESET} GPU model: HTTP 200 but no real response"
+                ((FAIL++))
+            fi
+        else
+            echo -e "  ${RED}FAIL${RESET} GPU model: HTTP ${HTTP_CODE:-UNKNOWN} (expected: 200)"
+            ((FAIL++))
+        fi
+
+        # Test 3.9: Free user + GPU model via auth gateway → 200 (free tier has access)
+        echo "Test 3.9: Free User + GPU Model (via Gateway) → 200"
+        curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $FREE_TOKEN" \
+            -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Say hello"}],"max_tokens":20}'
+        HTTP_CODE=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
+        if [[ "$HTTP_CODE" == "200" ]]; then
+            echo -e "  ${GREEN}PASS${RESET} Free+GPU: HTTP 200"
+            ((PASS++))
+        else
+            echo -e "  ${RED}FAIL${RESET} Free+GPU: HTTP ${HTTP_CODE:-UNKNOWN} (expected: 200)"
+            ((FAIL++))
+        fi
+
         echo ""
     fi
 fi
