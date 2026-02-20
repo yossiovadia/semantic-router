@@ -202,11 +202,11 @@ echo ""
 
 echo "--- Group 3: Complexity-Based Routing ---"
 
-echo "Test 3.1: Simple query → routed to internal model"
+echo "Test 3.1: Simple non-math query → routed to internal model (default)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -d '{"model":"auto","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
-assert_model_is_internal "Simple → internal" "$BODY"
+    -d '{"model":"auto","messages":[{"role":"user","content":"How is the weather today?"}],"max_tokens":10}'
+assert_model_is_internal "General → internal" "$BODY"
 
 echo ""
 echo "Test 3.2: Complex query with enterprise tier → can route to external"

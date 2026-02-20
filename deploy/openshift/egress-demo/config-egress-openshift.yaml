@@ -1,5 +1,25 @@
 # vSR Egress Demo — OpenShift Config
 # Uses cluster-internal service names for endpoints
+# Classification + PII detection enabled for intelligent routing
+
+# --- ML Models ---
+bert_model:
+  model_id: models/mom-embedding-light
+  threshold: 0.6
+  use_cpu: true
+
+classifier:
+  category_model:
+    model_id: "models/mom-domain-classifier"
+    threshold: 0.6
+    use_cpu: true
+    category_mapping_path: "models/mom-domain-classifier/category_mapping.json"
+  pii_model:
+    model_id: "models/mom-pii-classifier"
+    use_modernbert: false
+    threshold: 0.7
+    use_cpu: true
+    pii_mapping_path: "models/mom-pii-classifier/pii_type_mapping.json"
 
 prompt_guard:
   enabled: false
@@ -7,6 +27,7 @@ prompt_guard:
 semantic_cache:
   enabled: false
 
+# --- Backend Endpoints ---
 vllm_endpoints:
   - name: "external-provider"
     address: "llm-katan-external.external-providers.svc.cluster.local"
@@ -25,6 +46,7 @@ vllm_endpoints:
     port: 8000
     weight: 1
 
+# --- Model Configuration ---
 model_config:
   "qwen2.5:1.5b":
     preferred_endpoints: ["external-provider"]
@@ -38,27 +60,81 @@ model_config:
   "qwen2.5-7b":
     preferred_endpoints: ["gpu-endpoint"]
 
+# --- Categories ---
 categories:
+  - name: math
+    description: "Mathematics and quantitative reasoning"
+    mmlu_categories: ["math"]
+  - name: computer_science
+    description: "Computer science and programming"
+    mmlu_categories: ["computer_science"]
+  - name: health
+    description: "Health and medical information"
+    mmlu_categories: ["health"]
+  - name: business
+    description: "Business and finance"
+    mmlu_categories: ["business"]
   - name: other
     description: "General knowledge"
     mmlu_categories: ["other"]
 
+# --- Decision-based Routing ---
+# When model="auto", vSR classifies the query and routes based on these rules.
+# Higher priority = evaluated first. First matching decision wins.
 strategy: "priority"
 
 decisions:
-  - name: "default_routing"
+  # High complexity / specialized domains → external model (when tier allows)
+  - name: "math_external"
+    description: "Route complex math to powerful external model"
+    priority: 100
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "domain"
+          name: "math"
+    modelRefs:
+      - model: "claude-sonnet"
+        use_reasoning: false
+    plugins:
+      - type: "pii"
+        enabled: true
+        threshold: 0.7
+        pii_types_allowed: []
+
+  - name: "cs_external"
+    description: "Route CS/coding to external model"
+    priority: 100
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "domain"
+          name: "computer_science"
+    modelRefs:
+      - model: "claude-sonnet"
+        use_reasoning: false
+    plugins:
+      - type: "pii"
+        enabled: true
+        threshold: 0.7
+        pii_types_allowed: []
+
+  # Default → GPU model (internal, high quality, data stays on-prem)
+  - name: "default_internal"
+    description: "Default: route to internal GPU model"
     priority: 1
     rules:
       operator: "OR"
       conditions:
         - type: "always"
     modelRefs:
-      - model: "qwen2.5:1.5b"
+      - model: "qwen2.5-7b"
         use_reasoning: false
     plugins: []
 
-default_model: "qwen2.5:1.5b"
+default_model: "qwen2.5-7b"
 
+# --- Tier-Based Model Access Policy ---
 model_access_policy:
   free:
     allowed_models:
@@ -74,8 +150,7 @@ model_access_policy:
     allowed_models:
       - "*"
 
-# Required for header-based routing in Envoy — forces route re-evaluation
-# after vSR sets x-selected-model header
+# Required for header-based routing in Envoy
 clear_route_cache: true
 
 observability:

@@ -16,11 +16,60 @@ spec:
       labels:
         app: vsr-router
     spec:
+      initContainers:
+      # Download classifier models from HuggingFace on startup
+      - name: download-models
+        image: python:3.11-slim
+        env:
+        - name: HOME
+          value: /tmp
+        - name: PIP_CACHE_DIR
+          value: /tmp/pip-cache
+        - name: HF_HOME
+          value: /tmp/hf-cache
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+              optional: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          pip install --user -q huggingface_hub 2>/dev/null
+          export PATH="/tmp/.local/bin:$PATH"
+          python3 -c "
+          from huggingface_hub import snapshot_download
+          import os
+          # Map local directory names to HuggingFace repo IDs
+          models = {
+              'mom-domain-classifier': 'LLM-Semantic-Router/lora_intent_classifier_bert-base-uncased_model',
+              'mom-pii-classifier': 'LLM-Semantic-Router/lora_pii_detector_bert-base-uncased_model',
+              'mom-embedding-light': 'sentence-transformers/all-MiniLM-L12-v2',
+          }
+          for local_name, repo_id in models.items():
+              dest = f'/models/{local_name}'
+              if os.path.exists(f'{dest}/config.json'):
+                  print(f'{local_name}: already downloaded')
+              else:
+                  print(f'{local_name}: downloading from {repo_id}...')
+                  snapshot_download(repo_id, local_dir=dest)
+                  print(f'{local_name}: done')
+          print('All models ready')
+          "
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
       containers:
       - name: semantic-router
-        # Temporary custom image with tier-based access control (ModelAccessPolicy).
-        # Replace with ghcr.io/vllm-project/semantic-router/extproc:latest
-        # once the tier feature is merged upstream.
         image: quay.io/jabadia/vsr-extproc:latest
         command: ["/usr/local/bin/router"]
         args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
@@ -47,24 +96,27 @@ spec:
         livenessProbe:
           tcpSocket:
             port: 50051
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 15
         readinessProbe:
           tcpSocket:
             port: 50051
-          initialDelaySeconds: 15
+          initialDelaySeconds: 45
           periodSeconds: 10
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "2Gi"
+            cpu: "1"
           limits:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "4Gi"
+            cpu: "2"
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml
           subPath: config.yaml
+          readOnly: true
+        - name: models
+          mountPath: /app/models
           readOnly: true
       - name: envoy-proxy
         image: envoyproxy/envoy:v1.33.2
@@ -109,6 +161,8 @@ spec:
       - name: envoy-config
         configMap:
           name: envoy-egress-config
+      - name: models
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
