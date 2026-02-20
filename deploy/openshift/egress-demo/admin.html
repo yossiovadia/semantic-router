@@ -634,14 +634,20 @@ function toggleCreateForm() {
 }
 
 async function createUser() {
-  const username = document.getElementById('new-username').value.trim();
+  const username = document.getElementById('new-username').value.trim().toLowerCase();
   const tier = document.getElementById('new-tier').value;
   if (!username) { document.getElementById('new-username').focus(); return; }
+  if (username.length < 2) { alert('Username must be at least 2 characters'); return; }
+  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(username)) { alert('Username must be lowercase alphanumeric (hyphens allowed in middle)'); return; }
   try {
-    await apiFetch('/api/admin/users', {
+    const { status, data } = await apiFetch('/api/admin/users', {
       method: 'POST',
       body: JSON.stringify({ username, tier }),
     });
+    if (status >= 400) {
+      alert(data.error || `Failed to create user (HTTP ${status})`);
+      return;
+    }
     document.getElementById('create-form').style.display = 'none';
     await loadUsers();
     selectUser(username, tier);
