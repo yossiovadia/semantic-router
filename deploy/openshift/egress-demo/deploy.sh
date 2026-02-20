@@ -575,6 +575,9 @@ done
 
 # ─── Deploy vLLM on GPU ───
 log "Deploying vLLM (Qwen2.5-7B-Instruct) on GPU node..."
+# vLLM needs anyuid SCC for subprocess-based engine core
+oc adm policy add-scc-to-user anyuid -z default -n "$NAMESPACE" 2>/dev/null || true
+oc adm policy add-scc-to-user privileged -z default -n "$NAMESPACE" 2>/dev/null || true
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/infra/vllm-gpu.yaml"
 
 # ─── Wait for all pods ───
