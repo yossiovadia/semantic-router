@@ -31,7 +31,17 @@ static_resources:
                 route:
                   cluster: anthropic_cluster
                   timeout: 300s
-              # External provider route (model starts with qwen2)
+              # GPU model route (qwen2.5-7b)
+              - match:
+                  prefix: "/"
+                  headers:
+                  - name: x-selected-model
+                    string_match:
+                      prefix: "qwen2.5-7b"
+                route:
+                  cluster: gpu_cluster
+                  timeout: 300s
+              # External provider route (qwen2.5:1.5b — mock)
               - match:
                   prefix: "/"
                   headers:
@@ -148,6 +158,21 @@ static_resources:
             address:
               socket_address:
                 address: llm-katan-internal
+                port_value: 8000
+
+  # GPU model (vLLM on GPU node)
+  - name: gpu_cluster
+    type: STRICT_DNS
+    connect_timeout: 10s
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: gpu_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: vllm-gpu
                 port_value: 8000
 
 admin:

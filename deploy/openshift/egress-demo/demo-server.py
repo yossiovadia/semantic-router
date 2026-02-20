@@ -208,10 +208,17 @@ class DemoHandler(SimpleHTTPRequestHandler):
             },
             {
                 "model": "qwen3-0.6b",
-                "endpoint": "Internal KServe",
+                "endpoint": "Internal (CPU)",
                 "format": "openai",
                 "hasKey": False,
-                "keyInfo": "internal model (no external key)",
+                "keyInfo": "internal model, CPU inference (Qwen3-0.6B)",
+            },
+            {
+                "model": "qwen2.5-7b",
+                "endpoint": "Internal (GPU)",
+                "format": "openai",
+                "hasKey": False,
+                "keyInfo": "internal model, GPU inference (Qwen2.5-7B-Instruct on A10G)",
             },
         ]
         self._send_json(providers)

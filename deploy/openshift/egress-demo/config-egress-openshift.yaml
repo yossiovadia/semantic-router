@@ -20,6 +20,10 @@ vllm_endpoints:
     address: "llm-katan-internal"
     port: 8000
     weight: 1
+  - name: "gpu-endpoint"
+    address: "vllm-gpu"
+    port: 8000
+    weight: 1
 
 model_config:
   "qwen2.5:1.5b":
@@ -31,6 +35,8 @@ model_config:
     preferred_endpoints: ["anthropic-endpoint"]
   "qwen3-0.6b":
     preferred_endpoints: ["internal-endpoint"]
+  "qwen2.5-7b":
+    preferred_endpoints: ["gpu-endpoint"]
 
 categories:
   - name: other
@@ -57,9 +63,11 @@ model_access_policy:
   free:
     allowed_models:
       - "qwen3-0.6b"
+      - "qwen2.5-7b"
   premium:
     allowed_models:
       - "qwen3-0.6b"
+      - "qwen2.5-7b"
       - "qwen2.5:1.5b"
       - "claude-sonnet"
   enterprise:

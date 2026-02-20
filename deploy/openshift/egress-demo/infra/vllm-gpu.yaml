@@ -1,0 +1,96 @@
+# vLLM serving Qwen2.5-7B-Instruct on GPU (NVIDIA A10G, 24GB VRAM)
+# Exposed as OpenAI-compatible API on port 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-gpu
+  labels:
+    app: vllm-gpu
+    role: gpu-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-gpu
+  template:
+    metadata:
+      labels:
+        app: vllm-gpu
+        role: gpu-model
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/gpu: ""
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        args:
+        - "--model"
+        - "Qwen/Qwen2.5-7B-Instruct"
+        - "--served-model-name"
+        - "qwen2.5-7b"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "8000"
+        - "--max-model-len"
+        - "4096"
+        - "--gpu-memory-utilization"
+        - "0.90"
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: HF_HOME
+          value: /tmp/hf-cache
+        resources:
+          requests:
+            cpu: "2"
+            memory: "8Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 10
+        volumeMounts:
+        - name: cache
+          mountPath: /tmp/hf-cache
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: cache
+        emptyDir: {}
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-gpu
+  labels:
+    app: vllm-gpu
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    app: vllm-gpu

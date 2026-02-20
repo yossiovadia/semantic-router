@@ -62,11 +62,19 @@ if [[ "${cleanup:-}" == "true" ]]; then
     oc delete gateway vsr-demo-gateway -n openshift-ingress --ignore-not-found=true 2>/dev/null || true
     oc delete clusterrolebinding maas-api-vsr-demo --ignore-not-found=true 2>/dev/null || true
     oc delete clusterrole maas-api-vsr-demo --ignore-not-found=true 2>/dev/null || true
+    # GPU resources
+    oc delete clusterpolicy gpu-cluster-policy --ignore-not-found=true 2>/dev/null || true
+    GPU_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | grep gpu | awk '{print $1}')
+    if [[ -n "$GPU_MS" ]]; then
+        oc scale machineset "$GPU_MS" --replicas=0 -n openshift-machine-api 2>/dev/null || true
+        oc delete machineset "$GPU_MS" -n openshift-machine-api --ignore-not-found=true 2>/dev/null || true
+    fi
     # Namespaces
     oc delete namespace vsr-demo-tier-premium --ignore-not-found=true 2>/dev/null || true
+    oc delete namespace vsr-demo-tier-enterprise --ignore-not-found=true 2>/dev/null || true
     oc delete namespace "$EXT_NAMESPACE" --ignore-not-found=true 2>/dev/null || true
     oc delete namespace "$NAMESPACE" --ignore-not-found=true
-    # Note: kuadrant-system left in place (reusable), GatewayClass left in place (shared)
+    # Note: kuadrant-system, nvidia-gpu-operator, openshift-nfd left in place (reusable)
     success "Cleanup complete"
     exit 0
 fi
@@ -395,6 +403,180 @@ oc create configmap demo-config \
     --from-literal=auth-gateway-host="$AUTH_GW_HOST" \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
+# =============================================================================
+# GPU INFRASTRUCTURE
+# =============================================================================
+
+log ""
+log "═══════════════════════════════════════════════"
+log "  GPU: Setting up NVIDIA GPU node + vLLM"
+log "═══════════════════════════════════════════════"
+
+# ─── GPU MachineSet ───
+CLUSTER_ID=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | head -1 | awk '{print $1}' | sed 's/-worker.*//')
+GPU_MS="${CLUSTER_ID}-gpu-us-east-2a"
+if oc get machineset "$GPU_MS" -n openshift-machine-api &>/dev/null; then
+    GPU_REPLICAS=$(oc get machineset "$GPU_MS" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
+    if [[ "$GPU_REPLICAS" == "0" ]]; then
+        log "Scaling up existing GPU MachineSet..."
+        oc scale machineset "$GPU_MS" --replicas=1 -n openshift-machine-api 2>/dev/null
+    else
+        success "GPU MachineSet already running"
+    fi
+else
+    log "Creating GPU MachineSet (g5.xlarge — NVIDIA A10G, 24GB VRAM)..."
+    # Get reference values from existing MachineSet
+    REF_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+    AMI=$(oc get machineset "$REF_MS" -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.ami.id}')
+    IAM_PROFILE=$(oc get machineset "$REF_MS" -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.iamInstanceProfile.id}')
+
+    oc apply -f - <<EOF
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  name: ${GPU_MS}
+  namespace: openshift-machine-api
+  labels:
+    machine.openshift.io/cluster-api-cluster: ${CLUSTER_ID}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: ${CLUSTER_ID}
+      machine.openshift.io/cluster-api-machineset: ${GPU_MS}
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: ${CLUSTER_ID}
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: worker
+        machine.openshift.io/cluster-api-machineset: ${GPU_MS}
+    spec:
+      metadata:
+        labels:
+          node-role.kubernetes.io/gpu: ""
+      providerSpec:
+        value:
+          apiVersion: machine.openshift.io/v1beta1
+          kind: AWSMachineProviderConfig
+          ami:
+            id: ${AMI}
+          instanceType: g5.xlarge
+          placement:
+            availabilityZone: us-east-2a
+            region: us-east-2
+          subnet:
+            filters:
+            - name: tag:Name
+              values:
+              - ${CLUSTER_ID}-subnet-private-us-east-2a
+          securityGroups:
+          - filters:
+            - name: tag:Name
+              values:
+              - ${CLUSTER_ID}-node
+          - filters:
+            - name: tag:Name
+              values:
+              - ${CLUSTER_ID}-lb
+          iamInstanceProfile:
+            id: ${IAM_PROFILE}
+          blockDevices:
+          - ebs:
+              volumeSize: 120
+              volumeType: gp3
+          credentialsSecret:
+            name: aws-cloud-credentials
+          userDataSecret:
+            name: worker-user-data
+EOF
+    success "GPU MachineSet created"
+fi
+
+# Scale CPU workers to 2 (save resources — GPU node replaces one)
+CPU_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | grep worker | grep -v gpu | awk '{print $1}')
+CPU_REPLICAS=$(oc get machineset "$CPU_MS" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
+if [[ "$CPU_REPLICAS" -gt 2 ]]; then
+    log "Scaling CPU workers from $CPU_REPLICAS to 2..."
+    oc scale machineset "$CPU_MS" --replicas=2 -n openshift-machine-api 2>/dev/null
+fi
+
+# ─── NFD + GPU Operator ───
+log "Installing NFD + NVIDIA GPU operators..."
+oc apply -f "$SCRIPT_DIR/infra/gpu-setup.yaml"
+
+# Wait for NFD operator
+log "Waiting for NFD operator..."
+for i in $(seq 1 30); do
+    CSV=$(oc get csv -n openshift-nfd --no-headers 2>/dev/null | grep "^nfd" | awk '{print $1}' | head -1)
+    PHASE=$(oc get csv "$CSV" -n openshift-nfd -o jsonpath='{.status.phase}' 2>/dev/null)
+    if [[ "$PHASE" == "Succeeded" ]]; then success "NFD operator ready"; break; fi
+    if [[ $i -eq 30 ]]; then warn "NFD operator timeout"; fi
+    sleep 5
+done
+
+# Create NFD instance
+log "Creating NFD instance..."
+oc apply -f - <<'NFDEOF'
+apiVersion: nfd.openshift.io/v1
+kind: NodeFeatureDiscovery
+metadata:
+  name: nfd-instance
+  namespace: openshift-nfd
+spec:
+  operand:
+    servicePort: 12000
+  workerConfig:
+    configData: |
+      core:
+        sleepInterval: 60s
+NFDEOF
+
+# Wait for GPU operator
+log "Waiting for GPU operator..."
+for i in $(seq 1 30); do
+    CSV=$(oc get csv -n nvidia-gpu-operator --no-headers 2>/dev/null | grep gpu-operator | awk '{print $1}' | head -1)
+    PHASE=$(oc get csv "$CSV" -n nvidia-gpu-operator -o jsonpath='{.status.phase}' 2>/dev/null)
+    if [[ "$PHASE" == "Succeeded" ]]; then success "GPU operator ready"; break; fi
+    if [[ $i -eq 30 ]]; then warn "GPU operator timeout"; fi
+    sleep 10
+done
+
+# Create ClusterPolicy
+log "Creating GPU ClusterPolicy..."
+oc apply -f "$SCRIPT_DIR/infra/gpu-clusterpolicy.yaml"
+
+# Wait for GPU node to be Ready
+log "Waiting for GPU node to be Ready..."
+for i in $(seq 1 40); do
+    STATUS=$(oc get nodes -l node-role.kubernetes.io/gpu --no-headers 2>/dev/null | awk '{print $2}')
+    if [[ "$STATUS" == "Ready" ]]; then success "GPU node Ready"; break; fi
+    if [[ $i -eq 40 ]]; then warn "GPU node timeout — vLLM may deploy later"; fi
+    sleep 15
+done
+
+# Wait for NFD to label the GPU node with PCI device
+log "Waiting for NFD to detect GPU..."
+for i in $(seq 1 30); do
+    PCI=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].metadata.labels.feature\.node\.kubernetes\.io/pci-0302_10de\.present}' 2>/dev/null)
+    if [[ "$PCI" == "true" ]]; then success "NVIDIA GPU detected by NFD"; break; fi
+    if [[ $i -eq 30 ]]; then warn "NFD GPU detection timeout"; fi
+    sleep 10
+done
+
+# Wait for NVIDIA driver + device plugin
+log "Waiting for NVIDIA driver installation (this takes several minutes)..."
+for i in $(seq 1 60); do
+    GPU_CAP=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].status.capacity.nvidia\.com/gpu}' 2>/dev/null)
+    if [[ "$GPU_CAP" == "1" ]]; then success "nvidia.com/gpu: 1 — GPU fully operational"; break; fi
+    if [[ $i -eq 60 ]]; then warn "GPU driver timeout — check nvidia-gpu-operator pods"; fi
+    sleep 20
+done
+
+# ─── Deploy vLLM on GPU ───
+log "Deploying vLLM (Qwen2.5-7B-Instruct) on GPU node..."
+oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/infra/vllm-gpu.yaml"
+
 # ─── Wait for all pods ───
 log "Waiting for all pods to be ready..."
 oc wait --for=condition=Ready pod -l app=mock-anthropic -n "$EXT_NAMESPACE" --timeout=120s 2>/dev/null || warn "mock-anthropic not ready yet"
@@ -403,6 +585,7 @@ oc wait --for=condition=Ready pod -l app=llm-katan,role=internal-model -n "$NAME
 oc wait --for=condition=Ready pod -l app=vsr-router -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "vsr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=bbr-router -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "bbr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=demo-ui -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "demo-ui not ready yet"
+oc wait --for=condition=Ready pod -l app=vllm-gpu -n "$NAMESPACE" --timeout=600s 2>/dev/null || warn "vllm-gpu not ready yet (model downloading)"
 
 # ─── Print URLs ───
 DEMO_URL=$(oc get route demo-ui-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
