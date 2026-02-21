@@ -319,9 +319,31 @@ echo ""
 # The GPU model should give coherent responses (not echo/mock)
 # =============================================================================
 
-echo "--- Group 5: GPU Model Quality ---"
+echo "--- Group 5: RAG Vector Store ---"
 
-echo "Test 5.1: GPU model gives real response (not echo)"
+echo "Test 5.0: RAG search returns finance document results"
+DEMO_HOST=$(oc get route demo-ui-route -n vsr-egress-demo -o jsonpath='{.spec.host}' 2>/dev/null)
+if [[ -n "$DEMO_HOST" ]]; then
+    RAG_COUNT=$(curl -sSkS "https://${DEMO_HOST}/api/admin/rag-search" -X POST \
+        -H "Content-Type: application/json" \
+        -d '{"query":"portfolio allocation limits for retail accounts"}' 2>/dev/null | \
+        python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null || echo "0")
+    if [[ "$RAG_COUNT" -gt 0 ]]; then
+        echo -e "  ${GREEN}PASS${RESET} RAG search: ${RAG_COUNT} results found"
+        ((PASS++))
+    else
+        echo -e "  ${RED}FAIL${RESET} RAG search: 0 results (vector store may need docs uploaded)"
+        ((FAIL++))
+    fi
+else
+    echo -e "  ${YELLOW}SKIP${RESET} Demo UI route not found"
+    ((SKIP++))
+fi
+
+echo ""
+echo "--- Group 6: GPU Model Quality ---"
+
+echo "Test 6.1: GPU model gives real response (not echo)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is Kubernetes?"}],"max_tokens":30}'
@@ -335,7 +357,7 @@ else
 fi
 
 echo ""
-echo "Test 5.2: GPU model also responds to simple query"
+echo "Test 6.2: GPU model also responds to simple query"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
