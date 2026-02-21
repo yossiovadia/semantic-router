@@ -1017,7 +1017,7 @@ async function sendTestRequest() {
 
       // Show credential switch for external providers on success
       const provInfo = getProviderInfo(model);
-      if (!isBlocked && provInfo && provInfo.provider !== 'Internal KServe') {
+      if (!isBlocked && provInfo && provInfo.provider !== 'Internal vLLM') {
         showCredSwitch(user, model, provInfo);
       }
 
@@ -1090,7 +1090,7 @@ function updateArchDiagram(model, user, isBlocked, totalMs) {
 function updateComponentLog(model, user, isBlocked, respHeaders, data) {
   const log = document.getElementById('component-log');
   const provInfo = getProviderInfo(model);
-  const isExternal = provInfo.provider !== 'Internal KServe';
+  const isExternal = provInfo.provider !== 'Internal vLLM';
   const isAnthropic = provInfo.format === 'anthropic';
 
   let steps = [];

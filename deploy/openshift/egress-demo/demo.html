@@ -274,7 +274,7 @@ const SCENARIOS = {
     desc: 'Routes to internal GPU model. No egress, no API translation. Standard OpenAI-compatible endpoint within the cluster.',
     body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello, how are you?'}] },
     headers: {},
-    backend: { label: 'KServe', detail: 'Internal Model' },
+    backend: { label: 'vLLM', detail: 'Internal Model' },
     expectBlock: false
   },
   classify: {
@@ -297,12 +297,12 @@ const SCENARIOS = {
   },
   tier_free_allowed: {
     name: 'Free Tier \u2192 Internal (Allowed)',
-    desc: 'Free tier user requests internal model. Authorino validates token, resolves tier from MaaS API. Policy allows qwen2.5-7b for free tier. Request passes through to KServe.',
+    desc: 'Free tier user requests internal model. Authorino validates token, resolves tier from MaaS API. Policy allows qwen2.5-7b for free tier. Request passes through to vLLM.',
     body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}] },
     headers: {},
     user: 'free',
     useGateway: true,
-    backend: { label: 'KServe', detail: 'Internal Model' },
+    backend: { label: 'vLLM', detail: 'Internal Model' },
     expectBlock: false
   },
   tier_premium: {
@@ -356,10 +356,10 @@ const SCENARIOS = {
   },
   bbr_internal: {
     name: 'BBR: Internal Model',
-    desc: 'vSR BBR plugin routes to internal KServe model. Same as ExtProc but plugin runs in-process \u2014 no network hop to a separate vSR service.',
+    desc: 'vSR BBR plugin routes to internal vLLM model. Same as ExtProc but plugin runs in-process \u2014 no network hop to a separate vSR service.',
     body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}] },
     headers: {},
-    backend: { label: 'KServe', detail: 'via BBR Plugin' },
+    backend: { label: 'vLLM', detail: 'via BBR Plugin' },
     expectBlock: false,
     bbr: true
   }

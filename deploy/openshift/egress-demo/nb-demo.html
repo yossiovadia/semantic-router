@@ -975,7 +975,7 @@ function getProviderInfo(model) {
   const map = {
     'qwen2.5:1.5b': { provider: 'OpenAI External', format: 'openai' },
     'claude-sonnet': { provider: 'Anthropic External', format: 'anthropic' },
-    'qwen2.5-7b': { provider: 'Internal KServe', format: 'openai' },
+    'qwen2.5-7b': { provider: 'Internal vLLM', format: 'openai' },
   };
   return map[model] || { provider: 'Unknown', format: 'openai' };
 }
@@ -1049,7 +1049,7 @@ function tierLevel(tier) {
 function updateComponentLog(model, dept, classification, isBlocked, isAuto, routingType, routingReason, respHeaders, data, totalMs) {
   var log = document.getElementById('component-log');
   var provInfo = getProviderInfo(model);
-  var isExternal = provInfo.provider !== 'Internal KServe';
+  var isExternal = provInfo.provider !== 'Internal vLLM';
   var isAnthropic = provInfo.format === 'anthropic';
 
   var steps = [];
