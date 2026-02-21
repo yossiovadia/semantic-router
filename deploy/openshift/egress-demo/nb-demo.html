@@ -755,15 +755,20 @@ async function sendRequest() {
   }
 
   // RAG: search vector store for relevant context
+  // Only for finance department (proprietary docs are finance-specific)
+  // Filter by similarity threshold to avoid irrelevant context
   let ragContext = '';
   let ragResults = [];
-  if (!isBlocked && routingType !== 'blocked') {
+  var RAG_THRESHOLD = 0.55;
+  if (!isBlocked && routingType !== 'blocked' && deptKey === 'finance') {
     try {
       const ragResp = await apiFetch('/api/admin/rag-search', {
         method: 'POST',
         body: JSON.stringify({ query: message, top_k: 3 }),
       });
-      ragResults = (ragResp.data && ragResp.data.data) ? ragResp.data.data : [];
+      var rawResults = (ragResp.data && ragResp.data.data) ? ragResp.data.data : [];
+      // Only keep results above similarity threshold
+      ragResults = rawResults.filter(function(r) { return (r.score || 0) >= RAG_THRESHOLD; });
       if (ragResults.length > 0) {
         ragContext = ragResults.map(function(r) {
           var text = r.content;
