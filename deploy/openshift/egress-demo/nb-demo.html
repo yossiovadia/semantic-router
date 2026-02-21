@@ -74,6 +74,10 @@
   .preset-btn .preset-label { font-weight: 600; display: block; }
   .preset-btn .preset-hint { font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px; }
   .preset-btn:hover .preset-hint { color: var(--accent); opacity: 0.7; }
+  .preset-icon-ok { color: var(--green); }
+  .preset-icon-external { color: var(--accent); }
+  .preset-icon-warn { color: var(--orange); }
+  .preset-icon-blocked { color: var(--red); }
 
   /* Main content */
   .main { overflow-y: auto; padding: 24px 32px; }
@@ -262,28 +266,7 @@
     <div id="setup-status" class="setup-status">Initializing...</div>
 
     <h2>Preset Queries</h2>
-    <div id="preset-list">
-      <button class="preset-btn" onclick="loadPreset('simple_math')">
-        <span class="preset-label">Simple math</span>
-        <span class="preset-hint">Low complexity, internal routing</span>
-      </button>
-      <button class="preset-btn" onclick="loadPreset('complex_proof')">
-        <span class="preset-label">Complex proof</span>
-        <span class="preset-hint">High complexity, external routing</span>
-      </button>
-      <button class="preset-btn" onclick="loadPreset('portfolio_pii')">
-        <span class="preset-label">Portfolio query (PII)</span>
-        <span class="preset-hint">PII detected, forced internal</span>
-      </button>
-      <button class="preset-btn" onclick="loadPreset('market_analysis')">
-        <span class="preset-label">Market analysis</span>
-        <span class="preset-hint">General query, no PII</span>
-      </button>
-      <button class="preset-btn" onclick="loadPreset('code_review')">
-        <span class="preset-label">Code review</span>
-        <span class="preset-hint">CS domain, high complexity</span>
-      </button>
-    </div>
+    <div id="preset-list"></div>
   </div>
 
   <!-- MAIN CONTENT -->
@@ -403,45 +386,69 @@ const DEPARTMENTS = {
   },
 };
 
-// ---- Preset queries ----
-const PRESETS = {
-  simple_math: {
-    message: 'What is 2+2?',
-    model: 'auto',
-    expectedDomain: 'math',
-    expectedComplexity: 'easy',
-    expectedPII: false,
-  },
-  complex_proof: {
-    message: 'Prove that the square root of 2 is irrational using proof by contradiction',
-    model: 'auto',
-    expectedDomain: 'math',
-    expectedComplexity: 'hard',
-    expectedPII: false,
-  },
-  portfolio_pii: {
-    message: 'Check the portfolio for client John Smith, SSN 456-78-9012, and tell me the fixed income weighting',
-    model: 'auto',
-    expectedDomain: 'business',
-    expectedComplexity: 'medium',
-    expectedPII: true,
-    expectedPIITypes: ['SSN'],
-  },
-  market_analysis: {
-    message: 'What are the current market trends in technology sector bonds?',
-    model: 'auto',
-    expectedDomain: 'business',
-    expectedComplexity: 'medium',
-    expectedPII: false,
-  },
-  code_review: {
-    message: 'Review this Python function for security vulnerabilities: def process_payment(card_number, amount):',
-    model: 'auto',
-    expectedDomain: 'CS',
-    expectedComplexity: 'hard',
-    expectedPII: false,
-  },
+// ---- Preset queries per department ----
+const DEPT_PRESETS = {
+  intern: [
+    { key: 'intern_greeting', label: 'General question', hint: 'Simple → internal GPU ✓',
+      message: 'What does an ETF stand for and how does it differ from a mutual fund?', model: 'auto',
+      expectedRouting: 'internal', icon: '✓' },
+    { key: 'intern_task', label: 'Formatting task', hint: 'Routine work → internal GPU ✓',
+      message: 'Format this data as a markdown table: AAPL $185, MSFT $420, GOOGL $175, AMZN $190', model: 'auto',
+      expectedRouting: 'internal', icon: '✓' },
+    { key: 'intern_blocked', label: 'External model (blocked)', hint: 'Intern cannot access Claude ✗',
+      message: 'Analyze the macroeconomic impact of rising interest rates on emerging market debt', model: 'claude-sonnet',
+      expectedRouting: 'blocked', icon: '✗' },
+    { key: 'intern_pii', label: 'Client data (PII)', hint: 'PII blocked for compliance ✗',
+      message: 'Look up account for Sarah Johnson, SSN 234-56-7890, and check her margin requirements', model: 'auto',
+      expectedRouting: 'internal', icon: '⚠' },
+  ],
+  finance: [
+    { key: 'finance_general', label: 'Market overview', hint: 'General → internal GPU ✓',
+      message: 'Give me a brief overview of the current state of the US treasury yield curve', model: 'auto',
+      expectedRouting: 'internal', icon: '✓' },
+    { key: 'finance_complex', label: 'Complex analysis', hint: 'High complexity → Claude ✓',
+      message: 'Derive the Black-Scholes formula for European call option pricing and explain the assumptions behind risk-neutral valuation in continuous time', model: 'auto',
+      expectedRouting: 'external', icon: '↗' },
+    { key: 'finance_pii', label: 'Client portfolio (PII)', hint: 'PII detected → stays on-prem ⚠',
+      message: 'Pull the portfolio allocation for client Robert Chen, account 4532-1234-5678-9012, and tell me the fixed income vs equity split', model: 'auto',
+      expectedRouting: 'internal', icon: '⚠' },
+    { key: 'finance_compliance', label: 'Compliance check', hint: 'Sensitive → internal GPU ✓',
+      message: 'What are the key regulatory requirements for KYC/AML compliance in wealth management?', model: 'auto',
+      expectedRouting: 'internal', icon: '✓' },
+  ],
+  principal: [
+    { key: 'principal_architecture', label: 'System design', hint: 'Complex CS → Claude ✓',
+      message: 'Design a low-latency trading system architecture that handles 100K orders per second with sub-millisecond matching engine and fault tolerance across availability zones', model: 'auto',
+      expectedRouting: 'external', icon: '↗' },
+    { key: 'principal_general', label: 'Quick question', hint: 'Simple → internal GPU ✓',
+      message: 'What is the difference between gRPC and REST for microservice communication?', model: 'auto',
+      expectedRouting: 'internal', icon: '✓' },
+    { key: 'principal_code', label: 'Code review', hint: 'Complex CS → Claude ✓',
+      message: 'Write a Python implementation of a lock-free concurrent order book data structure using atomic operations, with unit tests for race condition scenarios', model: 'auto',
+      expectedRouting: 'external', icon: '↗' },
+    { key: 'principal_pii', label: 'Sensitive infra query', hint: 'PII → stays on-prem ⚠',
+      message: 'Our production database at 10.0.1.55 with credentials admin/Prod$ecret123 is showing high latency. How do I diagnose the connection pooling issue?', model: 'auto',
+      expectedRouting: 'internal', icon: '⚠' },
+  ],
 };
+
+function renderPresets(dept) {
+  const list = document.getElementById('preset-list');
+  const presets = DEPT_PRESETS[dept] || [];
+  list.innerHTML = presets.map(function(p) {
+    var iconClass = p.icon === '✗' ? 'preset-icon-blocked' : p.icon === '⚠' ? 'preset-icon-warn' : p.icon === '↗' ? 'preset-icon-external' : 'preset-icon-ok';
+    return '<button class="preset-btn" onclick="loadPreset(\'' + p.key + '\')">' +
+      '<span class="preset-label"><span class="' + iconClass + '">' + p.icon + '</span> ' + esc(p.label) + '</span>' +
+      '<span class="preset-hint">' + esc(p.hint) + '</span>' +
+      '</button>';
+  }).join('');
+}
+
+// Flat lookup for loadPreset
+const PRESETS = {};
+Object.values(DEPT_PRESETS).forEach(function(arr) {
+  arr.forEach(function(p) { PRESETS[p.key] = p; });
+});
 
 // ---- API helpers ----
 async function apiFetch(path, opts = {}) {
@@ -586,6 +593,9 @@ async function selectDept(deptKey) {
     '<div class="info-row"><span class="info-label">Models: </span><span class="info-value">' + modelTags + '</span></div>' +
     '<div class="info-row" style="margin-top:4px;"><span class="info-label" style="font-size:11px;">' + esc(dept.description) + '</span></div>';
   infoPanel.style.display = '';
+
+  // Render department-specific presets
+  renderPresets(deptKey);
 
   // Reset panels
   resetArchDiagram();
