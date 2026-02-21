@@ -754,14 +754,40 @@ async function sendRequest() {
     }
   }
 
-  // Show routing decision
-  showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto);
+  // RAG: search vector store for relevant context
+  let ragContext = '';
+  let ragResults = [];
+  if (!isBlocked && routingType !== 'blocked') {
+    try {
+      const ragResp = await apiFetch('/api/admin/rag-search', {
+        method: 'POST',
+        body: JSON.stringify({ query: message, top_k: 3 }),
+      });
+      ragResults = (ragResp.data && ragResp.data.data) ? ragResp.data.data : [];
+      if (ragResults.length > 0) {
+        ragContext = ragResults.map(function(r) {
+          var text = r.content;
+          if (Array.isArray(text)) text = text[0] ? text[0].text || '' : '';
+          return text;
+        }).filter(Boolean).join('\n\n');
+      }
+    } catch(e) { /* RAG search failed silently */ }
+  }
+
+  // Show routing decision (including RAG info)
+  showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto, ragResults);
+
+  // Build message with RAG context injected
+  var enrichedMessage = message;
+  if (ragContext) {
+    enrichedMessage = 'Use the following internal documents as context to answer the question.\n\n--- CONTEXT ---\n' + ragContext + '\n--- END CONTEXT ---\n\nQuestion: ' + message;
+  }
 
   // Build and send request
   try {
     const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
       method: 'POST',
-      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message }),
+      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message: enrichedMessage }),
     });
 
     const totalMs = data.elapsed_ms || 0;
@@ -799,7 +825,7 @@ async function sendRequest() {
 
 // ---- Routing Decision panel ----
 
-function showRoutingDecision(classification, model, type, reason, isAuto) {
+function showRoutingDecision(classification, model, type, reason, isAuto, ragResults) {
   const panel = document.getElementById('routing-panel');
   const grid = document.getElementById('routing-grid');
   const decision = document.getElementById('routing-decision');
@@ -835,7 +861,22 @@ function showRoutingDecision(classification, model, type, reason, isAuto) {
     '<div class="routing-detail">' + esc(piiDetail) + '</div>' +
     '</div>';
 
-  grid.innerHTML = domainHtml + complexHtml + piiHtml;
+  // RAG
+  let ragHtml = '';
+  if (ragResults && ragResults.length > 0) {
+    ragHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
+      '<div class="routing-label">📄 RAG Context Retrieved</div>' +
+      '<div class="routing-value" style="color:var(--purple);">' + ragResults.length + ' chunks from internal docs</div>' +
+      '<div class="routing-detail" style="max-height:80px; overflow-y:auto; font-size:11px; opacity:0.8; margin-top:4px;">' +
+      ragResults.slice(0, 2).map(function(r) {
+        var text = r.content;
+        if (Array.isArray(text)) text = text[0] ? text[0].text || '' : '';
+        return '<div style="margin-bottom:4px; padding:4px; background:rgba(188,140,255,0.05); border-radius:3px;">' + esc(String(text).substring(0, 120)) + '...</div>';
+      }).join('') +
+      '</div></div>';
+  }
+
+  grid.innerHTML = domainHtml + complexHtml + piiHtml + ragHtml;
 
   // Decision
   let decisionColor;
