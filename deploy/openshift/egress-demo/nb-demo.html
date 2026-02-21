@@ -876,7 +876,8 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
       ragResults.slice(0, 2).map(function(r) {
         var text = r.content;
         if (Array.isArray(text)) text = text[0] ? text[0].text || '' : '';
-        return '<div style="margin-bottom:4px; padding:4px; background:rgba(188,140,255,0.05); border-radius:3px;">' + esc(String(text).substring(0, 120)) + '...</div>';
+        var score = (r.score || 0).toFixed(3);
+        return '<div style="margin-bottom:4px; padding:4px; background:rgba(188,140,255,0.05); border-radius:3px;"><span style="color:var(--purple);font-weight:600;">[' + score + ']</span> ' + esc(String(text).substring(0, 120)) + '...</div>';
       }).join('') +
       '</div></div>';
   }
