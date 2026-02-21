@@ -73,7 +73,7 @@ categories:
   - name: math
     description: "Mathematics and quantitative reasoning"
     mmlu_categories: ["math"]
-  - name: computer_science
+  - name: "computer science"
     description: "Computer science and programming"
     mmlu_categories: ["computer_science"]
   - name: health
@@ -93,16 +93,14 @@ strategy: "priority"
 
 decisions:
   # High complexity + specialized domain → external model (when tier allows)
-  - name: "complex_math_external"
-    description: "Route complex math to powerful external model"
+  - name: "math_external"
+    description: "Route math queries to powerful external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "math"
-        - type: "complexity"
-          name: "hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -112,16 +110,14 @@ decisions:
         threshold: 0.7
         pii_types_allowed: []
 
-  - name: "complex_cs_external"
-    description: "Route complex CS/coding to external model"
+  - name: "cs_external"
+    description: "Route CS/coding queries to external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
-          name: "computer_science"
-        - type: "complexity"
-          name: "hard"
+          name: "computer science"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
