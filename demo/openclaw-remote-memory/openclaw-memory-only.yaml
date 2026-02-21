@@ -1,0 +1,41 @@
+# Minimal VSR config for OpenClaw remote memory
+# Only enables the Vector Store API — no routing, no vLLM, no Envoy needed
+
+bert_model:
+  model_id: "sentence-transformers/all-MiniLM-L12-v2"
+  threshold: 0.6
+  use_cpu: true
+
+embedding_models:
+  mmbert_model_path: "models/mom-embedding-ultra"
+  use_cpu: true
+
+vector_store:
+  enabled: true
+  backend_type: "memory"
+  file_storage_dir: "/tmp/vsr-openclaw-data"
+  max_file_size_mb: 50
+  embedding_model: "mmbert"
+  embedding_dimension: 768
+  ingestion_workers: 2
+  supported_formats:
+    - ".txt"
+    - ".md"
+    - ".json"
+    - ".csv"
+    - ".html"
+
+semantic_cache:
+  enabled: false
+
+# Dummy endpoint — required by config validation but won't be used
+vllm_endpoints:
+  - name: "unused"
+    address: "127.0.0.1"
+    port: 8000
+    weight: 1
+
+model_config:
+  "unused":
+    use_reasoning: false
+    preferred_endpoints: ["unused"]
