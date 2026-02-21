@@ -115,6 +115,12 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/admin/tiers":
             self._admin_get_tiers()
             return
+        if self.path == "/api/admin/rag-search":
+            self._admin_rag_search()
+            return
+        if self.path == "/api/admin/rag-stores":
+            self._admin_rag_stores()
+            return
         if self.path == "/api/admin/providers":
             self._admin_get_providers()
             return
@@ -190,6 +196,70 @@ class DemoHandler(SimpleHTTPRequestHandler):
         ]
         self._send_json({"tiers": tiers, "rateLimits": rate_limits})
 
+    def _admin_rag_stores(self):
+        """List vector stores from the vSR API server."""
+        try:
+            conn = http.client.HTTPConnection("vsr-gateway", 8080, timeout=10)
+            conn.request("GET", "/v1/vector_stores")
+            resp = conn.getresponse()
+            data = json.loads(resp.read().decode())
+            conn.close()
+            self._send_json(data)
+        except Exception as e:
+            self._send_json({"error": str(e)}, 502)
+
+    def _admin_rag_search(self):
+        """Search vector store for relevant context. Called from NB demo page."""
+        try:
+            body = self._read_json_body()
+        except Exception as e:
+            self._send_json({"error": f"Invalid JSON: {e}"}, 400)
+            return
+
+        query = body.get("query", "").strip()
+        store_id = body.get("store_id", "").strip()
+
+        if not query:
+            self._send_json({"error": "query is required"}, 400)
+            return
+
+        # If no store_id, find the first active store
+        if not store_id:
+            try:
+                conn = http.client.HTTPConnection("vsr-gateway", 8080, timeout=10)
+                conn.request("GET", "/v1/vector_stores")
+                resp = conn.getresponse()
+                stores = json.loads(resp.read().decode())
+                conn.close()
+                items = stores.get("data", [])
+                if items:
+                    store_id = items[0].get("id", "")
+            except Exception:
+                pass
+
+        if not store_id:
+            self._send_json({"data": [], "message": "No vector store available"})
+            return
+
+        try:
+            conn = http.client.HTTPConnection("vsr-gateway", 8080, timeout=10)
+            search_body = json.dumps({
+                "query": query,
+                "max_num_results": body.get("top_k", 3),
+            }).encode()
+            conn.request(
+                "POST",
+                f"/v1/vector_stores/{store_id}/search",
+                body=search_body,
+                headers={"Content-Type": "application/json"},
+            )
+            resp = conn.getresponse()
+            data = json.loads(resp.read().decode())
+            conn.close()
+            self._send_json(data)
+        except Exception as e:
+            self._send_json({"error": f"RAG search failed: {e}"}, 502)
+
     def _admin_get_providers(self):
         """Return provider/model configuration (hardcoded for demo stability)."""
         providers = [
@@ -233,6 +303,9 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/admin/test":
             self._admin_test_request()
+            return
+        if self.path == "/api/admin/rag-search":
+            self._admin_rag_search()
             return
 
         # Gateway proxy

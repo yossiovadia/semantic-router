@@ -178,5 +178,8 @@ spec:
   - name: grpc
     port: 50051
     targetPort: 50051
+  - name: api
+    port: 8080
+    targetPort: 8080
   selector:
     app: vsr-router

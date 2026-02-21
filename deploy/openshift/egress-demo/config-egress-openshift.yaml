@@ -27,6 +27,20 @@ prompt_guard:
 semantic_cache:
   enabled: false
 
+# --- Vector Store (local RAG) ---
+vector_store:
+  enabled: true
+  backend_type: "memory"
+  file_storage_dir: "/tmp/vsr-data"
+  max_file_size_mb: 50
+  embedding_model: "bert"
+  embedding_dimension: 384
+  ingestion_workers: 2
+  supported_formats:
+    - ".txt"
+    - ".md"
+    - ".json"
+
 # --- Backend Endpoints ---
 vllm_endpoints:
   - name: "external-provider"
@@ -118,9 +132,9 @@ decisions:
         pii_types_allowed: []
 
   # Default → GPU model (internal, high quality, data stays on-prem)
-  # Simple/medium queries stay internal regardless of domain
+  # RAG plugin enriches queries with relevant context from vector store
   - name: "default_internal"
-    description: "Default: route to internal GPU model"
+    description: "Default: route to internal GPU model with RAG"
     priority: 1
     rules:
       operator: "OR"
