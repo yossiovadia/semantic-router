@@ -891,44 +891,30 @@ async function sendRequest() {
   document.getElementById('response-panel').style.display = 'none';
   document.getElementById('routing-panel').style.display = 'none';
 
-  // Classification (for auto mode, or for display even in forced mode)
-  const classification = classifyMessage(message);
-
-  // Determine actual model to use
-  let actualModel;
-  let routingType;
-  let routingReason;
+  // For auto mode: no client-side prediction — vSR handles everything server-side
+  // For manual mode: just check tier access
+  let actualModel = isAuto ? 'auto' : selectedModel;
+  let routingType = '';
+  let routingReason = '';
   let isBlocked = false;
+  const classification = { domain: '', confidence: 0, complexity: '', piiDetected: false, piiTypes: [] };
 
-  if (isAuto) {
-    const resolved = resolveModel(classification, deptKey);
-    actualModel = resolved.model;
-    routingReason = resolved.reason;
-    routingType = resolved.type;
-  } else {
-    actualModel = selectedModel;
-    // Check if forced model is allowed
+  if (!isAuto) {
     if (!isModelAllowed(actualModel, deptKey)) {
       routingType = 'blocked';
       routingReason = dept.label + ' tier cannot access ' + actualModel;
       isBlocked = true;
-    } else if (classification.piiDetected && (actualModel === 'qwen2.5:1.5b' || actualModel === 'claude-sonnet')) {
-      // PII + external: warn but allow if user forced it
-      routingType = 'pii-forced';
-      routingReason = 'PII detected but model was manually selected (override)';
     } else {
       routingType = (actualModel === 'qwen2.5:1.5b' || actualModel === 'claude-sonnet') ? 'external' : 'internal';
       routingReason = 'manually selected model';
     }
   }
 
-  // RAG: search vector store for relevant context
-  // Only for finance department (proprietary docs are finance-specific)
-  // Filter by similarity threshold to avoid irrelevant context
+  // RAG: search vector store for relevant context (finance dept only)
   let ragContext = '';
   let ragResults = [];
   var RAG_THRESHOLD = 0.55;
-  if (!isBlocked && routingType !== 'blocked' && deptKey === 'finance' && ragEnabled) {
+  if (!isBlocked && deptKey === 'finance' && ragEnabled) {
     try {
       const ragResp = await apiFetch('/api/admin/rag-search', {
         method: 'POST',
@@ -950,7 +936,9 @@ async function sendRequest() {
   // Show waiting state in routing panel (real values come from vSR response)
   var routingPanel = document.getElementById('routing-panel');
   routingPanel.style.display = '';
-  document.getElementById('routing-grid').innerHTML = '<div style="text-align:center; padding:16px; color:var(--text-muted);"><span class="spinner"></span> Classifying query via vSR...</div>';
+  document.getElementById('routing-grid').innerHTML = isAuto
+    ? '<div style="text-align:center; padding:16px; color:var(--text-muted);"><span class="spinner"></span> Classifying query via vSR...</div>'
+    : '<div style="text-align:center; padding:16px; color:var(--text-muted);"><span class="spinner"></span> Sending to ' + esc(actualModel) + '...</div>';
   document.getElementById('routing-decision').innerHTML = '';
 
   // Build RAG system message (separate from user message so vSR classifies original query)
@@ -977,6 +965,10 @@ async function sendRequest() {
     const isRateLimited = respStatus === 429;
     const respHeaders = data.headers || {};
 
+    // Use server-selected model for all display (not client-side prediction)
+    const displayModel = (isAuto && respHeaders['x-vsr-selected-model']) ? respHeaders['x-vsr-selected-model'] : actualModel;
+    const isPiiBlocked = respHeaders['x-vsr-pii-violation'] === 'true';
+
     // Estimate tokens for cost tracking (~4 chars per token)
     const estInputTokens = Math.ceil((message.length + (ragSystemMessage ? ragSystemMessage.length : 0)) / 4);
     const respText = respBody && respBody.choices && respBody.choices[0] ? (respBody.choices[0].message || {}).content || '' : '';
@@ -985,21 +977,25 @@ async function sendRequest() {
     if (isRateLimited) {
       updateArchDiagramRateLimited();
       updateComponentLogRateLimited(dept);
+    } else if (isPiiBlocked) {
+      updateArchDiagram(displayModel, dept, true, totalMs);
+      updateComponentLog(displayModel, dept, classification, true, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+      updateSessionStats(displayModel, 'blocked', 0, 0);
     } else if (serverBlocked || isBlocked) {
-      updateArchDiagram(actualModel, dept, true, totalMs);
-      updateComponentLog(actualModel, dept, classification, true, isAuto, routingType, routingReason, respHeaders, data, totalMs);
-      updateSessionStats(actualModel, 'blocked', 0, 0);
+      updateArchDiagram(displayModel, dept, true, totalMs);
+      updateComponentLog(displayModel, dept, classification, true, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+      updateSessionStats(displayModel, 'blocked', 0, 0);
 
       // Override routing decision to blocked
       if (serverBlocked && !isBlocked) {
-        showRoutingDecision(classification, actualModel, 'blocked',
-          dept.label + ' tier cannot access ' + actualModel, isAuto);
+        showRoutingDecision(classification, displayModel, 'blocked',
+          dept.label + ' tier cannot access ' + displayModel, isAuto);
       }
     } else {
-      updateArchDiagram(actualModel, dept, false, totalMs);
-      updateComponentLog(actualModel, dept, classification, false, isAuto, routingType, routingReason, respHeaders, data, totalMs);
-      showModelResponse(respBody, false, actualModel, totalMs);
-      updateSessionStats(actualModel, routingType, estInputTokens, estOutputTokens);
+      updateArchDiagram(displayModel, dept, false, totalMs);
+      updateComponentLog(displayModel, dept, classification, false, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+      showModelResponse(respBody, false, displayModel, totalMs);
+      updateSessionStats(displayModel, routingType, estInputTokens, estOutputTokens);
     }
 
     // Show routing decision with real vSR signals from response headers
@@ -1041,7 +1037,9 @@ async function sendRequest() {
       showRoutingDecision(serverClassification, serverModel, serverRoutingType, serverReason, isAuto, ragResults);
       showVsrHeaders(respHeaders);
     } else {
-      showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto, ragResults);
+      // Manual mode — show basic routing info (no classification)
+      var manualClassification = { domain: '-', confidence: 0, complexity: '-', piiDetected: false, piiTypes: [], fromServer: false };
+      showRoutingDecision(manualClassification, displayModel, routingType, routingReason, false, ragResults);
     }
 
   } catch (e) {
