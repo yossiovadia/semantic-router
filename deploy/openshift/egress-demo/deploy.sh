@@ -168,6 +168,11 @@ oc create configmap envoy-egress-config \
     --from-file=envoy.yaml="$SCRIPT_DIR/envoy-egress-openshift.yaml" \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
+# RAG docs as ConfigMap (auto-indexed by vSR postStart hook on every pod start)
+oc create configmap rag-docs \
+    --from-file="$SCRIPT_DIR/rag-docs/" \
+    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+
 log "Deploying vSR router + Envoy (ExtProc)..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
 
@@ -753,33 +758,10 @@ oc wait --for=condition=Ready pod -l app=vsr-router -n "$NAMESPACE" --timeout=30
 oc wait --for=condition=Ready pod -l app=demo-ui -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "demo-ui not ready yet"
 oc wait --for=condition=Ready pod -l app=vllm-gpu -n "$NAMESPACE" --timeout=600s 2>/dev/null || warn "vllm-gpu not ready yet (model downloading)"
 
-# ─── Setup RAG Vector Store ───
-log "Setting up RAG vector store with finance documents..."
-VSR_POD=$(oc get pod -l app=vsr-router -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-if [[ -n "$VSR_POD" ]]; then
-    # Create vector store
-    VS_ID=$(oc exec -n "$NAMESPACE" "$VSR_POD" -c semantic-router -- curl -sS -X POST http://localhost:8080/v1/vector_stores \
-      -H 'Content-Type: application/json' -d '{"name":"nb-finance-docs"}' 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
-    if [[ -n "$VS_ID" ]]; then
-        # Copy and upload documents
-        for doc in nb-investment-guidelines.md nb-client-portfolios.md nb-trading-procedures.md; do
-            if [[ -f "$SCRIPT_DIR/rag-docs/$doc" ]]; then
-                oc cp "$SCRIPT_DIR/rag-docs/$doc" "$NAMESPACE/${VSR_POD}:/tmp/$doc" -c semantic-router 2>/dev/null
-                FID=$(oc exec -n "$NAMESPACE" "$VSR_POD" -c semantic-router -- curl -sS -X POST http://localhost:8080/v1/files \
-                  -F "file=@/tmp/$doc" -F "purpose=assistants" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
-                if [[ -n "$FID" ]]; then
-                    oc exec -n "$NAMESPACE" "$VSR_POD" -c semantic-router -- curl -sS -X POST "http://localhost:8080/v1/vector_stores/${VS_ID}/files" \
-                      -H 'Content-Type: application/json' -d "{\"file_id\":\"${FID}\"}" 2>/dev/null > /dev/null
-                fi
-            fi
-        done
-        success "RAG vector store ready (ID: $VS_ID)"
-    else
-        warn "Could not create vector store — RAG search will be empty"
-    fi
-else
-    warn "vSR pod not found — skipping RAG setup"
-fi
+# ─── RAG Vector Store ───
+# RAG docs are auto-indexed by the vSR postStart lifecycle hook.
+# The docs are mounted as a ConfigMap at /app/rag-docs/ and indexed on every pod start.
+success "RAG vector store will auto-index on pod startup (postStart hook)"
 
 # ─── Print URLs ───
 DEMO_URL=$(oc get route demo-ui-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")

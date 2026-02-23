@@ -1247,9 +1247,9 @@ function updateComponentLog(model, dept, classification, isBlocked, isAuto, rout
       steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: API translation OpenAI \u2192 Anthropic format', value: '', box: 'box-vsr' });
     }
 
-    var backendName = provInfo.provider.toLowerCase().indexOf('anthropic') >= 0 ? 'mock-anthropic'
-      : provInfo.provider.toLowerCase().indexOf('openai') >= 0 ? 'mock-openai'
-      : 'mock-kserve';
+    var backendName = model === 'claude-sonnet' ? 'Anthropic (mock)'
+      : model === 'qwen2.5:1.5b' ? 'OpenAI External (mock)'
+      : 'vLLM GPU (internal)';
     var backendStatus = data.status || 200;
     steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'Backend: ' + backendName + ' responded (' + backendStatus + ')', value: totalMs ? totalMs + 'ms' : '', box: 'box-backend' });
 

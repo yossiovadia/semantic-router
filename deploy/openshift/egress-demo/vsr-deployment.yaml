@@ -114,6 +114,32 @@ spec:
           limits:
             memory: "4Gi"
             cpu: "2"
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                # Wait for API to be ready, then auto-index RAG docs
+                for i in $(seq 1 60); do
+                  curl -sf http://localhost:8080/v1/vector_stores >/dev/null 2>&1 && break
+                  sleep 2
+                done
+                # Create vector store and index all docs from ConfigMap
+                VS_ID=$(curl -sS -X POST http://localhost:8080/v1/vector_stores \
+                  -H 'Content-Type: application/json' -d '{"name":"nb-finance-docs"}' 2>/dev/null \
+                  | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+                if [ -n "$VS_ID" ] && [ -d /app/rag-docs ]; then
+                  for doc in /app/rag-docs/*.md; do
+                    [ -f "$doc" ] || continue
+                    FID=$(curl -sS -X POST http://localhost:8080/v1/files \
+                      -F "file=@${doc}" -F "purpose=assistants" 2>/dev/null \
+                      | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+                    [ -n "$FID" ] && curl -sS -X POST "http://localhost:8080/v1/vector_stores/${VS_ID}/files" \
+                      -H 'Content-Type: application/json' -d "{\"file_id\":\"${FID}\"}" >/dev/null 2>&1
+                  done
+                fi
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml
@@ -121,6 +147,9 @@ spec:
           readOnly: true
         - name: models
           mountPath: /app/models
+        - name: rag-docs
+          mountPath: /app/rag-docs
+          readOnly: true
       - name: envoy-proxy
         image: envoyproxy/envoy:v1.33.2
         command: ["/usr/local/bin/envoy"]
@@ -166,6 +195,9 @@ spec:
           name: envoy-egress-config
       - name: models
         emptyDir: {}
+      - name: rag-docs
+        configMap:
+          name: rag-docs
 ---
 apiVersion: v1
 kind: Service
