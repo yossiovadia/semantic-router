@@ -261,6 +261,12 @@
     <div id="dept-info-panel" style="display:none;">
       <h2>Department Info</h2>
       <div class="dept-info-box" id="dept-details"></div>
+      <div id="routing-rules-toggle" style="margin-top:6px;">
+        <div onclick="toggleRoutingRules()" style="cursor:pointer; font-size:11px; color:var(--accent); padding:4px 0; user-select:none;">
+          <span id="routing-rules-arrow">▸</span> Routing Rules <span style="color:var(--text-muted); font-size:10px;">(click to expand)</span>
+        </div>
+        <div id="routing-rules-body" style="display:none;"></div>
+      </div>
     </div>
 
     <div id="setup-status" class="setup-status">Initializing...</div>
@@ -546,6 +552,49 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ---- Routing rules panel ----
+function toggleRoutingRules() {
+  const body = document.getElementById('routing-rules-body');
+  const arrow = document.getElementById('routing-rules-arrow');
+  if (body.style.display === 'none') {
+    body.style.display = '';
+    arrow.textContent = '▾';
+  } else {
+    body.style.display = 'none';
+    arrow.textContent = '▸';
+  }
+}
+
+function renderRoutingRules(deptKey) {
+  const body = document.getElementById('routing-rules-body');
+  if (!body) return;
+  const dept = DEPARTMENTS[deptKey];
+  const isFree = dept.tier === 'free';
+
+  const internal = '<span style="color:var(--green);">Internal GPU</span>';
+  const external = '<span style="color:var(--accent);">Claude ↗</span>';
+  const blocked = '<span style="color:var(--red);">Blocked ✗</span>';
+  const piiForced = '<span style="color:var(--orange);">Internal ⚠</span>';
+
+  const hardGeneral = isFree ? internal : internal;
+  const hardSpecialized = isFree ? blocked : external;
+  const mediumAny = internal;
+  const easyAny = internal;
+
+  body.innerHTML =
+    '<table style="width:100%; font-size:10px; border-collapse:collapse; margin-top:4px;">' +
+    '<tr style="border-bottom:1px solid var(--border);">' +
+      '<th style="text-align:left; padding:3px 4px; color:var(--text-muted);">Complexity</th>' +
+      '<th style="text-align:left; padding:3px 4px; color:var(--text-muted);">General</th>' +
+      '<th style="text-align:left; padding:3px 4px; color:var(--text-muted);">Math / CS</th>' +
+    '</tr>' +
+    '<tr><td style="padding:3px 4px;">Easy</td><td style="padding:3px 4px;">' + easyAny + '</td><td style="padding:3px 4px;">' + easyAny + '</td></tr>' +
+    '<tr><td style="padding:3px 4px;">Medium</td><td style="padding:3px 4px;">' + mediumAny + '</td><td style="padding:3px 4px;">' + mediumAny + '</td></tr>' +
+    '<tr><td style="padding:3px 4px;">Hard</td><td style="padding:3px 4px;">' + hardGeneral + '</td><td style="padding:3px 4px;">' + hardSpecialized + '</td></tr>' +
+    '<tr style="border-top:1px solid var(--border);"><td style="padding:3px 4px;">PII detected</td><td style="padding:3px 4px;" colspan="2">' + piiForced + ' <span style="color:var(--text-muted);">(forced on-prem)</span></td></tr>' +
+    '</table>';
+}
+
 // ---- RAG toggle ----
 let ragEnabled = true;
 function onRagToggle(checked) {
@@ -717,8 +766,9 @@ async function selectDept(deptKey) {
   // Show RAG toggle only for finance department
   document.getElementById('rag-toggle-section').style.display = deptKey === 'finance' ? '' : 'none';
 
-  // Render department-specific presets
+  // Render department-specific presets and routing rules
   renderPresets(deptKey);
+  renderRoutingRules(deptKey);
 
   // Reset panels
   resetArchDiagram();
