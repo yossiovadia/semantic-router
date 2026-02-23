@@ -139,7 +139,7 @@
   /* Model Response */
   .model-response-text {
     font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap;
-    word-wrap: break-word; max-height: 200px; overflow-y: auto;
+    word-wrap: break-word; max-height: 400px; overflow-y: auto;
   }
   .response-meta { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
 
@@ -278,6 +278,14 @@
       </div>
     </div>
 
+    <h2>Session</h2>
+    <div class="dept-info-box" id="session-stats" style="display:none; font-size:11px;"></div>
+    <div class="dept-info-box" id="session-limits" style="font-size:11px; margin-top:6px;">
+      <div class="info-row"><span class="info-label">Rate limit: </span><span class="info-value">10 req/min</span></div>
+      <div class="info-row"><span class="info-label">Token TTL: </span><span class="info-value">1 hour</span></div>
+      <div class="info-row"><span class="info-label">Session: </span><span class="info-value">stateless (token-based)</span></div>
+    </div>
+
     <h2>Preset Queries</h2>
     <div id="preset-list"></div>
   </div>
@@ -291,7 +299,7 @@
       <div class="panel-body">
         <div class="query-form">
           <div class="field-row">
-            <div class="field">
+            <div class="field" style="flex:1;">
               <label>Model</label>
               <select id="query-model">
                 <option value="auto">auto (AI classification for routing)</option>
@@ -299,9 +307,20 @@
                 <option value="qwen2.5:1.5b">qwen2.5:1.5b (external mock)</option>
                 <option value="claude-sonnet">claude-sonnet (external Anthropic mock)</option>
               </select>
-              <div class="model-hint" id="model-hint">Auto mode uses AI classification to route based on domain, complexity, and PII.</div>
+            </div>
+            <div class="field" style="flex:0 0 auto;">
+              <label>Max Tokens</label>
+              <select id="query-max-tokens" style="width:auto; min-width:90px;">
+                <option value="128">128</option>
+                <option value="256">256</option>
+                <option value="512" selected>512</option>
+                <option value="1024">1024</option>
+                <option value="2048">2048</option>
+                <option value="0">No limit</option>
+              </select>
             </div>
           </div>
+          <div class="model-hint" id="model-hint">Auto mode uses AI classification to route based on domain, complexity, and PII.</div>
           <div class="field">
             <label>Message</label>
             <textarea id="query-message" placeholder="Enter your message..." rows="3">What is 2+2?</textarea>
@@ -399,6 +418,45 @@ const DEPARTMENTS = {
   },
 };
 
+// ---- Model cost per 1M tokens (estimated) ----
+const MODEL_COSTS = {
+  'qwen2.5-7b':   { input: 0.00, output: 0.00, label: 'Internal GPU (on-prem)' },
+  'qwen2.5:1.5b': { input: 0.10, output: 0.30, label: 'External OpenAI' },
+  'claude-sonnet': { input: 3.00, output: 15.00, label: 'External Anthropic' },
+};
+
+// ---- Session cost tracking ----
+const sessionStats = { queries: 0, internalCount: 0, externalCount: 0, blockedCount: 0, totalCostUsd: 0 };
+
+function estimateCost(model, inputTokens, outputTokens) {
+  const c = MODEL_COSTS[model];
+  if (!c) return 0;
+  return (c.input * inputTokens / 1e6) + (c.output * outputTokens / 1e6);
+}
+
+function updateSessionStats(model, routingType, inputTokens, outputTokens) {
+  sessionStats.queries++;
+  if (routingType === 'blocked') { sessionStats.blockedCount++; return; }
+  if (routingType === 'internal' || routingType === 'pii-forced') { sessionStats.internalCount++; }
+  else { sessionStats.externalCount++; }
+  sessionStats.totalCostUsd += estimateCost(model, inputTokens, outputTokens);
+  renderSessionStats();
+}
+
+function renderSessionStats() {
+  const el = document.getElementById('session-stats');
+  if (!el) return;
+  const pctInternal = sessionStats.queries > 0 ? Math.round((sessionStats.internalCount / sessionStats.queries) * 100) : 0;
+  el.innerHTML =
+    '<div class="info-row"><span class="info-label">Queries: </span><span class="info-value">' + sessionStats.queries + '</span></div>' +
+    '<div class="info-row"><span class="info-label">Internal: </span><span class="info-value" style="color:var(--green);">' + sessionStats.internalCount + ' (' + pctInternal + '% on-prem)</span></div>' +
+    '<div class="info-row"><span class="info-label">External: </span><span class="info-value" style="color:var(--accent);">' + sessionStats.externalCount + '</span></div>' +
+    (sessionStats.blockedCount > 0 ? '<div class="info-row"><span class="info-label">Blocked: </span><span class="info-value" style="color:var(--red);">' + sessionStats.blockedCount + '</span></div>' : '') +
+    '<div class="info-row" style="margin-top:4px; border-top:1px solid var(--border); padding-top:4px;">' +
+      '<span class="info-label">Est. cost: </span><span class="info-value">$' + sessionStats.totalCostUsd.toFixed(4) + '</span></div>';
+  el.style.display = '';
+}
+
 // ---- Preset queries per department ----
 const DEPT_PRESETS = {
   intern: [
@@ -472,7 +530,11 @@ async function apiFetch(path, opts = {}) {
     headers: { 'Content-Type': 'application/json', ...opts.headers },
     ...opts,
   });
-  const data = await resp.json();
+  const text = await resp.text();
+  let data;
+  try { data = JSON.parse(text); } catch (e) {
+    throw new Error('Gateway timeout or error (HTTP ' + resp.status + '). Try reducing Max Tokens.');
+  }
   if (!resp.ok && !data) throw new Error('HTTP ' + resp.status);
   return { status: resp.status, data, headers: resp.headers };
 }
@@ -586,7 +648,14 @@ function resolveModel(classification, dept) {
     };
   }
 
-  // Premium/Enterprise: route based on complexity
+  // Premium/Enterprise: route based on domain + complexity (mirrors vSR decision rules)
+  if (classification.domain === 'math' || classification.domain === 'CS') {
+    return {
+      model: 'claude-sonnet',
+      reason: classification.domain + ' domain → specialized external model',
+      type: 'external',
+    };
+  }
   if (classification.complexity === 'hard') {
     return {
       model: 'claude-sonnet',
@@ -838,7 +907,7 @@ async function sendRequest() {
   try {
     const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
       method: 'POST',
-      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message: enrichedMessage }),
+      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message: enrichedMessage, max_tokens: parseInt(document.getElementById('query-max-tokens').value) || 0 }),
     });
 
     const totalMs = data.elapsed_ms || 0;
@@ -848,12 +917,18 @@ async function sendRequest() {
     const isRateLimited = respStatus === 429;
     const respHeaders = data.headers || {};
 
+    // Estimate tokens for cost tracking (~4 chars per token)
+    const estInputTokens = Math.ceil(enrichedMessage.length / 4);
+    const respText = respBody && respBody.choices && respBody.choices[0] ? (respBody.choices[0].message || {}).content || '' : '';
+    const estOutputTokens = Math.ceil(respText.length / 4);
+
     if (isRateLimited) {
       updateArchDiagramRateLimited();
       updateComponentLogRateLimited(dept);
     } else if (serverBlocked || isBlocked) {
       updateArchDiagram(actualModel, dept, true, totalMs);
       updateComponentLog(actualModel, dept, classification, true, isAuto, routingType, routingReason, respHeaders, data, totalMs);
+      updateSessionStats(actualModel, 'blocked', 0, 0);
 
       // Override routing decision to blocked
       if (serverBlocked && !isBlocked) {
@@ -864,6 +939,7 @@ async function sendRequest() {
       updateArchDiagram(actualModel, dept, false, totalMs);
       updateComponentLog(actualModel, dept, classification, false, isAuto, routingType, routingReason, respHeaders, data, totalMs);
       showModelResponse(respBody, false, actualModel, totalMs);
+      updateSessionStats(actualModel, routingType, estInputTokens, estOutputTokens);
     }
 
   } catch (e) {
@@ -973,10 +1049,15 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
   }
 
   const arrow = type === 'blocked' ? '&#10007;' : '&#8594;';
+  const costInfo = MODEL_COSTS[model];
+  const costLabel = costInfo ? (costInfo.input === 0 ? '$0 (on-prem)' : '$' + costInfo.input.toFixed(2) + '/$' + costInfo.output.toFixed(2) + ' per 1M tokens') : '';
+  const costColor = costInfo && costInfo.input === 0 ? 'var(--green)' : 'var(--yellow)';
   decision.className = 'routing-decision ' + decisionCls;
   decision.innerHTML = '<span class="decision-arrow" style="color:' + decisionColor + ';">' + arrow + '</span>' +
     '<div><span style="color:' + decisionColor + ';">' + esc(model) + '</span>' +
-    '<div class="decision-reason">' + esc(reason) + '</div></div>';
+    '<div class="decision-reason">' + esc(reason) + '</div>' +
+    (costLabel ? '<div class="decision-reason" style="color:' + costColor + '; margin-top:2px;">Cost: ' + costLabel + '</div>' : '') +
+    '</div>';
 
   panel.style.display = '';
   panel.classList.add('fade-in');
@@ -1002,9 +1083,6 @@ function showModelResponse(respBody, isBlocked, model, totalMs) {
   try {
     if (respBody && respBody.choices && respBody.choices[0]) {
       replyText = respBody.choices[0].message.content || '';
-      // Clean up small-model artifacts
-      const userIdx = replyText.search(/\n\s*(User:|Human:|Q:|A:|\n\n\n)/);
-      if (userIdx > 0) replyText = replyText.substring(0, userIdx).trim();
     }
     if (respBody && respBody.usage) {
       tokensUsed = respBody.usage.total_tokens + ' tokens';
@@ -1014,10 +1092,34 @@ function showModelResponse(respBody, isBlocked, model, totalMs) {
   }
 
   if (replyText) {
-    responseEl.textContent = replyText;
+    responseEl.innerHTML = renderMarkdownLite(replyText);
     metaEl.textContent = 'Model: ' + model + ' | ' + totalMs + 'ms | ' + tokensUsed;
     panel.style.display = '';
   }
+}
+
+// ---- Lightweight markdown renderer (code blocks + bold + inline code) ----
+function renderMarkdownLite(text) {
+  // Split on fenced code blocks: ```lang\n...\n```
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return parts.map(function(part) {
+    if (part.startsWith('```')) {
+      const match = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
+      if (match) {
+        const lang = match[1] || '';
+        const code = match[2].replace(/\n$/, '');
+        return '<div style="position:relative; margin:8px 0;">' +
+          (lang ? '<span style="position:absolute; top:4px; right:8px; font-size:10px; color:var(--text-muted); text-transform:uppercase;">' + esc(lang) + '</span>' : '') +
+          '<pre style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:12px 14px; overflow-x:auto; font-size:13px; line-height:1.5; color:#e6edf3; margin:0;">' +
+          '<code>' + esc(code) + '</code></pre></div>';
+      }
+    }
+    // For non-code parts: escape, then render inline markdown
+    let html = esc(part);
+    html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(110,118,129,0.2); padding:1px 5px; border-radius:3px; font-size:13px;">$1</code>');
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return html;
+  }).join('');
 }
 
 // ---- Architecture Diagram ----

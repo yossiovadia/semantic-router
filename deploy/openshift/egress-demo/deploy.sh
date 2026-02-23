@@ -178,9 +178,10 @@ oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/demo-ui.yaml"
 # ─── Create Routes ───
 log "Creating OpenShift Routes..."
 
-# Route for demo web UI (HTTPS with edge TLS termination)
+# Route for demo web UI (HTTPS with edge TLS termination, 5min timeout for long model responses)
 oc create route edge demo-ui-route --service=demo-ui --port=http \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+oc annotate route demo-ui-route -n "$NAMESPACE" haproxy.router.openshift.io/timeout=300s --overwrite 2>/dev/null || true
 
 # Route for ExtProc gateway (HTTP — API access, direct bypass)
 oc expose service vsr-gateway --name=gateway-route -n "$NAMESPACE" \

@@ -560,6 +560,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
         token = body.get("token", "").strip()
         model = body.get("model", "qwen2.5-7b").strip()
         message = body.get("message", "Hello").strip()
+        max_tokens = body.get("max_tokens", 512)
 
         if not token:
             self._send_json({"error": "token is required"}, 400)
@@ -570,13 +571,13 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         parsed = urllib.parse.urlparse(AUTH_GATEWAY)
-        chat_body = json.dumps(
-            {
-                "model": model,
-                "messages": [{"role": "user", "content": message}],
-                "max_tokens": 60,
-            }
-        ).encode()
+        chat_req = {
+            "model": model,
+            "messages": [{"role": "user", "content": message}],
+        }
+        if max_tokens and max_tokens > 0:
+            chat_req["max_tokens"] = max_tokens
+        chat_body = json.dumps(chat_req).encode()
 
         headers = {
             "Authorization": f"Bearer {token}",
