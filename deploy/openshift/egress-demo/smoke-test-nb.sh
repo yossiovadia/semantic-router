@@ -304,6 +304,8 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     fi
 
     echo ""
+    # Brief pause to avoid hitting the 10 req/min rate limit from earlier tests
+    sleep 8
     echo "Test 4.4: Finance → external model (allowed for premium)"
     if [[ -n "$FINANCE_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \

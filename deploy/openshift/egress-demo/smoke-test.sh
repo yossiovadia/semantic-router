@@ -294,7 +294,6 @@ if [[ "$PHASE" -ge 3 ]]; then
         echo "Test 3.1: Unauthenticated Request → 401"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             "${HOST_ARGS[@]}" \
-            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
         assert_status "Unauthenticated" "$HEADERS" "401"
@@ -415,6 +414,8 @@ if [[ "$PHASE" -ge 3 ]]; then
         fi
 
         # Test 3.9: Free user + GPU model via auth gateway → 200 (free tier has access)
+        # Brief pause to avoid hitting the 10 req/min rate limit from earlier tests
+        sleep 8
         echo "Test 3.9: Free User + GPU Model (via Gateway) → 200"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             "${HOST_ARGS[@]}" \

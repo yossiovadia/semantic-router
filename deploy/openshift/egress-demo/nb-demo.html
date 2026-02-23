@@ -265,6 +265,19 @@
 
     <div id="setup-status" class="setup-status">Initializing...</div>
 
+    <div id="rag-toggle-section" style="display:none; margin-top:12px;">
+      <h2>Features</h2>
+      <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; cursor:pointer; font-size:12px; border:1px solid var(--border); border-radius:6px; background:var(--bg);">
+        <input type="checkbox" id="rag-toggle" checked onchange="onRagToggle(this.checked)"
+          style="accent-color:var(--purple); width:14px; height:14px;">
+        <span>RAG Context</span>
+        <span id="rag-toggle-status" style="margin-left:auto; font-size:10px; color:var(--purple); font-weight:600;">ON</span>
+      </label>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:4px; padding:0 4px;">
+        Toggle to compare responses with and without RAG-enriched context from internal finance documents.
+      </div>
+    </div>
+
     <h2>Preset Queries</h2>
     <div id="preset-list"></div>
   </div>
@@ -471,6 +484,36 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ---- RAG toggle ----
+let ragEnabled = true;
+function onRagToggle(checked) {
+  ragEnabled = checked;
+  const status = document.getElementById('rag-toggle-status');
+  status.textContent = checked ? 'ON' : 'OFF';
+  status.style.color = checked ? 'var(--purple)' : 'var(--text-muted)';
+}
+
+// ---- PII highlighting ----
+function highlightPII(text) {
+  const patterns = [
+    { regex: /\b(\d{3}-\d{2}-\d{4})\b/g, type: 'SSN', mask: '[REDACTED-SSN]' },
+    { regex: /\b(\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4})\b/g, type: 'CC', mask: '[REDACTED-CC]' },
+  ];
+  let highlighted = esc(text);
+  let redacted = text;
+  for (const p of patterns) {
+    highlighted = highlighted.replace(p.regex, '<span style="background:rgba(248,81,73,0.25); border-bottom:2px solid var(--red); padding:0 2px; border-radius:2px;" title="' + p.type + ' detected">$1</span>');
+    redacted = redacted.replace(p.regex, p.mask);
+  }
+  // Highlight names only if other PII present
+  if (redacted !== text) {
+    const nameRegex = /\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b/g;
+    highlighted = highlighted.replace(nameRegex, '<span style="background:rgba(248,81,73,0.15); border-bottom:2px dashed var(--orange); padding:0 2px; border-radius:2px;" title="Name detected">$1</span>');
+    redacted = redacted.replace(nameRegex, '[REDACTED-NAME]');
+  }
+  return { highlighted, redacted, hasMatches: redacted !== text };
+}
+
 // ---- Classification logic (client-side heuristic for "auto" mode) ----
 // This simulates what vSR would do with ModernBERT classifiers
 
@@ -596,6 +639,9 @@ async function selectDept(deptKey) {
     '<div class="info-row"><span class="info-label">Models: </span><span class="info-value">' + modelTags + '</span></div>' +
     '<div class="info-row" style="margin-top:4px;"><span class="info-label" style="font-size:11px;">' + esc(dept.description) + '</span></div>';
   infoPanel.style.display = '';
+
+  // Show RAG toggle only for finance department
+  document.getElementById('rag-toggle-section').style.display = deptKey === 'finance' ? '' : 'none';
 
   // Render department-specific presets
   renderPresets(deptKey);
@@ -760,7 +806,7 @@ async function sendRequest() {
   let ragContext = '';
   let ragResults = [];
   var RAG_THRESHOLD = 0.55;
-  if (!isBlocked && routingType !== 'blocked' && deptKey === 'finance') {
+  if (!isBlocked && routingType !== 'blocked' && deptKey === 'finance' && ragEnabled) {
     try {
       const ragResp = await apiFetch('/api/admin/rag-search', {
         method: 'POST',
@@ -855,10 +901,22 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
   let piiColor = 'var(--green)';
   let piiText = 'none detected';
   let piiDetail = 'clean';
+  let piiExtraHtml = '';
   if (classification.piiDetected) {
     piiColor = 'var(--orange)';
     piiText = 'detected';
     piiDetail = classification.piiTypes.join(', ');
+    // Highlight PII in the original query
+    const queryText = document.getElementById('query-message').value;
+    const piiAnalysis = highlightPII(queryText);
+    if (piiAnalysis.hasMatches) {
+      piiExtraHtml = '<div style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
+        '<div class="routing-label" style="margin-bottom:4px;">PII Detected in Query</div>' +
+        '<div style="font-size:12px; padding:8px; background:rgba(248,81,73,0.05); border:1px solid rgba(248,81,73,0.2); border-radius:4px; line-height:1.6;">' + piiAnalysis.highlighted + '</div>' +
+        '<div class="routing-label" style="margin-top:8px; margin-bottom:4px;">Redacted Version</div>' +
+        '<div style="font-size:12px; padding:8px; background:rgba(63,185,80,0.05); border:1px solid rgba(63,185,80,0.2); border-radius:4px; line-height:1.6; font-family:monospace;">' + esc(piiAnalysis.redacted) + '</div>' +
+        '</div>';
+    }
   }
   const piiHtml = '<div class="routing-item">' +
     '<div class="routing-label">PII</div>' +
@@ -868,7 +926,12 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
 
   // RAG
   let ragHtml = '';
-  if (ragResults && ragResults.length > 0) {
+  if (!ragEnabled && classification && document.getElementById('rag-toggle-section').style.display !== 'none') {
+    ragHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
+      '<div class="routing-label">📄 RAG Context</div>' +
+      '<div class="routing-value" style="color:var(--text-muted);">disabled (toggle ON to enrich with internal docs)</div>' +
+      '</div>';
+  } else if (ragResults && ragResults.length > 0) {
     ragHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
       '<div class="routing-label">📄 RAG Context Retrieved</div>' +
       '<div class="routing-value" style="color:var(--purple);">' + ragResults.length + ' chunks from internal docs</div>' +
@@ -882,7 +945,7 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
       '</div></div>';
   }
 
-  grid.innerHTML = domainHtml + complexHtml + piiHtml + ragHtml;
+  grid.innerHTML = domainHtml + complexHtml + piiHtml + piiExtraHtml + ragHtml;
 
   // Decision
   let decisionColor;
