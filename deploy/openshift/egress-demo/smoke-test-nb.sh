@@ -44,8 +44,13 @@ fi
 # Auto-detect auth gateway
 if [[ -z "$GATEWAY_AUTH_URL" ]]; then
     if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
+        # Try Istio gateway LB first (Sail Operator creates this)
         CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)
-        if [[ -n "$CLUSTER_DOMAIN" ]]; then
+        ISTIO_LB=$(oc get svc vsr-demo-gateway-openshift-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        if [[ -n "$ISTIO_LB" ]]; then
+            GATEWAY_AUTH_URL="http://${ISTIO_LB}"
+            AUTH_HOST_HEADER="vsr-demo.${CLUSTER_DOMAIN}"
+        elif [[ -n "$CLUSTER_DOMAIN" ]]; then
             GATEWAY_AUTH_URL="http://vsr-demo.${CLUSTER_DOMAIN}"
         fi
     fi
@@ -54,6 +59,12 @@ fi
 HEADERS=$(mktemp)
 BODY=$(mktemp)
 trap "rm -f $HEADERS $BODY" EXIT
+
+# Build Host header args for Istio LB (empty array if not needed)
+HOST_ARGS=()
+if [[ -n "${AUTH_HOST_HEADER:-}" ]]; then
+    HOST_ARGS=(-H "Host: ${AUTH_HOST_HEADER}")
+fi
 
 echo ""
 echo "================================================================"
@@ -221,6 +232,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     ENT_TOKEN=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=1h 2>/dev/null || echo "")
     if [[ -n "$ENT_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $ENT_TOKEN" \
             -d '{"model":"auto","messages":[{"role":"user","content":"Write a comprehensive analysis of the economic implications of quantitative easing on emerging market bond yields, considering both the portfolio balance channel and the signaling channel"}],"max_tokens":10}'
@@ -250,6 +262,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "Test 4.1: Intern → internal model (allowed)"
     if [[ -n "$INTERN_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $INTERN_TOKEN" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
@@ -260,6 +273,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "Test 4.2: Intern → external model (blocked)"
     if [[ -n "$INTERN_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $INTERN_TOKEN" \
             -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
@@ -282,6 +296,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "Test 4.3: Finance → GPU model (allowed)"
     if [[ -n "$FINANCE_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $FINANCE_TOKEN" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is a bond yield?"}],"max_tokens":10}'
@@ -292,6 +307,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "Test 4.4: Finance → external model (allowed for premium)"
     if [[ -n "$FINANCE_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $FINANCE_TOKEN" \
             -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
@@ -302,6 +318,7 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "Test 4.5: Finance + PII query → must route to internal (compliance)"
     if [[ -n "$FINANCE_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $FINANCE_TOKEN" \
             -d '{"model":"auto","messages":[{"role":"user","content":"Check the portfolio for client John Smith, SSN 456-78-9012, and tell me the fixed income weighting"}],"max_tokens":10}'

@@ -9,13 +9,11 @@
 #   ./smoke-test.sh                 # Auto-detect: OpenShift route or localhost
 #   ./smoke-test.sh http://gw:8801  # Explicit gateway URL
 #   ./smoke-test.sh --phase 1       # Phase 1 tests only (egress MVP)
-#   ./smoke-test.sh --phase 2       # + Phase 2 (BBR plugin, expected failures)
 #   ./smoke-test.sh --phase 3       # + Phase 3 (MaaS/Kuadrant auth via SA tokens)
 #   ./smoke-test.sh --phase 3 --gateway-url https://vsr-demo-gateway-istio-...  # Explicit
 #
 # Phases:
 #   1 = Egress routing, API translation, tier access (should pass now)
-#   2 = BBR plugin integration (expected to fail until Phase 2 is done)
 #   3 = Full stack with MaaS + Kuadrant (real SA token auth via oc create token)
 # =============================================================================
 
@@ -248,34 +246,6 @@ assert_response "No tier" "$(cat $BODY)" "model" "qwen2.5:1.5b"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 2: BBR Plugin (expected to fail until Phase 2 is implemented)
-# ═══════════════════════════════════════════════════════════════
-if [[ "$PHASE" -ge 2 ]]; then
-    echo "--- Phase 2: BBR Plugin (expected failures) ---"
-    echo "(These tests validate the BBR plugin integration.)"
-    echo "(They are expected to fail until Phase 2 is implemented.)"
-    echo ""
-
-    # Test 2.1: BBR plugin processes request
-    echo "Test 2.1: BBR Plugin — Model Extraction"
-    echo -e "  ${BLUE}EXPECTED FAIL${RESET} BBR plugin not yet deployed"
-    ((EXPECTED_FAIL++))
-    echo ""
-
-    # Test 2.2: BBR plugin API translation
-    echo "Test 2.2: BBR Plugin — API Translation"
-    echo -e "  ${BLUE}EXPECTED FAIL${RESET} BBR plugin not yet deployed"
-    ((EXPECTED_FAIL++))
-    echo ""
-
-    # Test 2.3: BBR plugin classification headers
-    echo "Test 2.3: BBR Plugin — Classification Headers"
-    echo -e "  ${BLUE}EXPECTED FAIL${RESET} BBR plugin not yet deployed"
-    ((EXPECTED_FAIL++))
-    echo ""
-fi
-
-# ═══════════════════════════════════════════════════════════════
 # PHASE 3: Full Stack on OpenShift (real SA token auth)
 # ═══════════════════════════════════════════════════════════════
 if [[ "$PHASE" -ge 3 ]]; then
@@ -286,9 +256,16 @@ if [[ "$PHASE" -ge 3 ]]; then
     # Auto-detect gateway URL for Phase 3 if not provided
     if [[ -z "$GATEWAY_AUTH_URL" ]]; then
         if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
-            # Construct from Gateway listener hostname (vsr-demo.<cluster-domain>)
+            # Try Istio gateway LB first (Sail Operator creates this)
             CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}' 2>/dev/null || true)
-            if [[ -n "$CLUSTER_DOMAIN" ]]; then
+            # Try Istio gateway LB first (Sail Operator creates this)
+            ISTIO_LB=$(oc get svc vsr-demo-gateway-openshift-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+            if [[ -n "$ISTIO_LB" ]]; then
+                GATEWAY_AUTH_URL="http://${ISTIO_LB}"
+                # Istio requires Host header matching the gateway listener hostname
+                AUTH_HOST_HEADER="vsr-demo.${CLUSTER_DOMAIN}"
+                echo -e "${GREEN}Auto-detected${RESET} Gateway Auth URL (Istio LB): $GATEWAY_AUTH_URL"
+            elif [[ -n "$CLUSTER_DOMAIN" ]]; then
                 GATEWAY_AUTH_URL="http://vsr-demo.${CLUSTER_DOMAIN}"
                 echo -e "${GREEN}Auto-detected${RESET} Gateway Auth URL: $GATEWAY_AUTH_URL"
             fi
@@ -305,11 +282,19 @@ if [[ "$PHASE" -ge 3 ]]; then
 
     if [[ -n "$GATEWAY_AUTH_URL" ]]; then
         echo "  Gateway Auth URL: $GATEWAY_AUTH_URL"
+        # Build Host header args for Istio LB (empty array if not needed)
+        HOST_ARGS=()
+        if [[ -n "${AUTH_HOST_HEADER:-}" ]]; then
+            HOST_ARGS=(-H "Host: ${AUTH_HOST_HEADER}")
+            echo "  Host header:     ${AUTH_HOST_HEADER}"
+        fi
         echo ""
 
         # Test 3.1: Unauthenticated request → 401
         echo "Test 3.1: Unauthenticated Request → 401"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
         assert_status "Unauthenticated" "$HEADERS" "401"
@@ -323,6 +308,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             ((FAIL++))
         else
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+                "${HOST_ARGS[@]}" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${FREE_TOKEN}" \
                 -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
@@ -338,6 +324,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             ((FAIL++))
         else
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+                "${HOST_ARGS[@]}" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${FREE_TOKEN}" \
                 -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
@@ -354,6 +341,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             ((FAIL++))
         else
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+                "${HOST_ARGS[@]}" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${PREMIUM_TOKEN}" \
                 -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
@@ -369,6 +357,7 @@ if [[ "$PHASE" -ge 3 ]]; then
             ((FAIL++))
         else
             curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+                "${HOST_ARGS[@]}" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${PREMIUM_TOKEN}" \
                 -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"Hello"}],"max_tokens":50}'
@@ -380,6 +369,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         # Test 3.6: Invalid token → 401
         echo "Test 3.6: Invalid Token → 401"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer invalid-token" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
@@ -427,6 +417,7 @@ if [[ "$PHASE" -ge 3 ]]; then
         # Test 3.9: Free user + GPU model via auth gateway → 200 (free tier has access)
         echo "Test 3.9: Free User + GPU Model (via Gateway) → 200"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $FREE_TOKEN" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Say hello"}],"max_tokens":20}'

@@ -3,7 +3,7 @@
 # Deploy vSR Egress Routing Demo to OpenShift
 #
 # Deploys:
-#   Phase A/B: ExtProc + BBR demo with mock backends
+#   Phase A/B: ExtProc demo with mock backends
 #   Phase C:   Real auth (Kuadrant/Authorino + MaaS API), external provider
 #              simulation (separate namespace)
 #
@@ -58,12 +58,13 @@ if [[ "${cleanup:-}" == "true" ]]; then
     oc delete gateway vsr-demo-gateway -n openshift-ingress --ignore-not-found=true 2>/dev/null || true
     oc delete clusterrolebinding maas-api-vsr-demo --ignore-not-found=true 2>/dev/null || true
     oc delete clusterrole maas-api-vsr-demo --ignore-not-found=true 2>/dev/null || true
-    # GPU resources
-    oc delete clusterpolicy gpu-cluster-policy --ignore-not-found=true 2>/dev/null || true
-    GPU_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | grep gpu | awk '{print $1}')
-    if [[ -n "$GPU_MS" ]]; then
-        oc scale machineset "$GPU_MS" --replicas=0 -n openshift-machine-api 2>/dev/null || true
-        oc delete machineset "$GPU_MS" -n openshift-machine-api --ignore-not-found=true 2>/dev/null || true
+    # GPU resources (only delete machinesets created by deploy.sh, not pre-existing RHOAI ones)
+    CLUSTER_ID_CL=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | head -1 | awk '{print $1}' | sed 's/-worker.*//')
+    DEPLOY_GPU_MS="${CLUSTER_ID_CL}-gpu-us-east-2a"
+    if oc get machineset "$DEPLOY_GPU_MS" -n openshift-machine-api &>/dev/null; then
+        oc delete clusterpolicy gpu-cluster-policy --ignore-not-found=true 2>/dev/null || true
+        oc scale machineset "$DEPLOY_GPU_MS" --replicas=0 -n openshift-machine-api 2>/dev/null || true
+        oc delete machineset "$DEPLOY_GPU_MS" -n openshift-machine-api --ignore-not-found=true 2>/dev/null || true
     fi
     # Kuadrant resources
     oc delete kuadrant kuadrant -n kuadrant-system --ignore-not-found=true 2>/dev/null || true
@@ -170,14 +171,6 @@ oc create configmap envoy-egress-config \
 log "Deploying vSR router + Envoy (ExtProc)..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
 
-# ─── Deploy BBR router + Envoy (BBR Plugin) ───
-log "Deploying BBR router + Envoy (BBR Plugin)..."
-oc create configmap envoy-bbr-config \
-    --from-file=envoy.yaml="$SCRIPT_DIR/envoy-bbr-openshift.yaml" \
-    -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
-
-oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/bbr-deployment.yaml"
-
 # ─── Deploy demo web UI ───
 log "Deploying demo web UI..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/demo-ui.yaml"
@@ -193,10 +186,6 @@ oc create route edge demo-ui-route --service=demo-ui --port=http \
 oc expose service vsr-gateway --name=gateway-route -n "$NAMESPACE" \
     --dry-run=client -o yaml | oc apply -f -
 
-# Route for BBR gateway (HTTP — API access)
-oc expose service bbr-gateway --name=bbr-gateway-route -n "$NAMESPACE" \
-    --dry-run=client -o yaml | oc apply -f -
-
 # =============================================================================
 # PHASE C: Real Auth Infrastructure
 # =============================================================================
@@ -205,6 +194,104 @@ log ""
 log "═══════════════════════════════════════════════"
 log "  Phase C: Installing Auth Infrastructure"
 log "═══════════════════════════════════════════════"
+
+# ─── Install Gateway API CRDs (if missing) — must come before Sail/Kuadrant ───
+if ! oc get crd gatewayclasses.gateway.networking.k8s.io &>/dev/null; then
+    log "Gateway API CRDs not found — installing v1.2.1..."
+    oc apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+    success "Gateway API CRDs installed"
+else
+    success "Gateway API CRDs already present"
+fi
+
+# ─── Install Sail Operator (Istio for Gateway API — required by Kuadrant) ───
+if ! oc get csv -n sail-operator --no-headers 2>/dev/null | grep -q "sailoperator"; then
+    log "Installing Sail Operator (Istio Gateway API provider)..."
+    oc apply -f - <<'SAILEOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-cni
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sail-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: sail-operator
+  namespace: sail-operator
+spec:
+  upgradeStrategy: Default
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: sailoperator
+  namespace: sail-operator
+spec:
+  channel: "stable"
+  installPlanApproval: Automatic
+  name: sailoperator
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+SAILEOF
+    # Wait for Sail Operator to install
+    log "Waiting for Sail Operator..."
+    for i in $(seq 1 60); do
+        SAIL_CSV=$(oc get csv -n sail-operator --no-headers 2>/dev/null | grep sailoperator | awk '{print $1}' | head -1)
+        SAIL_PHASE=$(oc get csv "$SAIL_CSV" -n sail-operator -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        if [[ "$SAIL_PHASE" == "Succeeded" ]]; then success "Sail Operator ready: $SAIL_CSV"; break; fi
+        if [[ $i -eq 60 ]]; then warn "Sail Operator timeout"; fi
+        sleep 5
+    done
+else
+    success "Sail Operator already installed"
+fi
+
+# Create IstioCNI (required dependency for Sail Operator)
+if ! oc get istiocni default 2>/dev/null | grep -q "default"; then
+    log "Creating IstioCNI..."
+    oc apply -f - <<'CNIEOF'
+apiVersion: sailoperator.io/v1
+kind: IstioCNI
+metadata:
+  name: default
+spec:
+  version: v1.28.3
+  namespace: istio-cni
+CNIEOF
+fi
+
+# Create Istio instance for Gateway API
+if ! oc get istio default 2>/dev/null | grep -q "default"; then
+    log "Creating Istio instance..."
+    oc apply -f - <<'ISTIOEOF'
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: default
+spec:
+  version: v1.28.3
+  namespace: istio-system
+  values:
+    pilot:
+      env:
+        PILOT_ENABLE_GATEWAY_API: "true"
+        PILOT_ENABLE_GATEWAY_API_STATUS: "true"
+ISTIOEOF
+    log "Waiting for Istio to be ready..."
+    for i in $(seq 1 60); do
+        ISTIO_READY=$(oc get istio default -o jsonpath='{.status.state}' 2>/dev/null || echo "")
+        if [[ "$ISTIO_READY" == "Healthy" ]]; then success "Istio ready"; break; fi
+        if [[ $i -eq 60 ]]; then warn "Istio not yet Healthy (state: $ISTIO_READY) — continuing"; fi
+        sleep 10
+    done
+else
+    success "Istio instance already exists"
+fi
 
 # ─── Install Kuadrant operator ───
 log "Installing Kuadrant operator v1.3.1..."
@@ -277,6 +364,40 @@ log "Creating GatewayClass..."
 oc apply -f "$SCRIPT_DIR/infra/gatewayclass.yaml"
 success "GatewayClass ready"
 
+# ─── Prepare openshift-ingress namespace for Istio gateway ───
+oc label namespace openshift-ingress istio-injection=enabled --overwrite 2>/dev/null || true
+# Copy Istio CA cert so gateway pod can connect to istiod
+if ! oc get configmap istio-ca-root-cert -n openshift-ingress &>/dev/null; then
+    oc get configmap istio-ca-root-cert -n istio-system -o yaml 2>/dev/null | \
+        sed 's/namespace: istio-system/namespace: openshift-ingress/' | \
+        sed '/resourceVersion/d; /uid/d; /creationTimestamp/d' | \
+        oc apply -f - 2>/dev/null || true
+fi
+# Allow gateway pods to reach Sail istiod (OSSM NetworkPolicies may block)
+oc apply -f - <<'NPEOF' 2>/dev/null || true
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-sail-gateway
+  namespace: istio-system
+spec:
+  podSelector:
+    matchLabels:
+      app: istiod
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          istio-injection: enabled
+    ports:
+    - protocol: TCP
+      port: 15012
+    - protocol: TCP
+      port: 15010
+  policyTypes:
+  - Ingress
+NPEOF
+
 # ─── Create Gateway ───
 log "Creating Gateway..."
 envsubst '${CLUSTER_DOMAIN}' < "$SCRIPT_DIR/infra/gateway.yaml" | oc apply -f -
@@ -284,7 +405,7 @@ success "Gateway created (hostname: vsr-demo.${CLUSTER_DOMAIN})"
 
 # Wait for Gateway to be Programmed
 log "Waiting for Gateway to be Programmed..."
-if oc wait --for=condition=Programmed gateway/vsr-demo-gateway -n openshift-ingress --timeout=120s 2>/dev/null; then
+if oc wait --for=condition=Programmed gateway/vsr-demo-gateway -n openshift-ingress --timeout=180s 2>/dev/null; then
     success "Gateway is Programmed"
 else
     warn "Gateway not yet Programmed — AuthPolicy may take longer"
@@ -391,6 +512,33 @@ log "Applying RateLimitPolicy..."
 oc apply -f "$SCRIPT_DIR/infra/ratelimit-policy.yaml"
 success "RateLimitPolicy applied"
 
+# ─── Disable mTLS for backend services (Istio gateway → non-mesh backends) ───
+log "Creating DestinationRules (disable mTLS for non-mesh backends)..."
+oc apply -f - <<'DREOF'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: vsr-gateway-no-mtls
+  namespace: vsr-egress-demo
+spec:
+  host: vsr-gateway.vsr-egress-demo.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: maas-api-no-mtls
+  namespace: vsr-egress-demo
+spec:
+  host: maas-api.vsr-egress-demo.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+DREOF
+success "DestinationRules applied"
+
 # ─── Generate demo tokens ───
 log "Generating demo user tokens..."
 FREE_TOKEN=$(oc create token free-user -n "$NAMESPACE" --audience vsr-demo-gateway-sa --duration=24h 2>/dev/null || echo "")
@@ -415,10 +563,21 @@ log "═════════════════════════
 log "  GPU: Setting up NVIDIA GPU node + vLLM"
 log "═══════════════════════════════════════════════"
 
+# ─── Detect pre-existing GPU node (e.g., RHOAI cluster with NVIDIA GPUs) ───
+EXISTING_GPU_NODE=$(oc get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="Ready")].status}{"\t"}{.status.capacity.nvidia\.com/gpu}{"\n"}{end}' 2>/dev/null | awk '$2 == "True" && $3 >= 1 {print $1}' | head -1)
+if [[ -n "$EXISTING_GPU_NODE" ]]; then
+    success "Pre-existing GPU node detected: $EXISTING_GPU_NODE — skipping GPU infrastructure setup"
+    SKIP_GPU_INFRA=true
+else
+    SKIP_GPU_INFRA=false
+fi
+
 # ─── GPU MachineSet ───
 CLUSTER_ID=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | head -1 | awk '{print $1}' | sed 's/-worker.*//')
 GPU_MS="${CLUSTER_ID}-gpu-us-east-2a"
-if oc get machineset "$GPU_MS" -n openshift-machine-api &>/dev/null; then
+if [[ "$SKIP_GPU_INFRA" == "true" ]]; then
+    log "Using pre-existing GPU node (skipping MachineSet creation)"
+elif oc get machineset "$GPU_MS" -n openshift-machine-api &>/dev/null; then
     GPU_REPLICAS=$(oc get machineset "$GPU_MS" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
     if [[ "$GPU_REPLICAS" == "0" ]]; then
         log "Scaling up existing GPU MachineSet..."
@@ -496,31 +655,32 @@ EOF
     success "GPU MachineSet created"
 fi
 
-# Scale CPU workers to 2 (save resources — GPU node replaces one)
-CPU_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | grep worker | grep -v gpu | awk '{print $1}')
-CPU_REPLICAS=$(oc get machineset "$CPU_MS" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
-if [[ "$CPU_REPLICAS" -gt 2 ]]; then
-    log "Scaling CPU workers from $CPU_REPLICAS to 2..."
-    oc scale machineset "$CPU_MS" --replicas=2 -n openshift-machine-api 2>/dev/null
-fi
+if [[ "$SKIP_GPU_INFRA" != "true" ]]; then
+    # Scale CPU workers to 2 (save resources — GPU node replaces one)
+    CPU_MS=$(oc get machineset -n openshift-machine-api --no-headers 2>/dev/null | grep worker | grep -v gpu | awk '{print $1}')
+    CPU_REPLICAS=$(oc get machineset "$CPU_MS" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
+    if [[ "$CPU_REPLICAS" -gt 2 ]]; then
+        log "Scaling CPU workers from $CPU_REPLICAS to 2..."
+        oc scale machineset "$CPU_MS" --replicas=2 -n openshift-machine-api 2>/dev/null
+    fi
 
-# ─── NFD + GPU Operator ───
-log "Installing NFD + NVIDIA GPU operators..."
-oc apply -f "$SCRIPT_DIR/infra/gpu-setup.yaml"
+    # ─── NFD + GPU Operator ───
+    log "Installing NFD + NVIDIA GPU operators..."
+    oc apply -f "$SCRIPT_DIR/infra/gpu-setup.yaml"
 
-# Wait for NFD operator
-log "Waiting for NFD operator..."
-for i in $(seq 1 30); do
-    CSV=$(oc get csv -n openshift-nfd --no-headers 2>/dev/null | grep "^nfd" | awk '{print $1}' | head -1)
-    PHASE=$(oc get csv "$CSV" -n openshift-nfd -o jsonpath='{.status.phase}' 2>/dev/null)
-    if [[ "$PHASE" == "Succeeded" ]]; then success "NFD operator ready"; break; fi
-    if [[ $i -eq 30 ]]; then warn "NFD operator timeout"; fi
-    sleep 5
-done
+    # Wait for NFD operator
+    log "Waiting for NFD operator..."
+    for i in $(seq 1 30); do
+        CSV=$(oc get csv -n openshift-nfd --no-headers 2>/dev/null | grep "^nfd" | awk '{print $1}' | head -1)
+        PHASE=$(oc get csv "$CSV" -n openshift-nfd -o jsonpath='{.status.phase}' 2>/dev/null)
+        if [[ "$PHASE" == "Succeeded" ]]; then success "NFD operator ready"; break; fi
+        if [[ $i -eq 30 ]]; then warn "NFD operator timeout"; fi
+        sleep 5
+    done
 
-# Create NFD instance
-log "Creating NFD instance..."
-oc apply -f - <<'NFDEOF'
+    # Create NFD instance
+    log "Creating NFD instance..."
+    oc apply -f - <<'NFDEOF'
 apiVersion: nfd.openshift.io/v1
 kind: NodeFeatureDiscovery
 metadata:
@@ -535,46 +695,47 @@ spec:
         sleepInterval: 60s
 NFDEOF
 
-# Wait for GPU operator
-log "Waiting for GPU operator..."
-for i in $(seq 1 30); do
-    CSV=$(oc get csv -n nvidia-gpu-operator --no-headers 2>/dev/null | grep gpu-operator | awk '{print $1}' | head -1)
-    PHASE=$(oc get csv "$CSV" -n nvidia-gpu-operator -o jsonpath='{.status.phase}' 2>/dev/null)
-    if [[ "$PHASE" == "Succeeded" ]]; then success "GPU operator ready"; break; fi
-    if [[ $i -eq 30 ]]; then warn "GPU operator timeout"; fi
-    sleep 10
-done
+    # Wait for GPU operator
+    log "Waiting for GPU operator..."
+    for i in $(seq 1 30); do
+        CSV=$(oc get csv -n nvidia-gpu-operator --no-headers 2>/dev/null | grep gpu-operator | awk '{print $1}' | head -1)
+        PHASE=$(oc get csv "$CSV" -n nvidia-gpu-operator -o jsonpath='{.status.phase}' 2>/dev/null)
+        if [[ "$PHASE" == "Succeeded" ]]; then success "GPU operator ready"; break; fi
+        if [[ $i -eq 30 ]]; then warn "GPU operator timeout"; fi
+        sleep 10
+    done
 
-# Create ClusterPolicy
-log "Creating GPU ClusterPolicy..."
-oc apply -f "$SCRIPT_DIR/infra/gpu-clusterpolicy.yaml"
+    # Create ClusterPolicy
+    log "Creating GPU ClusterPolicy..."
+    oc apply -f "$SCRIPT_DIR/infra/gpu-clusterpolicy.yaml"
 
-# Wait for GPU node to be Ready
-log "Waiting for GPU node to be Ready..."
-for i in $(seq 1 40); do
-    STATUS=$(oc get nodes -l node-role.kubernetes.io/gpu --no-headers 2>/dev/null | awk '{print $2}')
-    if [[ "$STATUS" == "Ready" ]]; then success "GPU node Ready"; break; fi
-    if [[ $i -eq 40 ]]; then warn "GPU node timeout — vLLM may deploy later"; fi
-    sleep 15
-done
+    # Wait for GPU node to be Ready
+    log "Waiting for GPU node to be Ready..."
+    for i in $(seq 1 40); do
+        STATUS=$(oc get nodes -l node-role.kubernetes.io/gpu --no-headers 2>/dev/null | awk '{print $2}')
+        if [[ "$STATUS" == "Ready" ]]; then success "GPU node Ready"; break; fi
+        if [[ $i -eq 40 ]]; then warn "GPU node timeout — vLLM may deploy later"; fi
+        sleep 15
+    done
 
-# Wait for NFD to label the GPU node with PCI device
-log "Waiting for NFD to detect GPU..."
-for i in $(seq 1 30); do
-    PCI=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].metadata.labels.feature\.node\.kubernetes\.io/pci-0302_10de\.present}' 2>/dev/null)
-    if [[ "$PCI" == "true" ]]; then success "NVIDIA GPU detected by NFD"; break; fi
-    if [[ $i -eq 30 ]]; then warn "NFD GPU detection timeout"; fi
-    sleep 10
-done
+    # Wait for NFD to label the GPU node with PCI device
+    log "Waiting for NFD to detect GPU..."
+    for i in $(seq 1 30); do
+        PCI=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].metadata.labels.feature\.node\.kubernetes\.io/pci-0302_10de\.present}' 2>/dev/null)
+        if [[ "$PCI" == "true" ]]; then success "NVIDIA GPU detected by NFD"; break; fi
+        if [[ $i -eq 30 ]]; then warn "NFD GPU detection timeout"; fi
+        sleep 10
+    done
 
-# Wait for NVIDIA driver + device plugin
-log "Waiting for NVIDIA driver installation (this takes several minutes)..."
-for i in $(seq 1 60); do
-    GPU_CAP=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].status.capacity.nvidia\.com/gpu}' 2>/dev/null)
-    if [[ "$GPU_CAP" == "1" ]]; then success "nvidia.com/gpu: 1 — GPU fully operational"; break; fi
-    if [[ $i -eq 60 ]]; then warn "GPU driver timeout — check nvidia-gpu-operator pods"; fi
-    sleep 20
-done
+    # Wait for NVIDIA driver + device plugin
+    log "Waiting for NVIDIA driver installation (this takes several minutes)..."
+    for i in $(seq 1 60); do
+        GPU_CAP=$(oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[0].status.capacity.nvidia\.com/gpu}' 2>/dev/null)
+        if [[ "$GPU_CAP" == "1" ]]; then success "nvidia.com/gpu: 1 — GPU fully operational"; break; fi
+        if [[ $i -eq 60 ]]; then warn "GPU driver timeout — check nvidia-gpu-operator pods"; fi
+        sleep 20
+    done
+fi
 
 # ─── Deploy vLLM on GPU ───
 log "Deploying vLLM (Qwen2.5-7B-Instruct) on GPU node..."
@@ -588,7 +749,6 @@ log "Waiting for all pods to be ready..."
 oc wait --for=condition=Ready pod -l app=mock-anthropic -n "$EXT_NAMESPACE" --timeout=120s 2>/dev/null || warn "mock-anthropic not ready yet"
 oc wait --for=condition=Ready pod -l app=llm-katan,role=external-provider -n "$EXT_NAMESPACE" --timeout=120s 2>/dev/null || warn "llm-katan-external not ready yet"
 oc wait --for=condition=Ready pod -l app=vsr-router -n "$NAMESPACE" --timeout=300s 2>/dev/null || warn "vsr-router not ready yet"
-oc wait --for=condition=Ready pod -l app=bbr-router -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "bbr-router not ready yet"
 oc wait --for=condition=Ready pod -l app=demo-ui -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "demo-ui not ready yet"
 oc wait --for=condition=Ready pod -l app=vllm-gpu -n "$NAMESPACE" --timeout=600s 2>/dev/null || warn "vllm-gpu not ready yet (model downloading)"
 
@@ -623,7 +783,6 @@ fi
 # ─── Print URLs ───
 DEMO_URL=$(oc get route demo-ui-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
 GW_URL=$(oc get route gateway-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
-BBR_URL=$(oc get route bbr-gateway-route -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "pending")
 AUTH_GW_URL="vsr-demo.${CLUSTER_DOMAIN}"
 
 echo ""
@@ -634,7 +793,6 @@ echo ""
 echo -e "  ${BLUE}Demo UI:${NC}        https://${DEMO_URL}"
 echo -e "  ${BLUE}ExtProc GW:${NC}     http://${GW_URL}  (direct, no auth)"
 echo -e "  ${BLUE}Auth GW:${NC}        http://${AUTH_GW_URL}  (Kuadrant auth)"
-echo -e "  ${BLUE}BBR GW:${NC}         http://${BBR_URL}  (BBR plugin, no auth)"
 echo ""
 echo -e "  ${YELLOW}Namespaces:${NC}"
 echo -e "    ${NAMESPACE}       — internal zone (vSR, MaaS API, demo UI)"

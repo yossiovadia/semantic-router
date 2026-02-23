@@ -43,18 +43,22 @@ spec:
           from huggingface_hub import snapshot_download
           import os
           # Map local directory names to HuggingFace repo IDs
+          # 'check_file' ensures large weight files are present (not just config.json)
           models = {
-              'mom-domain-classifier': 'LLM-Semantic-Router/lora_intent_classifier_bert-base-uncased_model',
-              'mom-pii-classifier': 'LLM-Semantic-Router/lora_pii_detector_bert-base-uncased_model',
-              'mom-embedding-light': 'sentence-transformers/all-MiniLM-L12-v2',
+              'mom-domain-classifier': {'repo': 'LLM-Semantic-Router/lora_intent_classifier_bert-base-uncased_model', 'check': 'config.json'},
+              'mom-pii-classifier': {'repo': 'LLM-Semantic-Router/lora_pii_detector_bert-base-uncased_model', 'check': 'config.json'},
+              'mom-embedding-light': {'repo': 'sentence-transformers/all-MiniLM-L12-v2', 'check': 'model.safetensors'},
+              'mom-embedding-ultra': {'repo': 'llm-semantic-router/mmbert-embed-32k-2d-matryoshka', 'check': 'model.safetensors'},
           }
-          for local_name, repo_id in models.items():
+          for local_name, info in models.items():
               dest = f'/models/{local_name}'
-              if os.path.exists(f'{dest}/config.json'):
-                  print(f'{local_name}: already downloaded')
+              check_path = f'{dest}/{info[\"check\"]}'
+              if os.path.exists(check_path):
+                  size_mb = os.path.getsize(check_path) / 1024**2
+                  print(f'{local_name}: ready ({size_mb:.0f} MB)')
               else:
-                  print(f'{local_name}: downloading from {repo_id}...')
-                  snapshot_download(repo_id, local_dir=dest)
+                  print(f'{local_name}: downloading from {info[\"repo\"]}...')
+                  snapshot_download(info['repo'], local_dir=dest)
                   print(f'{local_name}: done')
           print('All models ready')
           "
@@ -63,11 +67,11 @@ spec:
           mountPath: /models
         resources:
           requests:
-            memory: "512Mi"
+            memory: "1Gi"
             cpu: "250m"
           limits:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "2Gi"
+            cpu: "1"
       containers:
       - name: semantic-router
         image: quay.io/jabadia/vsr-extproc:latest
@@ -117,7 +121,6 @@ spec:
           readOnly: true
         - name: models
           mountPath: /app/models
-          readOnly: true
       - name: envoy-proxy
         image: envoyproxy/envoy:v1.33.2
         command: ["/usr/local/bin/envoy"]

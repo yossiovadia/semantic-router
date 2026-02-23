@@ -21,6 +21,11 @@ classifier:
     use_cpu: true
     pii_mapping_path: "models/mom-pii-classifier/pii_type_mapping.json"
 
+embedding_models:
+  mmbert_model_path: "models/mom-embedding-ultra"
+  bert_model_path: "models/mom-embedding-light"
+  use_cpu: true
+
 prompt_guard:
   enabled: false
 
@@ -33,8 +38,8 @@ vector_store:
   backend_type: "memory"
   file_storage_dir: "/tmp/vsr-data"
   max_file_size_mb: 50
-  embedding_model: "bert"
-  embedding_dimension: 384
+  embedding_model: "mmbert"
+  embedding_dimension: 768
   ingestion_workers: 2
   supported_formats:
     - ".txt"

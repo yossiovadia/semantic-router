@@ -58,7 +58,6 @@
   .arch-box.active.neon { animation: neon-pulse 1.5s ease-in-out infinite; }
   .arch-box.blocked { border-color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); animation: neon-pulse-red 1.5s ease-in-out infinite; }
   .arch-box.active.extproc-glow { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.3); animation: neon-pulse-extproc 1.5s ease-in-out infinite; }
-  .arch-box.active.bbr-glow { border-color: var(--purple); box-shadow: 0 0 12px rgba(188,140,255,0.3); animation: neon-pulse-bbr 1.5s ease-in-out infinite; }
   .arch-box.active.auth-glow { border-color: var(--orange); box-shadow: 0 0 12px rgba(240,136,62,0.3); animation: neon-pulse-auth 1.5s ease-in-out infinite; }
   .arch-box.hidden { display: none; }
 
@@ -75,10 +74,6 @@
   @keyframes neon-pulse-extproc {
     0%, 100% { box-shadow: 0 0 8px rgba(88,166,255,0.2), 0 0 20px rgba(88,166,255,0.1); }
     50% { box-shadow: 0 0 16px rgba(88,166,255,0.5), 0 0 40px rgba(88,166,255,0.3), 0 0 60px rgba(88,166,255,0.1); border-color: #79c0ff; }
-  }
-  @keyframes neon-pulse-bbr {
-    0%, 100% { box-shadow: 0 0 8px rgba(188,140,255,0.2), 0 0 20px rgba(188,140,255,0.1); }
-    50% { box-shadow: 0 0 16px rgba(188,140,255,0.5), 0 0 40px rgba(188,140,255,0.3), 0 0 60px rgba(188,140,255,0.1); border-color: #d2a8ff; }
   }
   @keyframes neon-pulse-auth {
     0%, 100% { box-shadow: 0 0 8px rgba(240,136,62,0.2), 0 0 20px rgba(240,136,62,0.1); }
@@ -154,16 +149,6 @@
   <span class="status" id="status" style="display:none;"></span>
 </header>
 
-<!-- Tab bar hidden — BBR tab deferred for now -->
-<div style="display:none; border-bottom:1px solid var(--border); padding:0 32px;">
-  <button class="scenario-btn active" id="tab-extproc" onclick="switchTab('extproc')" style="border-radius:6px 6px 0 0; border-bottom:2px solid var(--accent); margin-bottom:-1px;">
-    ExtProc (standalone vSR)
-  </button>
-  <button class="scenario-btn" id="tab-bbr" onclick="switchTab('bbr')" style="border-radius:6px 6px 0 0; margin-bottom:-1px;">
-    BBR Plugin (vSR in-process)
-  </button>
-</div>
-
 <div class="layout">
   <div class="sidebar">
     <div id="sidebar-extproc">
@@ -191,22 +176,6 @@
     <button class="scenario-btn" onclick="run('auth_rejected')">
       <span class="tag tag-auth">AUTH</span> No Token &rarr; Rejected (401)
     </button>
-    </div>
-
-    <div id="sidebar-bbr" style="display:none;">
-    <h2>BBR Plugin Routing</h2>
-    <button class="scenario-btn" onclick="run('bbr_openai')">
-      <span class="tag tag-route">ROUTE</span> OpenAI (pass-through)
-    </button>
-    <button class="scenario-btn" onclick="run('bbr_anthropic')">
-      <span class="tag tag-translate">TRANSLATE</span> Anthropic (request translated)
-    </button>
-    <button class="scenario-btn" onclick="run('bbr_internal')">
-      <span class="tag tag-route">ROUTE</span> Internal Model
-    </button>
-    <p style="font-size:11px; color:var(--text-muted); margin-top:16px; padding:8px; border:1px solid var(--border); border-radius:4px;">
-      Note: Tier enforcement not available in BBR mode — the BBRPlugin.Execute() interface doesn't receive request headers. In production, Authorino handles tier checks before BBR.
-    </p>
     </div>
   </div>
 
@@ -334,34 +303,6 @@ const SCENARIOS = {
     // no user property = no token
     backend: { label: 'None', detail: 'Rejected at Gateway' },
     expectBlock: true
-  },
-  // BBR Plugin scenarios (same backends, different architecture)
-  bbr_openai: {
-    name: 'BBR: OpenAI (pass-through)',
-    desc: 'vSR BBR plugin extracts model from body, sets X-Gateway-Model-Name header. No body mutation. Plugin runs in-process inside BBR \u2014 no separate gRPC call.',
-    body: { model: 'qwen2.5:1.5b', messages: [{role:'user', content:'What is 2+2? Answer in one word.'}], max_tokens: 50 },
-    headers: {},
-    backend: { label: 'OpenAI', detail: 'via BBR Plugin' },
-    expectBlock: false,
-    bbr: true
-  },
-  bbr_anthropic: {
-    name: 'BBR: Anthropic (request translated)',
-    desc: 'vSR BBR plugin translates request body from OpenAI to Anthropic format in-process. Note: response comes back in raw Anthropic format (BBR only handles request body, not response).',
-    body: { model: 'claude-sonnet', messages: [{role:'user', content:'What is the capital of France?'}], max_tokens: 50 },
-    headers: {},
-    backend: { label: 'Anthropic', detail: 'via BBR Plugin' },
-    expectBlock: false,
-    bbr: true
-  },
-  bbr_internal: {
-    name: 'BBR: Internal Model',
-    desc: 'vSR BBR plugin routes to internal vLLM model. Same as ExtProc but plugin runs in-process \u2014 no network hop to a separate vSR service.',
-    body: { model: 'qwen2.5-7b', messages: [{role:'user', content:'Hello'}] },
-    headers: {},
-    backend: { label: 'vLLM', detail: 'via BBR Plugin' },
-    expectBlock: false,
-    bbr: true
   }
 };
 
@@ -384,7 +325,7 @@ function setArch(scenario, blocked, totalMs) {
   const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
   allIds.forEach(id => {
     const el = document.getElementById(id);
-    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow','auth-glow','hidden');
+    el.classList.remove('active','blocked','dimmed','neon','extproc-glow','auth-glow','hidden');
   });
 
   // Clear all timing labels
@@ -409,8 +350,8 @@ function setArch(scenario, blocked, totalMs) {
 
   document.getElementById('backend-label').textContent = s.backend.label;
   document.getElementById('backend-detail').textContent = s.backend.detail;
-  document.getElementById('vsr-label').textContent = s.bbr ? 'BBR + vSR Plugin' : 'vSR ExtProc';
-  document.getElementById('vsr-detail').textContent = s.bbr ? ':9002 (in-process)' : ':50051';
+  document.getElementById('vsr-label').textContent = 'vSR ExtProc';
+  document.getElementById('vsr-detail').textContent = ':50051';
 
   if (totalMs > 0) {
     if (isAuthRejected) {
@@ -460,7 +401,7 @@ function setArch(scenario, blocked, totalMs) {
         document.getElementById(id).classList.add('active'));
     }
     document.getElementById('box-backend').classList.add('neon');
-    document.getElementById('box-vsr').classList.add(s.bbr ? 'bbr-glow' : 'extproc-glow');
+    document.getElementById('box-vsr').classList.add('extproc-glow');
   }
 }
 
@@ -566,41 +507,6 @@ function formatHeaders(headers, isVsr) {
   return lines.join('\n');
 }
 
-function switchTab(tab) {
-  document.getElementById('tab-extproc').classList.remove('active');
-  document.getElementById('tab-bbr').classList.remove('active');
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('tab-' + tab).style.borderBottom = '2px solid var(--accent)';
-  document.getElementById('tab-' + (tab === 'extproc' ? 'bbr' : 'extproc')).style.borderBottom = 'none';
-  document.getElementById('sidebar-extproc').style.display = tab === 'extproc' ? 'block' : 'none';
-  document.getElementById('sidebar-bbr').style.display = tab === 'bbr' ? 'block' : 'none';
-
-  // Reset all state
-  const allIds = ['box-client','arr-gw','box-gateway','arr-auth','box-authorino','arr-1','box-envoy','arr-2','box-vsr','arr-3','box-backend'];
-  allIds.forEach(id => {
-    document.getElementById(id).classList.remove('active','blocked','dimmed','neon','extproc-glow','bbr-glow','auth-glow');
-  });
-  // Hide auth boxes on reset
-  document.getElementById('box-gateway').classList.add('hidden');
-  document.getElementById('arr-auth').classList.add('hidden');
-  document.getElementById('box-authorino').classList.add('hidden');
-  document.getElementById('arr-1').classList.add('hidden');
-
-  ['ms-gw','ms-auth','ms-1','ms-2','ms-3'].forEach(id => {
-    document.getElementById(id).textContent = '';
-  });
-  document.getElementById('vsr-label').textContent = tab === 'bbr' ? 'BBR + vSR Plugin' : 'vSR ExtProc';
-  document.getElementById('vsr-detail').textContent = tab === 'bbr' ? ':9002 (in-process)' : ':50051';
-  document.getElementById('backend-label').textContent = 'Backend';
-  document.getElementById('backend-detail').textContent = '...';
-  document.getElementById('trace').innerHTML = '';
-  document.getElementById('request-pre').innerHTML = '<span class="empty-state">Select a scenario</span>';
-  document.getElementById('response-pre').innerHTML = '<span class="empty-state">Select a scenario</span>';
-  document.getElementById('resp-badge').textContent = '';
-  document.getElementById('resp-badge').className = 'badge';
-  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
-}
-
 async function run(scenario) {
   document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
   event.currentTarget.classList.add('active');
@@ -612,8 +518,7 @@ async function run(scenario) {
 
   // Build request path and headers based on auth mode
   const isAuth = !!s.useGateway;
-  const apiPath = s.bbr ? '/bbr/v1/chat/completions'
-    : isAuth ? '/auth/v1/chat/completions'
+  const apiPath = isAuth ? '/auth/v1/chat/completions'
     : '/v1/chat/completions';
 
   const hdrs = { 'Content-Type': 'application/json', ...s.headers };

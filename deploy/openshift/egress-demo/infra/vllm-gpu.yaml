@@ -1,4 +1,4 @@
-# vLLM serving Qwen2.5-7B-Instruct on GPU (NVIDIA A10G, 24GB VRAM)
+# vLLM serving Qwen2.5-7B-Instruct on GPU (NVIDIA A10G/L4, ~23-24GB VRAM)
 # Exposed as OpenAI-compatible API on port 8000
 ---
 apiVersion: apps/v1
@@ -20,7 +20,7 @@ spec:
         role: gpu-model
     spec:
       nodeSelector:
-        node-role.kubernetes.io/gpu: ""
+        nvidia.com/gpu.present: "true"
       tolerations:
       - key: nvidia.com/gpu
         operator: Exists

@@ -22,7 +22,6 @@ from pathlib import Path
 
 
 GATEWAY = "http://localhost:8801"
-BBR_GATEWAY = "http://localhost:8802"
 AUTH_GATEWAY = ""
 AUTH_GATEWAY_HOST = ""
 
@@ -315,9 +314,6 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/auth/v1/"):
             api_path = self.path[5:]  # Strip /auth prefix
             target_gw = AUTH_GATEWAY
-        elif self.path.startswith("/bbr/v1/"):
-            api_path = self.path[4:]  # Strip /bbr prefix
-            target_gw = BBR_GATEWAY
 
         if api_path not in self.ALLOWED_API_PATHS:
             self.send_error(404)
@@ -675,7 +671,6 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if (
             self.path.startswith("/api/admin/")
             or self.path.startswith("/auth/v1/")
-            or self.path.startswith("/bbr/v1/")
             or self.path.startswith("/v1/")
             or self.path == "/api/tokens"
         ):
@@ -752,7 +747,6 @@ def main():
     parser = argparse.ArgumentParser(description="Demo web UI server")
     parser.add_argument("--port", type=int, default=8888, help="Port for web UI")
     parser.add_argument("--gateway", type=str, default="http://localhost:8801", help="ExtProc Gateway URL")
-    parser.add_argument("--bbr-gateway", type=str, default="http://localhost:8802", help="BBR Gateway URL")
     parser.add_argument(
         "--auth-gateway",
         type=str,
@@ -761,9 +755,8 @@ def main():
     )
     args = parser.parse_args()
 
-    global GATEWAY, BBR_GATEWAY, AUTH_GATEWAY, AUTH_GATEWAY_HOST
+    global GATEWAY, AUTH_GATEWAY, AUTH_GATEWAY_HOST
     GATEWAY = args.gateway
-    BBR_GATEWAY = args.bbr_gateway
     AUTH_GATEWAY = args.auth_gateway
     AUTH_GATEWAY_HOST = os.environ.get("AUTH_GATEWAY_HOST", "")
 
@@ -771,7 +764,6 @@ def main():
     print(f"\n  Demo UI:      http://localhost:{args.port}")
     print(f"  Admin UI:     http://localhost:{args.port}/admin")
     print(f"  Gateway:      {GATEWAY}")
-    print(f"  BBR Gateway:  {BBR_GATEWAY}")
     print(f"  Auth Gateway: {AUTH_GATEWAY or '(not set)'}")
     print(f"\n  Open http://localhost:{args.port} in your browser\n")
 
