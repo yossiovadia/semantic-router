@@ -25,6 +25,10 @@ embedding_models:
   mmbert_model_path: "models/mom-embedding-ultra"
   bert_model_path: "models/mom-embedding-light"
   use_cpu: true
+  hnsw_config:
+    model_type: "mmbert"
+    preload_embeddings: true
+    target_dimension: 768
 
 prompt_guard:
   enabled: false
@@ -91,21 +95,68 @@ categories:
     description: "General knowledge"
     mmlu_categories: ["other"]
 
+# --- Complexity Rules (embedding-based, few-shot) ---
+# vSR compares query embeddings against hard/easy candidates using mmbert.
+# difficultySignal = maxHardSim - maxEasySim → hard/medium/easy
+complexity_rules:
+  - name: "query-complexity"
+    description: "General query complexity classification"
+    threshold: 0.2
+    hard:
+      candidates:
+        - "Implement a binary search tree with insert, delete, and balanced rotation operations"
+        - "Implement a distributed lock manager with leader election and fencing tokens"
+        - "Design a database migration system with rollback support and schema versioning"
+        - "Prove the fundamental theorem of calculus using epsilon-delta definition"
+        - "Write a comprehensive analysis comparing merge sort, quicksort, and timsort with proofs of time complexity"
+        - "Analyze the economic implications of quantitative easing on emerging market bond yields"
+        - "Build a graph algorithm for strongly connected components with Tarjan's algorithm"
+        - "Implement a custom memory allocator with garbage collection and fragmentation handling"
+        - "Derive the Black-Scholes option pricing formula from first principles"
+    easy:
+      candidates:
+        - "What is 2+2?"
+        - "What is the capital of France?"
+        - "How many days are in a week?"
+        - "What does ETF stand for?"
+        - "Write hello world in Python"
+        - "What is 5 + 3?"
+        - "Solve 2x = 10"
+        - "What is Kubernetes?"
+        - "What is a bond yield?"
+
 # --- Decision-based Routing ---
 # When model="auto", vSR classifies the query and routes based on these rules.
 # Higher priority = evaluated first. First matching decision wins.
 strategy: "priority"
 
 decisions:
-  # High complexity + specialized domain → external model (when tier allows)
+  # Easy queries always stay internal (cost optimized, regardless of domain)
+  - name: "easy_internal"
+    description: "Simple queries stay on-prem — no need for expensive external model"
+    priority: 200
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "complexity"
+          name: "query-complexity:easy"
+    modelRefs:
+      - model: "qwen2.5-7b"
+        use_reasoning: false
+    plugins: []
+
+  # Specialized domain + hard complexity → external model (when tier allows)
+  # Medium/easy complexity stays internal even for math/CS domains
   - name: "math_external"
-    description: "Route math queries to powerful external model"
+    description: "Route hard math queries to powerful external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "math"
+        - type: "complexity"
+          name: "query-complexity:hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -116,13 +167,15 @@ decisions:
         pii_types_allowed: []
 
   - name: "cs_external"
-    description: "Route CS/coding queries to external model"
+    description: "Route hard CS/coding queries to external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "computer science"
+        - type: "complexity"
+          name: "query-complexity:hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -133,9 +186,8 @@ decisions:
         pii_types_allowed: []
 
   # Default → GPU model (internal, high quality, data stays on-prem)
-  # RAG plugin enriches queries with relevant context from vector store
   - name: "default_internal"
-    description: "Default: route to internal GPU model with RAG"
+    description: "Default: route to internal GPU model"
     priority: 1
     rules:
       operator: "OR"

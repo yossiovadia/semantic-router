@@ -648,11 +648,22 @@ function resolveModel(classification, dept) {
     };
   }
 
-  // Premium/Enterprise: route based on domain + complexity (mirrors vSR decision rules)
-  if (classification.domain === 'math' || classification.domain === 'CS') {
+  // Premium/Enterprise: route based on domain + complexity
+  // vSR handles the actual routing server-side (complexity_rules + decisions)
+  // Client-side mirrors the logic for UI prediction
+  if (classification.complexity === 'easy') {
+    return {
+      model: 'qwen2.5-7b',
+      reason: 'easy complexity → cost optimized internal GPU',
+      type: 'internal',
+    };
+  }
+  // Specialized domains + hard complexity → external
+  // Medium complexity stays internal even for math/CS
+  if (classification.complexity === 'hard' && (classification.domain === 'math' || classification.domain === 'CS')) {
     return {
       model: 'claude-sonnet',
-      reason: classification.domain + ' domain → specialized external model',
+      reason: classification.domain + ' domain + hard complexity → external model',
       type: 'external',
     };
   }
@@ -662,16 +673,10 @@ function resolveModel(classification, dept) {
       reason: 'high complexity ' + classification.domain + ', routed to external',
       type: 'external',
     };
-  } else if (classification.complexity === 'medium') {
-    return {
-      model: 'qwen2.5-7b',
-      reason: 'medium complexity, internal GPU sufficient',
-      type: 'internal',
-    };
   } else {
     return {
       model: 'qwen2.5-7b',
-      reason: 'simple query, cost optimized internal GPU',
+      reason: 'medium complexity, internal GPU sufficient',
       type: 'internal',
     };
   }
@@ -894,8 +899,11 @@ async function sendRequest() {
     } catch(e) { /* RAG search failed silently */ }
   }
 
-  // Show routing decision (including RAG info)
-  showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto, ragResults);
+  // Show waiting state in routing panel (real values come from vSR response)
+  var routingPanel = document.getElementById('routing-panel');
+  routingPanel.style.display = '';
+  document.getElementById('routing-grid').innerHTML = '<div style="text-align:center; padding:16px; color:var(--text-muted);"><span class="spinner"></span> Classifying query via vSR...</div>';
+  document.getElementById('routing-decision').innerHTML = '';
 
   // Build message with RAG context injected
   var enrichedMessage = message;
@@ -907,7 +915,7 @@ async function sendRequest() {
   try {
     const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
       method: 'POST',
-      body: JSON.stringify({ token: tokenInfo.token, model: actualModel, message: enrichedMessage, max_tokens: parseInt(document.getElementById('query-max-tokens').value) || 0 }),
+      body: JSON.stringify({ token: tokenInfo.token, model: isAuto ? 'auto' : actualModel, message: enrichedMessage, max_tokens: parseInt(document.getElementById('query-max-tokens').value) || 0 }),
     });
 
     const totalMs = data.elapsed_ms || 0;
@@ -942,6 +950,45 @@ async function sendRequest() {
       updateSessionStats(actualModel, routingType, estInputTokens, estOutputTokens);
     }
 
+    // Show routing decision with real vSR signals from response headers
+    if (isAuto && respHeaders) {
+      const serverComplexity = respHeaders['x-vsr-matched-complexity'] || '';
+      const serverDomain = respHeaders['x-vsr-matched-domains'] || respHeaders['x-vsr-selected-category'] || classification.domain;
+      const serverModel = respHeaders['x-vsr-selected-model'] || actualModel;
+      const difficulty = serverComplexity ? serverComplexity.split(':').pop() : classification.complexity;
+
+      // Build server-informed classification
+      const serverClassification = {
+        domain: serverDomain,
+        confidence: parseFloat(respHeaders['x-vsr-selected-confidence'] || classification.confidence),
+        complexity: difficulty,
+        piiDetected: classification.piiDetected,
+        piiTypes: classification.piiTypes,
+        fromServer: true,
+      };
+
+      // Determine routing type from actual model used
+      let serverRoutingType = routingType;
+      let serverReason = routingReason;
+      if (serverBlocked) {
+        serverRoutingType = 'blocked';
+        serverReason = dept.label + ' tier cannot access ' + serverModel;
+      } else if (classification.piiDetected && serverModel === 'qwen2.5-7b') {
+        serverRoutingType = 'pii-forced';
+        serverReason = 'compliance: PII detected, data stays on-prem';
+      } else if (serverModel === 'qwen2.5-7b') {
+        serverRoutingType = 'internal';
+        serverReason = difficulty === 'easy' ? 'easy complexity → cost optimized internal GPU' : 'internal GPU';
+      } else {
+        serverRoutingType = 'external';
+        serverReason = serverDomain + ' domain, ' + difficulty + ' complexity → external model';
+      }
+
+      showRoutingDecision(serverClassification, serverModel, serverRoutingType, serverReason, isAuto, ragResults);
+    } else {
+      showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto, ragResults);
+    }
+
   } catch (e) {
     document.getElementById('component-log').innerHTML = '<div class="error-state">Request failed: ' + esc(e.message) + '</div>';
   }
@@ -958,10 +1005,11 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
   const decision = document.getElementById('routing-decision');
 
   // Domain
+  const vsrBadge = classification.fromServer ? ' <span style="font-size:9px; padding:1px 5px; border-radius:3px; background:rgba(88,166,255,0.15); color:var(--accent);">vSR</span>' : '';
   const domainHtml = '<div class="routing-item">' +
     '<div class="routing-label">Domain</div>' +
-    '<div class="routing-value">' + esc(classification.domain) + '</div>' +
-    '<div class="routing-detail">confidence: ' + classification.confidence.toFixed(2) + '</div>' +
+    '<div class="routing-value">' + esc(classification.domain) + vsrBadge + '</div>' +
+    '<div class="routing-detail">' + (classification.fromServer ? 'BERT LoRA classifier' : 'confidence: ' + classification.confidence.toFixed(2)) + '</div>' +
     '</div>';
 
   // Complexity
@@ -969,8 +1017,8 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
     classification.complexity === 'medium' ? 'var(--yellow)' : 'var(--green)';
   const complexHtml = '<div class="routing-item">' +
     '<div class="routing-label">Complexity</div>' +
-    '<div class="routing-value" style="color:' + complexColor + ';">' + esc(classification.complexity) + '</div>' +
-    '<div class="routing-detail">' + (isAuto ? 'used for routing' : 'informational') + '</div>' +
+    '<div class="routing-value" style="color:' + complexColor + ';">' + esc(classification.complexity) + vsrBadge + '</div>' +
+    '<div class="routing-detail">' + (classification.fromServer ? 'mmbert embedding similarity' : (isAuto ? 'used for routing' : 'informational')) + '</div>' +
     '</div>';
 
   // PII
