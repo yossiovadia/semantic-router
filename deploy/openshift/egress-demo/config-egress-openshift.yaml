@@ -143,7 +143,12 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
-    plugins: []
+    plugins:
+      - type: "pii"
+        configuration:
+          enabled: true
+          threshold: 0.7
+          pii_types_allowed: ["ORGANIZATION"]
 
   # Specialized domain + hard complexity → external model (when tier allows)
   # Medium/easy complexity stays internal even for math/CS domains
@@ -162,9 +167,10 @@ decisions:
         use_reasoning: false
     plugins:
       - type: "pii"
-        enabled: true
-        threshold: 0.7
-        pii_types_allowed: []
+        configuration:
+          enabled: true
+          threshold: 0.7
+          pii_types_allowed: ["ORGANIZATION"]
 
   - name: "cs_external"
     description: "Route hard CS/coding queries to external model"
@@ -181,22 +187,34 @@ decisions:
         use_reasoning: false
     plugins:
       - type: "pii"
-        enabled: true
-        threshold: 0.7
-        pii_types_allowed: []
+        configuration:
+          enabled: true
+          threshold: 0.7
+          pii_types_allowed: ["ORGANIZATION"]
 
   # Default → GPU model (internal, high quality, data stays on-prem)
+  # Matches medium complexity (easy is caught by easy_internal, hard+domain by math/cs_external)
   - name: "default_internal"
     description: "Default: route to internal GPU model"
     priority: 1
     rules:
       operator: "OR"
       conditions:
-        - type: "always"
+        - type: "complexity"
+          name: "query-complexity:medium"
+        - type: "complexity"
+          name: "query-complexity:hard"
+        - type: "complexity"
+          name: "query-complexity:easy"
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
-    plugins: []
+    plugins:
+      - type: "pii"
+        configuration:
+          enabled: true
+          threshold: 0.7
+          pii_types_allowed: ["ORGANIZATION"]
 
 default_model: "qwen2.5-7b"
 

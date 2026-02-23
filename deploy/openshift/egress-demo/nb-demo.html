@@ -345,6 +345,12 @@
       <div class="panel-body">
         <div class="routing-grid" id="routing-grid"></div>
         <div class="routing-decision" id="routing-decision"></div>
+        <div id="vsr-headers-section" style="display:none; margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
+          <div onclick="document.getElementById('vsr-headers-body').style.display = document.getElementById('vsr-headers-body').style.display === 'none' ? '' : 'none'; this.querySelector('span').textContent = document.getElementById('vsr-headers-body').style.display === 'none' ? '▸' : '▾';" style="cursor:pointer; font-size:11px; color:var(--accent); user-select:none;">
+            <span>▸</span> vSR Response Headers <span style="color:var(--text-muted); font-size:10px;">(click to expand)</span>
+          </div>
+          <div id="vsr-headers-body" style="display:none;"></div>
+        </div>
       </div>
     </div>
 
@@ -604,38 +610,14 @@ function onRagToggle(checked) {
   status.style.color = checked ? 'var(--purple)' : 'var(--text-muted)';
 }
 
-// ---- PII highlighting ----
-function highlightPII(text) {
-  const patterns = [
-    { regex: /\b(\d{3}-\d{2}-\d{4})\b/g, type: 'SSN', mask: '[REDACTED-SSN]' },
-    { regex: /\b(\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4})\b/g, type: 'CC', mask: '[REDACTED-CC]' },
-  ];
-  let highlighted = esc(text);
-  let redacted = text;
-  for (const p of patterns) {
-    highlighted = highlighted.replace(p.regex, '<span style="background:rgba(248,81,73,0.25); border-bottom:2px solid var(--red); padding:0 2px; border-radius:2px;" title="' + p.type + ' detected">$1</span>');
-    redacted = redacted.replace(p.regex, p.mask);
-  }
-  // Highlight names only if other PII present
-  if (redacted !== text) {
-    const nameRegex = /\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b/g;
-    highlighted = highlighted.replace(nameRegex, '<span style="background:rgba(248,81,73,0.15); border-bottom:2px dashed var(--orange); padding:0 2px; border-radius:2px;" title="Name detected">$1</span>');
-    redacted = redacted.replace(nameRegex, '[REDACTED-NAME]');
-  }
-  return { highlighted, redacted, hasMatches: redacted !== text };
-}
-
 // ---- Classification logic (client-side heuristic for "auto" mode) ----
-// This simulates what vSR would do with ModernBERT classifiers
+// Domain and complexity are client-side predictions; PII is server-side only (vSR BERT LoRA)
 
 function classifyMessage(message) {
   const lower = message.toLowerCase();
 
-  // PII detection
+  // PII: no client-side detection — vSR handles this server-side via BERT LoRA
   const piiTypes = [];
-  if (/\b\d{3}-\d{2}-\d{4}\b/.test(message)) piiTypes.push('SSN');
-  if (/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/.test(message)) piiTypes.push('Credit Card');
-  if (/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/.test(message) && piiTypes.length > 0) piiTypes.push('Name');
 
   // Domain classification
   let domain = 'other';
@@ -672,7 +654,8 @@ function resolveModel(classification, dept) {
   const d = DEPARTMENTS[dept];
   if (!d) return { model: 'qwen2.5-7b', reason: 'unknown department', type: 'internal' };
 
-  // PII detected: always route internal for compliance
+  // PII: handled server-side by vSR (BERT LoRA PII detector)
+  // Client-side just notes it for display if server detected it
   if (classification.piiDetected) {
     return {
       model: 'qwen2.5-7b',
@@ -1023,9 +1006,11 @@ async function sendRequest() {
       if (serverBlocked) {
         serverRoutingType = 'blocked';
         serverReason = dept.label + ' tier cannot access ' + serverModel;
-      } else if (classification.piiDetected && serverModel === 'qwen2.5-7b') {
+      } else if (respHeaders['x-vsr-pii-violation'] === 'true') {
+        serverClassification.piiDetected = true;
+        serverClassification.piiTypes = (respHeaders['x-vsr-pii-types'] || 'PII').split(',').map(s => s.trim());
         serverRoutingType = 'pii-forced';
-        serverReason = 'compliance: PII detected, data stays on-prem';
+        serverReason = 'compliance: PII detected (' + serverClassification.piiTypes.join(', ') + '), data stays on-prem';
       } else if (serverModel === 'qwen2.5-7b') {
         serverRoutingType = 'internal';
         serverReason = difficulty === 'easy' ? 'easy complexity → cost optimized internal GPU' : 'internal GPU';
@@ -1035,6 +1020,7 @@ async function sendRequest() {
       }
 
       showRoutingDecision(serverClassification, serverModel, serverRoutingType, serverReason, isAuto, ragResults);
+      showVsrHeaders(respHeaders);
     } else {
       showRoutingDecision(classification, actualModel, routingType, routingReason, isAuto, ragResults);
     }
@@ -1071,26 +1057,15 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
     '<div class="routing-detail">' + (classification.fromServer ? 'mmbert embedding similarity' : (isAuto ? 'used for routing' : 'informational')) + '</div>' +
     '</div>';
 
-  // PII
+  // PII (server-side only — vSR BERT LoRA PII detector)
   let piiColor = 'var(--green)';
   let piiText = 'none detected';
-  let piiDetail = 'clean';
+  let piiDetail = classification.fromServer ? 'BERT LoRA PII detector' : 'waiting for vSR';
   let piiExtraHtml = '';
   if (classification.piiDetected) {
     piiColor = 'var(--orange)';
     piiText = 'detected';
     piiDetail = classification.piiTypes.join(', ');
-    // Highlight PII in the original query
-    const queryText = document.getElementById('query-message').value;
-    const piiAnalysis = highlightPII(queryText);
-    if (piiAnalysis.hasMatches) {
-      piiExtraHtml = '<div style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
-        '<div class="routing-label" style="margin-bottom:4px;">PII Detected in Query</div>' +
-        '<div style="font-size:12px; padding:8px; background:rgba(248,81,73,0.05); border:1px solid rgba(248,81,73,0.2); border-radius:4px; line-height:1.6;">' + piiAnalysis.highlighted + '</div>' +
-        '<div class="routing-label" style="margin-top:8px; margin-bottom:4px;">Redacted Version</div>' +
-        '<div style="font-size:12px; padding:8px; background:rgba(63,185,80,0.05); border:1px solid rgba(63,185,80,0.2); border-radius:4px; line-height:1.6; font-family:monospace;">' + esc(piiAnalysis.redacted) + '</div>' +
-        '</div>';
-    }
   }
   const piiHtml = '<div class="routing-item">' +
     '<div class="routing-label">PII</div>' +
@@ -1159,6 +1134,27 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
 
   panel.style.display = '';
   panel.classList.add('fade-in');
+}
+
+// ---- vSR Headers debug panel ----
+function showVsrHeaders(headers) {
+  const section = document.getElementById('vsr-headers-section');
+  const body = document.getElementById('vsr-headers-body');
+  if (!section || !body || !headers) return;
+
+  const vsrHeaders = Object.entries(headers)
+    .filter(([k]) => k.toLowerCase().startsWith('x-vsr'))
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  if (vsrHeaders.length === 0) { section.style.display = 'none'; return; }
+
+  body.innerHTML = '<table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:6px; font-family:monospace;">' +
+    vsrHeaders.map(([k, v]) => {
+      const color = k.includes('pii-violation') ? 'var(--orange)' : k.includes('selected-model') ? 'var(--accent)' : 'var(--text)';
+      return '<tr><td style="padding:2px 6px; color:var(--text-muted); white-space:nowrap;">' + esc(k) + '</td>' +
+        '<td style="padding:2px 6px; color:' + color + ';">' + esc(v) + '</td></tr>';
+    }).join('') + '</table>';
+  section.style.display = '';
 }
 
 // ---- Model Response ----
