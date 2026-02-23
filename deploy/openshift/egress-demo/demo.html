@@ -161,6 +161,10 @@
     </button>
 
     <h2>Authenticated Routing (via Gateway)</h2>
+    <div style="margin-bottom:8px;">
+      <button onclick="refreshTokens()" style="font-size:11px; padding:4px 10px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--accent); cursor:pointer;">&#x21bb; Refresh Tokens</button>
+      <span id="token-status" style="font-size:10px; color:var(--text-muted); margin-left:6px;"></span>
+    </div>
     <button class="scenario-btn" onclick="run('tier_free_blocked')">
       <span class="tag tag-tier">TIER</span> Free &rarr; External (blocked)
     </button>
@@ -219,7 +223,48 @@
 const GW = '';  // Same origin \u2014 proxied by demo-server.py
 
 let TOKENS = {};
-fetch('/api/tokens').then(r => r.json()).then(t => { TOKENS = t; }).catch(() => {});
+fetch('/api/tokens').then(r => r.json()).then(t => { TOKENS = t; updateTokenStatus(); }).catch(() => {});
+
+function updateTokenStatus() {
+  const el = document.getElementById('token-status');
+  if (!el) return;
+  if (TOKENS.free && TOKENS.premium) {
+    el.textContent = 'tokens loaded';
+    el.style.color = 'var(--green)';
+  } else {
+    el.textContent = 'no tokens — click Refresh';
+    el.style.color = 'var(--yellow)';
+  }
+}
+
+async function refreshTokens() {
+  const el = document.getElementById('token-status');
+  el.textContent = 'generating...';
+  el.style.color = 'var(--text-muted)';
+  try {
+    // Create fresh tokens for free and premium users
+    const users = [
+      { username: 'free-user', tier: 'free', key: 'free' },
+      { username: 'premium-user', tier: 'premium', key: 'premium' },
+    ];
+    for (const u of users) {
+      const resp = await fetch('/api/admin/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u.username, tier: u.tier }),
+      });
+      const data = await resp.json();
+      if (data.token) {
+        TOKENS[u.key] = data.token;
+      }
+    }
+    el.textContent = 'tokens refreshed';
+    el.style.color = 'var(--green)';
+  } catch (e) {
+    el.textContent = 'failed: ' + e.message;
+    el.style.color = 'var(--red)';
+  }
+}
 
 const SCENARIOS = {
   openai: {

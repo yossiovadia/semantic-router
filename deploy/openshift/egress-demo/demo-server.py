@@ -561,6 +561,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
         model = body.get("model", "qwen2.5-7b").strip()
         message = body.get("message", "Hello").strip()
         max_tokens = body.get("max_tokens", 512)
+        system_message = body.get("system_message", "").strip()
 
         if not token:
             self._send_json({"error": "token is required"}, 400)
@@ -571,9 +572,15 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         parsed = urllib.parse.urlparse(AUTH_GATEWAY)
+        # RAG context goes in system message (separate from user message)
+        # so vSR classifies the original user query for domain/PII/complexity
+        messages = []
+        if system_message:
+            messages.append({"role": "system", "content": system_message})
+        messages.append({"role": "user", "content": message})
         chat_req = {
             "model": model,
-            "messages": [{"role": "user", "content": message}],
+            "messages": messages,
         }
         if max_tokens and max_tokens > 0:
             chat_req["max_tokens"] = max_tokens

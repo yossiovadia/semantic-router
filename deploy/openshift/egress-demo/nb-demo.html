@@ -481,20 +481,29 @@ const DEPT_PRESETS = {
     { key: 'intern_blocked', label: 'External model (blocked)', hint: 'Intern cannot access Claude ✗',
       message: 'Analyze the macroeconomic impact of rising interest rates on emerging market debt', model: 'claude-sonnet',
       expectedRouting: 'blocked', icon: '✗' },
-    { key: 'intern_pii', label: 'Client data (PII)', hint: 'PII blocked for compliance ✗',
+    { key: 'intern_pii', label: 'Client lookup (name + SSN)', hint: 'PII allowed on-prem (name, phone OK) ✓',
       message: 'Look up account for Sarah Johnson, SSN 234-56-7890, and check her margin requirements', model: 'auto',
       expectedRouting: 'internal', icon: '⚠' },
+    { key: 'intern_email_pii', label: 'Email in query (blocked)', hint: 'Email PII blocked by policy ✗',
+      message: 'Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns', model: 'auto',
+      expectedRouting: 'blocked', icon: '✗' },
   ],
   finance: [
     { key: 'finance_general', label: 'Market overview', hint: 'General → internal GPU ✓',
       message: 'Give me a brief overview of the current state of the US treasury yield curve', model: 'auto',
       expectedRouting: 'internal', icon: '✓' },
     { key: 'finance_complex', label: 'Math analysis', hint: 'Math domain → Claude ↗',
-      message: 'What is the integral of e^(-x^2) from negative infinity to infinity, and how is it used in financial option pricing models?', model: 'auto',
+      message: 'What is the integral of sin(x)dx and how do you solve it step by step? Show the derivation.', model: 'auto',
       expectedRouting: 'external', icon: '↗' },
-    { key: 'finance_pii', label: 'Client portfolio (PII)', hint: 'PII detected → stays on-prem ⚠',
+    { key: 'finance_pii', label: 'Client portfolio (name + acct)', hint: 'PII allowed on-prem (name, phone OK) ✓',
       message: 'Pull the portfolio allocation for client Robert Chen, account 4532-1234-5678-9012, and tell me the fixed income vs equity split', model: 'auto',
       expectedRouting: 'internal', icon: '⚠' },
+    { key: 'finance_email_pii', label: 'Email in query (blocked)', hint: 'Email PII blocked by policy ✗',
+      message: 'Forward the Q4 portfolio summary to robert.chen@client-corp.com with the fixed income allocation breakdown', model: 'auto',
+      expectedRouting: 'blocked', icon: '✗' },
+    { key: 'finance_pii_egress', label: 'PII + math (egress blocked)', hint: 'PII can\'t egress to Claude ✗',
+      message: 'What is the integral of the return function r(t) = e^(-0.05t) for the portfolio of client Sarah Johnson, SSN 456-78-9012, over the period t=0 to t=10?', model: 'auto',
+      expectedRouting: 'blocked', icon: '✗' },
     { key: 'finance_compliance', label: 'Compliance check', hint: 'Sensitive → internal GPU ✓',
       message: 'What are the key regulatory requirements for KYC/AML compliance in wealth management?', model: 'auto',
       expectedRouting: 'internal', icon: '✓' },
@@ -507,14 +516,20 @@ const DEPT_PRESETS = {
       message: 'Implement a binary search tree in Python with insert, delete, and balanced rotation operations', model: 'auto',
       expectedRouting: 'external', icon: '↗' },
     { key: 'principal_general', label: 'Quick question', hint: 'Simple → internal GPU ✓',
-      message: 'What is the difference between gRPC and REST for microservice communication?', model: 'auto',
+      message: 'Explain the concept of supply and demand in simple terms', model: 'auto',
       expectedRouting: 'internal', icon: '✓' },
     { key: 'principal_code', label: 'Algorithm complexity', hint: 'CS domain → Claude ↗',
       message: 'What is the time complexity of merge sort and why is it O(n log n)? Write the recursive implementation.', model: 'auto',
       expectedRouting: 'external', icon: '↗' },
-    { key: 'principal_pii', label: 'Sensitive infra query', hint: 'PII → stays on-prem ⚠',
-      message: 'Our production database at 10.0.1.55 with credentials admin/Prod$ecret123 is showing high latency. How do I diagnose the connection pooling issue?', model: 'auto',
+    { key: 'principal_pii_ok', label: 'Team member name (internal)', hint: 'PII allowed on-prem (name OK) ✓',
+      message: 'Summarize the meeting notes from John Smith about the Q4 infrastructure budget planning and capacity forecasts', model: 'auto',
       expectedRouting: 'internal', icon: '⚠' },
+    { key: 'principal_email_pii', label: 'Email in query (blocked)', hint: 'Email PII blocked by policy ✗',
+      message: 'Email john.smith@company.com the project status update with the latest deployment metrics and test results', model: 'auto',
+      expectedRouting: 'blocked', icon: '✗' },
+    { key: 'principal_pii_egress', label: 'PII + code (egress blocked)', hint: 'PII can\'t egress to Claude ✗',
+      message: 'Implement a distributed authentication service for user John Smith (employee ID EMP-12345) with OAuth2 token rotation and session management across microservices', model: 'auto',
+      expectedRouting: 'blocked', icon: '✗' },
   ],
 };
 
@@ -595,9 +610,10 @@ function renderRoutingRules(deptKey) {
       '<th style="text-align:left; padding:3px 4px; color:var(--text-muted);">Math / CS</th>' +
     '</tr>' +
     '<tr><td style="padding:3px 4px;">Easy</td><td style="padding:3px 4px;">' + easyAny + '</td><td style="padding:3px 4px;">' + easyAny + '</td></tr>' +
-    '<tr><td style="padding:3px 4px;">Medium</td><td style="padding:3px 4px;">' + mediumAny + '</td><td style="padding:3px 4px;">' + mediumAny + '</td></tr>' +
+    '<tr><td style="padding:3px 4px;">Medium</td><td style="padding:3px 4px;">' + mediumAny + '</td><td style="padding:3px 4px;">' + hardSpecialized + '</td></tr>' +
     '<tr><td style="padding:3px 4px;">Hard</td><td style="padding:3px 4px;">' + hardGeneral + '</td><td style="padding:3px 4px;">' + hardSpecialized + '</td></tr>' +
-    '<tr style="border-top:1px solid var(--border);"><td style="padding:3px 4px;">PII detected</td><td style="padding:3px 4px;" colspan="2">' + piiForced + ' <span style="color:var(--text-muted);">(forced on-prem)</span></td></tr>' +
+    '<tr style="border-top:1px solid var(--border);"><td style="padding:3px 4px;">Name/SSN</td><td style="padding:3px 4px;">' + internal + ' <span style="color:var(--text-muted);">(on-prem OK)</span></td><td style="padding:3px 4px;">' + blocked + ' <span style="color:var(--text-muted);">(no egress)</span></td></tr>' +
+    '<tr><td style="padding:3px 4px;">Email</td><td style="padding:3px 4px;" colspan="2">' + blocked + ' <span style="color:var(--text-muted);">(always blocked)</span></td></tr>' +
     '</table>';
 }
 
@@ -690,12 +706,11 @@ function resolveModel(classification, dept) {
       type: 'internal',
     };
   }
-  // Specialized domains + hard complexity → external
-  // Medium complexity stays internal even for math/CS
-  if (classification.complexity === 'hard' && (classification.domain === 'math' || classification.domain === 'CS')) {
+  // Specialized domains (medium/hard) → external (tier policy blocks intern)
+  if (classification.domain === 'math' || classification.domain === 'CS') {
     return {
       model: 'claude-sonnet',
-      reason: classification.domain + ' domain + hard complexity → external model',
+      reason: classification.domain + ' domain → external model',
       type: 'external',
     };
   }
@@ -938,17 +953,21 @@ async function sendRequest() {
   document.getElementById('routing-grid').innerHTML = '<div style="text-align:center; padding:16px; color:var(--text-muted);"><span class="spinner"></span> Classifying query via vSR...</div>';
   document.getElementById('routing-decision').innerHTML = '';
 
-  // Build message with RAG context injected
-  var enrichedMessage = message;
+  // Build RAG system message (separate from user message so vSR classifies original query)
+  var ragSystemMessage = '';
   if (ragContext) {
-    enrichedMessage = 'Use the following internal documents as context to answer the question.\n\n--- CONTEXT ---\n' + ragContext + '\n--- END CONTEXT ---\n\nQuestion: ' + message;
+    ragSystemMessage = 'Use the following internal documents as context to answer the question.\n\n--- CONTEXT ---\n' + ragContext + '\n--- END CONTEXT ---';
   }
 
   // Build and send request
   try {
+    const requestBody = { token: tokenInfo.token, model: isAuto ? 'auto' : actualModel, message: message, max_tokens: parseInt(document.getElementById('query-max-tokens').value) || 0 };
+    if (ragSystemMessage) {
+      requestBody.system_message = ragSystemMessage;
+    }
     const { status: httpStatus, data, headers } = await apiFetch('/api/admin/test', {
       method: 'POST',
-      body: JSON.stringify({ token: tokenInfo.token, model: isAuto ? 'auto' : actualModel, message: enrichedMessage, max_tokens: parseInt(document.getElementById('query-max-tokens').value) || 0 }),
+      body: JSON.stringify(requestBody),
     });
 
     const totalMs = data.elapsed_ms || 0;
@@ -959,7 +978,7 @@ async function sendRequest() {
     const respHeaders = data.headers || {};
 
     // Estimate tokens for cost tracking (~4 chars per token)
-    const estInputTokens = Math.ceil(enrichedMessage.length / 4);
+    const estInputTokens = Math.ceil((message.length + (ragSystemMessage ? ragSystemMessage.length : 0)) / 4);
     const respText = respBody && respBody.choices && respBody.choices[0] ? (respBody.choices[0].message || {}).content || '' : '';
     const estOutputTokens = Math.ceil(respText.length / 4);
 
@@ -991,12 +1010,14 @@ async function sendRequest() {
       const difficulty = serverComplexity ? serverComplexity.split(':').pop() : classification.complexity;
 
       // Build server-informed classification
+      const serverPiiTypes = respHeaders['x-vsr-pii-types'] ? respHeaders['x-vsr-pii-types'].split(',').map(s => s.trim()) : [];
+      const serverPiiDetected = serverPiiTypes.length > 0;
       const serverClassification = {
         domain: serverDomain,
         confidence: parseFloat(respHeaders['x-vsr-selected-confidence'] || classification.confidence),
         complexity: difficulty,
-        piiDetected: classification.piiDetected,
-        piiTypes: classification.piiTypes,
+        piiDetected: serverPiiDetected,
+        piiTypes: serverPiiTypes,
         fromServer: true,
       };
 
@@ -1007,10 +1028,8 @@ async function sendRequest() {
         serverRoutingType = 'blocked';
         serverReason = dept.label + ' tier cannot access ' + serverModel;
       } else if (respHeaders['x-vsr-pii-violation'] === 'true') {
-        serverClassification.piiDetected = true;
-        serverClassification.piiTypes = (respHeaders['x-vsr-pii-types'] || 'PII').split(',').map(s => s.trim());
         serverRoutingType = 'pii-forced';
-        serverReason = 'compliance: PII detected (' + serverClassification.piiTypes.join(', ') + '), data stays on-prem';
+        serverReason = 'compliance: PII detected (' + serverClassification.piiTypes.join(', ') + ') — blocked from egress';
       } else if (serverModel === 'qwen2.5-7b') {
         serverRoutingType = 'internal';
         serverReason = difficulty === 'easy' ? 'easy complexity → cost optimized internal GPU' : 'internal GPU';
@@ -1063,9 +1082,15 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
   let piiDetail = classification.fromServer ? 'BERT LoRA PII detector' : 'waiting for vSR';
   let piiExtraHtml = '';
   if (classification.piiDetected) {
-    piiColor = 'var(--orange)';
-    piiText = 'detected';
-    piiDetail = classification.piiTypes.join(', ');
+    if (type === 'pii-forced' || type === 'blocked') {
+      piiColor = 'var(--red)';
+      piiText = 'detected — BLOCKED';
+      piiDetail = classification.piiTypes.join(', ') + ' (PII cannot egress)';
+    } else {
+      piiColor = 'var(--yellow)';
+      piiText = 'detected — allowed';
+      piiDetail = classification.piiTypes.join(', ') + ' (data stays on-prem)';
+    }
   }
   const piiHtml = '<div class="routing-item">' +
     '<div class="routing-label">PII</div>' +
@@ -1308,7 +1333,9 @@ function tierLevel(tier) {
 
 function updateComponentLog(model, dept, classification, isBlocked, isAuto, routingType, routingReason, respHeaders, data, totalMs) {
   var log = document.getElementById('component-log');
-  var provInfo = getProviderInfo(model);
+  // Use server-selected model for display (not client-side prediction)
+  var actualModel = (isAuto && respHeaders && respHeaders['x-vsr-selected-model']) ? respHeaders['x-vsr-selected-model'] : model;
+  var provInfo = getProviderInfo(actualModel);
   var isExternal = provInfo.provider !== 'Internal vLLM';
   var isAnthropic = provInfo.format === 'anthropic';
 
@@ -1320,10 +1347,19 @@ function updateComponentLog(model, dept, classification, isBlocked, isAuto, rout
   steps.push({ n: n++, icon: 'ok', cls: 'auth', action: 'MaaS API: tier lookup', value: esc(dept.tier) + ' (level ' + tierLevel(dept.tier) + ')', box: 'box-authorino' });
 
   if (isAuto) {
+    // Use server response headers for classification info (not client-side predictions)
+    var serverDomain = respHeaders['x-vsr-matched-domains'] || respHeaders['x-vsr-selected-category'] || '-';
+    var serverComplexity = respHeaders['x-vsr-matched-complexity'] || '-';
+    var serverDecision = respHeaders['x-vsr-selected-decision'] || '-';
+    var serverModel = respHeaders['x-vsr-selected-model'] || model;
+    var serverPiiV = respHeaders['x-vsr-pii-violation'] === 'true';
+    var serverPiiT = respHeaders['x-vsr-pii-types'] || '';
+    var serverConf = respHeaders['x-vsr-selected-confidence'] || '';
+
     steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: extracted model "auto" from body', value: '', box: 'box-vsr' });
-    steps.push({ n: n++, icon: 'ok', cls: 'classify', action: 'vSR: classification', value: 'domain: ' + esc(classification.domain) + ' (' + classification.confidence.toFixed(2) + '), complexity: ' + esc(classification.complexity), box: 'box-vsr' });
-    steps.push({ n: n++, icon: classification.piiDetected ? 'warn' : 'ok', cls: classification.piiDetected ? 'auth' : '', action: 'vSR: PII scan', value: classification.piiDetected ? esc(classification.piiTypes.join(', ')) + ' detected' : 'none detected', box: 'box-vsr' });
-    steps.push({ n: n++, icon: 'ok', cls: 'classify', action: 'vSR: decision', value: '"' + esc(routingReason) + '" \u2192 ' + esc(model), box: 'box-vsr' });
+    steps.push({ n: n++, icon: 'ok', cls: 'classify', action: 'vSR: classification', value: 'domain: ' + esc(serverDomain) + (serverConf ? ' (' + serverConf + ')' : '') + ', complexity: ' + esc(serverComplexity), box: 'box-vsr' });
+    steps.push({ n: n++, icon: serverPiiV ? 'warn' : (serverPiiT ? 'ok' : 'ok'), cls: serverPiiV ? 'auth' : '', action: 'vSR: PII scan', value: serverPiiV ? esc(serverPiiT) + ' \u2192 BLOCKED' : (serverPiiT ? esc(serverPiiT) + ' (allowed on-prem)' : 'none detected'), box: 'box-vsr' });
+    steps.push({ n: n++, icon: serverPiiV ? 'err' : 'ok', cls: serverPiiV ? 'blocked' : 'classify', action: 'vSR: decision', value: esc(serverDecision) + ' \u2192 ' + esc(serverPiiV ? 'BLOCKED (PII)' : serverModel), box: 'box-vsr' });
   } else {
     steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: extracted model "' + esc(model) + '" from body', value: '', box: 'box-vsr' });
   }
@@ -1331,7 +1367,7 @@ function updateComponentLog(model, dept, classification, isBlocked, isAuto, rout
   if (isBlocked) {
     steps.push({ n: n++, icon: 'err', cls: 'blocked', action: 'vSR: tier check \u2014 ' + esc(dept.tier) + ' \u2192 ' + esc(model) + ' NOT allowed', value: '403: Model not available for your subscription tier', box: 'box-vsr' });
   } else {
-    steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'vSR: tier check \u2014 ' + esc(dept.tier) + ' can access ' + esc(model), value: '\u2714', box: 'box-vsr' });
+    steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'vSR: tier check \u2014 ' + esc(dept.tier) + ' can access ' + esc(actualModel), value: '\u2714', box: 'box-vsr' });
 
     if (isExternal) {
       steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: credential switch', value: 'provider API key injected', box: 'box-vsr' });
@@ -1341,8 +1377,8 @@ function updateComponentLog(model, dept, classification, isBlocked, isAuto, rout
       steps.push({ n: n++, icon: 'ok', cls: '', action: 'vSR: API translation OpenAI \u2192 Anthropic format', value: '', box: 'box-vsr' });
     }
 
-    var backendName = model === 'claude-sonnet' ? 'Anthropic (mock)'
-      : model === 'qwen2.5:1.5b' ? 'OpenAI External (mock)'
+    var backendName = actualModel === 'claude-sonnet' ? 'Anthropic (mock)'
+      : actualModel === 'qwen2.5:1.5b' ? 'OpenAI External (mock)'
       : 'vLLM GPU (internal)';
     var backendStatus = data.status || 200;
     steps.push({ n: n++, icon: 'ok', cls: 'success', action: 'Backend: ' + backendName + ' responded (' + backendStatus + ')', value: totalMs ? totalMs + 'ms' : '', box: 'box-backend' });

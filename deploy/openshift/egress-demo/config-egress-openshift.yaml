@@ -132,6 +132,7 @@ strategy: "priority"
 
 decisions:
   # Easy queries always stay internal (cost optimized, regardless of domain)
+  # PII detected but allowed — data stays on-prem, no egress risk
   - name: "easy_internal"
     description: "Simple queries stay on-prem — no need for expensive external model"
     priority: 200
@@ -148,20 +149,19 @@ decisions:
         configuration:
           enabled: true
           threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION"]
+          pii_types_allowed: ["PERSON", "PHONE_NUMBER", "STREET_ADDRESS", "ORGANIZATION", "DATE_TIME", "NRP", "US_SSN"]
 
-  # Specialized domain + hard complexity → external model (when tier allows)
-  # Medium/easy complexity stays internal even for math/CS domains
+  # Specialized domain + medium/hard complexity → external model (when tier allows)
+  # Intern (free tier) is blocked by model_access_policy (403 for claude-sonnet)
+  # PII BLOCKED on external — data would leave the datacenter
   - name: "math_external"
-    description: "Route hard math queries to powerful external model"
+    description: "Route math queries (medium/hard) to powerful external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "math"
-        - type: "complexity"
-          name: "query-complexity:hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -170,18 +170,16 @@ decisions:
         configuration:
           enabled: true
           threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION"]
+          pii_types_allowed: ["ORGANIZATION", "DATE_TIME", "NRP"]
 
   - name: "cs_external"
-    description: "Route hard CS/coding queries to external model"
+    description: "Route CS/coding queries (medium/hard) to external model"
     priority: 100
     rules:
       operator: "AND"
       conditions:
         - type: "domain"
           name: "computer science"
-        - type: "complexity"
-          name: "query-complexity:hard"
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
@@ -190,10 +188,10 @@ decisions:
         configuration:
           enabled: true
           threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION"]
+          pii_types_allowed: ["ORGANIZATION", "DATE_TIME", "NRP"]
 
   # Default → GPU model (internal, high quality, data stays on-prem)
-  # Matches medium complexity (easy is caught by easy_internal, hard+domain by math/cs_external)
+  # PII detected but allowed — data stays on-prem, no egress risk
   - name: "default_internal"
     description: "Default: route to internal GPU model"
     priority: 1
@@ -214,7 +212,7 @@ decisions:
         configuration:
           enabled: true
           threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION"]
+          pii_types_allowed: ["PERSON", "PHONE_NUMBER", "STREET_ADDRESS", "ORGANIZATION", "DATE_TIME", "NRP", "US_SSN"]
 
 default_model: "qwen2.5-7b"
 

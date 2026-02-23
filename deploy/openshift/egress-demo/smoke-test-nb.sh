@@ -143,10 +143,12 @@ assert_response() {
 
 assert_model_is_internal() {
     local label=$1 body=$2
-    local model
+    local model header_model
     model=$(python3 -c "import sys,json; d=json.load(open('$body')); print(d.get('model',''))" 2>/dev/null || echo "")
-    if [[ "$model" == "qwen2.5-7b" ]]; then
-        echo -e "  ${GREEN}PASS${RESET} $label: routed to internal model ($model)"
+    header_model=$(grep 'x-vsr-selected-model' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r' || echo "")
+    # Check both body model and header — PII violation responses use decision name in body
+    if [[ "$model" == "qwen2.5-7b" ]] || [[ "$header_model" == "qwen2.5-7b" ]]; then
+        echo -e "  ${GREEN}PASS${RESET} $label: routed to internal model (${header_model:-$model})"
         ((PASS++))
     else
         echo -e "  ${RED}FAIL${RESET} $label: routed to $model (expected internal: qwen2.5-7b)"
@@ -381,6 +383,72 @@ curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
 assert_status "GPU model simple" "$HEADERS" "200"
+
+echo ""
+
+# =============================================================================
+# TEST GROUP 7: Preset Verification (via auth gateway)
+# Verifies all NB demo presets route correctly through real vSR
+# =============================================================================
+
+# Wait for rate limit window to reset before preset tests
+echo "  Waiting 65s for rate limit window reset..."
+sleep 65
+
+echo "--- Group 7: Preset Routing Verification ---"
+
+if [[ -n "$GATEWAY_AUTH_URL" ]]; then
+    INTERN_TOKEN=$(oc create token free-user -n vsr-egress-demo --audience vsr-demo-gateway-sa --duration=1h 2>/dev/null || echo "")
+    FINANCE_TOKEN_V=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=1h 2>/dev/null || echo "")
+
+    verify_preset() {
+        local label="$1" exp="$2" query="$3" token="$4"
+        curl -sS --dump-header "$HEADERS" -o "$BODY" "${GATEWAY_AUTH_URL}/v1/chat/completions" \
+            "${HOST_ARGS[@]}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $token" \
+            -d "{\"model\":\"auto\",\"messages\":[{\"role\":\"user\",\"content\":\"$query\"}],\"max_tokens\":5}"
+        local model=$(grep 'x-vsr-selected-model' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
+        local pii_v=$(grep 'x-vsr-pii-violation' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
+
+        if [ "$exp" = "internal" ] && [ "$model" = "qwen2.5-7b" ] && [ "$pii_v" != "true" ]; then
+            echo -e "  ${GREEN}PASS${RESET} $label → internal ($model)"
+            ((PASS++))
+        elif [ "$exp" = "external" ] && [ "$model" = "claude-sonnet" ]; then
+            echo -e "  ${GREEN}PASS${RESET} $label → external ($model)"
+            ((PASS++))
+        elif [ "$exp" = "pii_block" ] && [ "$pii_v" = "true" ]; then
+            echo -e "  ${GREEN}PASS${RESET} $label → PII blocked"
+            ((PASS++))
+        else
+            echo -e "  ${RED}FAIL${RESET} $label: expected=$exp got model=$model pii=$pii_v"
+            ((FAIL++))
+        fi
+    }
+
+    echo "  Intern presets:"
+    verify_preset "General question" internal "What does an ETF stand for and how does it differ from a mutual fund?" "$INTERN_TOKEN"
+    verify_preset "Client name+SSN (allowed)" internal "Look up account for Sarah Johnson, SSN 234-56-7890, and check her margin requirements" "$INTERN_TOKEN"
+    verify_preset "Email (PII block)" pii_block "Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns" "$INTERN_TOKEN"
+
+    echo "  Finance presets:"
+    verify_preset "Market overview" internal "Give me a brief overview of the current state of the US treasury yield curve" "$FINANCE_TOKEN_V"
+    verify_preset "Math → Claude" external "What is the integral of sin(x)dx and how do you solve it step by step? Show the derivation." "$FINANCE_TOKEN_V"
+    verify_preset "Client name+acct (allowed)" internal "Pull the portfolio allocation for client Robert Chen, account 4532-1234-5678-9012" "$FINANCE_TOKEN_V"
+    verify_preset "Email (PII block)" pii_block "Forward the Q4 portfolio summary to robert.chen@client-corp.com with the allocation breakdown" "$FINANCE_TOKEN_V"
+
+    # Wait for rate limit window to reset between departments
+    sleep 65
+
+    echo "  Principal presets:"
+    verify_preset "BST → Claude" external "Implement a binary search tree in Python with insert, delete, and balanced rotation operations" "$FINANCE_TOKEN_V"
+    verify_preset "Quick question" internal "Explain the concept of supply and demand in simple terms" "$FINANCE_TOKEN_V"
+    verify_preset "Team name (allowed)" internal "Summarize the meeting notes from John Smith about the Q4 infrastructure budget planning" "$FINANCE_TOKEN_V"
+    verify_preset "Email (PII block)" pii_block "Email john.smith@company.com the project status update with the latest deployment metrics" "$FINANCE_TOKEN_V"
+else
+    echo -e "  ${YELLOW}SKIP${RESET} Auth gateway not configured — skipping preset verification"
+    ((SKIP++))
+fi
 
 echo ""
 
