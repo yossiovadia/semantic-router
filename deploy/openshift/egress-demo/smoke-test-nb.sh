@@ -452,6 +452,80 @@ fi
 
 echo ""
 
+# =============================================================================
+# TEST GROUP 8: MaaS API Token Generation
+# Verifies MaaS API /v1/tokens works through the auth gateway
+# =============================================================================
+
+echo "--- Group 8: MaaS API Token Generation ---"
+
+if [[ -n "$GATEWAY_AUTH_URL" ]]; then
+    echo "Test 8.1: Free user can generate MaaS token via gateway"
+    FREE_BOOTSTRAP=$(oc create token free-user -n vsr-egress-demo --audience vsr-demo-gateway-sa --duration=1h 2>/dev/null || echo "")
+    if [[ -n "$FREE_BOOTSTRAP" ]]; then
+        curl -sS --dump-header "$HEADERS" -o "$BODY" "${GATEWAY_AUTH_URL}/v1/tokens" \
+            "${HOST_ARGS[@]}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $FREE_BOOTSTRAP" \
+            -d '{}'
+        HTTP=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
+        TOKEN_FIELD=$(python3 -c "import json; d=json.load(open('$BODY')); print(d.get('token','')[:20])" 2>/dev/null || echo "")
+        if [[ "$HTTP" == "201" && -n "$TOKEN_FIELD" ]]; then
+            echo -e "  ${GREEN}PASS${RESET} Free MaaS token: HTTP 201, token issued"
+            ((PASS++))
+        else
+            echo -e "  ${RED}FAIL${RESET} Free MaaS token: HTTP $HTTP (expected 201)"
+            ((FAIL++))
+        fi
+    else
+        echo -e "  ${YELLOW}SKIP${RESET} Could not create bootstrap token"
+        ((SKIP++))
+    fi
+
+    echo ""
+    echo "Test 8.2: Premium user can generate MaaS token via gateway"
+    PREMIUM_BOOTSTRAP=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=1h 2>/dev/null || echo "")
+    if [[ -n "$PREMIUM_BOOTSTRAP" ]]; then
+        curl -sS --dump-header "$HEADERS" -o "$BODY" "${GATEWAY_AUTH_URL}/v1/tokens" \
+            "${HOST_ARGS[@]}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $PREMIUM_BOOTSTRAP" \
+            -d '{}'
+        HTTP=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
+        TOKEN_FIELD=$(python3 -c "import json; d=json.load(open('$BODY')); print(d.get('token','')[:20])" 2>/dev/null || echo "")
+        if [[ "$HTTP" == "201" && -n "$TOKEN_FIELD" ]]; then
+            echo -e "  ${GREEN}PASS${RESET} Premium MaaS token: HTTP 201, token issued"
+            ((PASS++))
+        else
+            echo -e "  ${RED}FAIL${RESET} Premium MaaS token: HTTP $HTTP (expected 201)"
+            ((FAIL++))
+        fi
+    else
+        echo -e "  ${YELLOW}SKIP${RESET} Could not create bootstrap token"
+        ((SKIP++))
+    fi
+
+    echo ""
+    echo "Test 8.3: Unauthenticated request to /v1/tokens → 401"
+    curl -sS --dump-header "$HEADERS" -o "$BODY" "${GATEWAY_AUTH_URL}/v1/tokens" \
+        "${HOST_ARGS[@]}" \
+        -H "Content-Type: application/json" \
+        -d '{}'
+    HTTP=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
+    if [[ "$HTTP" == "401" ]]; then
+        echo -e "  ${GREEN}PASS${RESET} Unauthenticated /v1/tokens: HTTP 401"
+        ((PASS++))
+    else
+        echo -e "  ${RED}FAIL${RESET} Unauthenticated /v1/tokens: HTTP $HTTP (expected 401)"
+        ((FAIL++))
+    fi
+else
+    echo -e "  ${YELLOW}SKIP${RESET} Auth gateway not configured — skipping MaaS token tests"
+    ((SKIP++))
+fi
+
+echo ""
+
 # ═══════════════════════════════════════════════════════════════
 echo "================================================================"
 echo -e "  Results: ${GREEN}${PASS} passed${RESET}, ${RED}${FAIL} failed${RESET}, ${YELLOW}${SKIP} skipped${RESET}"
