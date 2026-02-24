@@ -547,8 +547,8 @@ success "DestinationRules applied"
 
 # ─── Generate demo tokens ───
 log "Generating demo user tokens..."
-FREE_TOKEN=$(oc create token free-user -n "$NAMESPACE" --audience vsr-demo-gateway-sa --duration=24h 2>/dev/null || echo "")
-PREMIUM_TOKEN=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=24h 2>/dev/null || echo "")
+FREE_TOKEN=$(oc create token free-user -n "$NAMESPACE" --audience vsr-demo-gateway-sa --duration=48h 2>/dev/null || echo "")
+PREMIUM_TOKEN=$(oc create token premium-user -n vsr-demo-tier-premium --audience vsr-demo-gateway-sa --duration=48h 2>/dev/null || echo "")
 
 if [[ -n "$FREE_TOKEN" && -n "$PREMIUM_TOKEN" ]]; then
     oc create secret generic demo-tokens \
