@@ -506,6 +506,36 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     fi
 
     echo ""
+    echo "Test 8.4: NB demo token flow — generate token then use for chat request"
+    DEMO_HOST=$(oc get route demo-ui-route -n vsr-egress-demo -o jsonpath='{.spec.host}' 2>/dev/null)
+    if [[ -n "$DEMO_HOST" ]]; then
+        # Simulate what the NB demo does: call /api/admin/token then use result for /api/admin/test
+        NB_TOKEN=$(curl -sSkS "https://${DEMO_HOST}/api/admin/token" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"username":"premium-user","tier":"premium"}' 2>/dev/null | \
+            python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null || echo "")
+        if [[ -n "$NB_TOKEN" ]]; then
+            NB_RESP=$(curl -sSkS "https://${DEMO_HOST}/api/admin/test" -X POST \
+                -H "Content-Type: application/json" \
+                -d "{\"token\":\"${NB_TOKEN}\",\"model\":\"qwen2.5-7b\",\"message\":\"hi\",\"max_tokens\":5}" 2>/dev/null)
+            NB_STATUS=$(echo "$NB_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',0))" 2>/dev/null || echo "0")
+            if [[ "$NB_STATUS" == "200" ]]; then
+                echo -e "  ${GREEN}PASS${RESET} NB demo token flow: token generated + chat request succeeded (200)"
+                ((PASS++))
+            else
+                echo -e "  ${RED}FAIL${RESET} NB demo token flow: chat returned status $NB_STATUS (expected 200)"
+                ((FAIL++))
+            fi
+        else
+            echo -e "  ${RED}FAIL${RESET} NB demo token flow: failed to get token from /api/admin/token"
+            ((FAIL++))
+        fi
+    else
+        echo -e "  ${YELLOW}SKIP${RESET} Demo UI route not found"
+        ((SKIP++))
+    fi
+
+    echo ""
     echo "Test 8.3: Unauthenticated request to /v1/tokens → 401"
     curl -sS --dump-header "$HEADERS" -o "$BODY" "${GATEWAY_AUTH_URL}/v1/tokens" \
         "${HOST_ARGS[@]}" \

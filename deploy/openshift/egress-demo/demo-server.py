@@ -510,11 +510,14 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 except json.JSONDecodeError:
                     token_data = {"raw": resp_body}
                 steps[-1]["result"] = "Token issued by MaaS API"
+                # Use the K8s bootstrap token for auth gateway requests (correct audience).
+                # MaaS token has audience "maas-default-gateway-sa" which Authorino rejects.
+                # The bootstrap token (audience "vsr-demo-gateway-sa") is what Authorino expects.
                 self._send_json(
                     {
-                        "token": token_data.get("token", token_data.get("access_token", "")),
+                        "token": bootstrap_token,
                         "expiresAt": token_data.get("expiresAt", token_data.get("expires_at", "")),
-                        "issuedBy": "MaaS API",
+                        "issuedBy": "MaaS API (using K8s token for auth)",
                         "steps": steps,
                         "tokenResponse": token_data,
                     }
