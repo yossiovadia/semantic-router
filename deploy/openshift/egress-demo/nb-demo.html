@@ -397,6 +397,16 @@
       </div>
     </div>
 
+    <!-- vSR Config Viewer -->
+    <div class="panel">
+      <div class="panel-header" onclick="toggleConfigViewer()" style="cursor:pointer; user-select:none;">
+        <span id="config-viewer-arrow">▸</span> vSR Routing Configuration <span style="font-size:10px; color:var(--text-muted); text-transform:none; letter-spacing:0; font-weight:400;">(click to expand)</span>
+      </div>
+      <div class="panel-body" id="config-viewer" style="display:none; padding:0;">
+        <div id="config-viewer-content" style="font-size:12px; color:var(--text-muted); padding:12px;">Loading...</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -621,6 +631,50 @@ function renderRoutingRules(deptKey) {
     '<tr style="border-top:1px solid var(--border);"><td style="padding:3px 4px;">Name/SSN</td><td style="padding:3px 4px;">' + internal + ' <span style="color:var(--text-muted);">(on-prem OK)</span></td><td style="padding:3px 4px;">' + blocked + ' <span style="color:var(--text-muted);">(no egress)</span></td></tr>' +
     '<tr><td style="padding:3px 4px;">Email</td><td style="padding:3px 4px;" colspan="2">' + blocked + ' <span style="color:var(--text-muted);">(always blocked)</span></td></tr>' +
     '</table>';
+}
+
+// ---- Config viewer ----
+let configLoaded = false;
+function toggleConfigViewer() {
+  const panel = document.getElementById('config-viewer');
+  const arrow = document.getElementById('config-viewer-arrow');
+  if (panel.style.display === 'none') {
+    panel.style.display = '';
+    arrow.textContent = '▾';
+    if (!configLoaded) loadConfig();
+  } else {
+    panel.style.display = 'none';
+    arrow.textContent = '▸';
+  }
+}
+
+async function loadConfig() {
+  const el = document.getElementById('config-viewer-content');
+  try {
+    const resp = await fetch('/api/admin/config');
+    const text = await resp.text();
+    // Render YAML with syntax highlighting
+    const highlighted = text.split('\n').map(function(line) {
+      if (line.match(/^\s*#/)) return '<span style="color:var(--text-muted); font-style:italic;">' + esc(line) + '</span>';
+      if (line.match(/^\s*-\s/)) {
+        return line.replace(/^(\s*-\s)(.*)$/, function(m, prefix, rest) {
+          return '<span style="color:var(--text-muted);">' + esc(prefix) + '</span>' + esc(rest);
+        });
+      }
+      if (line.includes(':')) {
+        const idx = line.indexOf(':');
+        const key = line.substring(0, idx);
+        const val = line.substring(idx);
+        return '<span style="color:var(--accent);">' + esc(key) + '</span><span style="color:var(--text-muted);">:</span>' +
+          (val.length > 1 ? '<span style="color:var(--green);">' + esc(val.substring(1)) + '</span>' : '');
+      }
+      return esc(line);
+    }).join('\n');
+    el.innerHTML = '<pre style="margin:0; padding:12px; background:var(--bg); border-radius:4px; overflow-x:auto; font-size:12px; line-height:1.5; max-height:500px; overflow-y:auto;">' + highlighted + '</pre>';
+    configLoaded = true;
+  } catch (e) {
+    el.textContent = 'Failed to load config: ' + e.message;
+  }
 }
 
 // ---- Token info panel ----

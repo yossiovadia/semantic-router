@@ -123,6 +123,9 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/admin/providers":
             self._admin_get_providers()
             return
+        if self.path == "/api/admin/config":
+            self._admin_get_config()
+            return
 
         # Static file serving
         if self.path == "/" or self.path == "":
@@ -286,6 +289,22 @@ class DemoHandler(SimpleHTTPRequestHandler):
             },
         ]
         self._send_json(providers)
+
+    def _admin_get_config(self):
+        """Return the vSR routing config YAML from the K8s ConfigMap."""
+        status, data = k8s_request(
+            "GET",
+            "/api/v1/namespaces/vsr-egress-demo/configmaps/vsr-egress-config",
+        )
+        if status == 200 and "data" in data:
+            config_yaml = data["data"].get("config.yaml", "# Config not found")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(config_yaml.encode())
+        else:
+            self._send_json({"error": "Failed to read config"}, 500)
 
     # ── POST ─────────────────────────────────────────────────────────────
 
