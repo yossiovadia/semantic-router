@@ -270,6 +270,12 @@
     </div>
 
     <div id="setup-status" class="setup-status">Initializing...</div>
+    <div id="token-info-section" style="display:none; margin-top:4px;">
+      <div onclick="document.getElementById('token-info-body').style.display = document.getElementById('token-info-body').style.display === 'none' ? '' : 'none'; this.querySelector('span').textContent = document.getElementById('token-info-body').style.display === 'none' ? '▸' : '▾';" style="cursor:pointer; font-size:11px; color:var(--accent); user-select:none;">
+        <span>▸</span> Token Details <span style="color:var(--text-muted); font-size:10px;">(click to expand)</span>
+      </div>
+      <div id="token-info-body" style="display:none;"></div>
+    </div>
 
     <div id="rag-toggle-section" style="display:none; margin-top:12px;">
       <h2>Features</h2>
@@ -617,6 +623,35 @@ function renderRoutingRules(deptKey) {
     '</table>';
 }
 
+// ---- Token info panel ----
+function renderTokenInfo(deptKey) {
+  const section = document.getElementById('token-info-section');
+  const body = document.getElementById('token-info-body');
+  if (!section || !body) return;
+  const info = state.tokens[deptKey];
+  if (!info || !info.token) { section.style.display = 'none'; return; }
+
+  const tokenPreview = info.token.substring(0, 20) + '...' + info.token.substring(info.token.length - 10);
+  const expiry = info.expiry ? new Date(info.expiry * 1000).toLocaleTimeString() : 'unknown';
+  const stepsHtml = (info.steps || []).map(function(s) {
+    return '<div style="margin:2px 0; padding:2px 0; border-bottom:1px solid var(--border);">' +
+      '<span style="color:var(--accent); font-weight:600;">' + s.step + '.</span> ' +
+      '<span>' + esc(s.action) + '</span>' +
+      (s.elapsed_ms ? ' <span style="color:var(--text-muted);">(' + s.elapsed_ms + 'ms)</span>' : '') +
+      (s.result ? '<div style="color:var(--green); font-size:10px; margin-left:16px;">' + esc(s.result) + '</div>' : '') +
+      '</div>';
+  }).join('');
+
+  body.innerHTML =
+    '<div class="dept-info-box" style="font-size:11px; margin-top:4px;">' +
+    '<div class="info-row"><span class="info-label">Token: </span><span class="info-value" style="font-family:monospace; font-size:10px;">' + esc(tokenPreview) + '</span></div>' +
+    '<div class="info-row"><span class="info-label">Issued by: </span><span class="info-value">' + esc(info.issuedBy || 'K8s') + '</span></div>' +
+    '<div class="info-row"><span class="info-label">Expires: </span><span class="info-value">' + esc(expiry) + '</span></div>' +
+    (stepsHtml ? '<div style="margin-top:6px; font-size:10px;">' + stepsHtml + '</div>' : '') +
+    '</div>';
+  section.style.display = '';
+}
+
 // ---- RAG toggle ----
 let ragEnabled = true;
 function onRagToggle(checked) {
@@ -790,6 +825,7 @@ async function ensureDeptUser(deptKey) {
     noToken.style.display = 'none';
     statusEl.textContent = 'Ready (' + esc(dept.label) + ')';
     statusEl.className = 'setup-status ready';
+    renderTokenInfo(deptKey);
     return;
   }
 
@@ -830,12 +866,15 @@ async function ensureDeptUser(deptKey) {
     state.tokens[deptKey] = {
       token: tokenData.token || '',
       expiry: tokenData.expiresAt || '',
+      issuedBy: tokenData.issuedBy || 'K8s',
+      steps: tokenData.steps || [],
     };
 
     btnSend.disabled = false;
     noToken.style.display = 'none';
     statusEl.textContent = 'Ready (' + esc(dept.label) + ')';
     statusEl.className = 'setup-status ready';
+    renderTokenInfo(deptKey);
 
   } catch (e) {
     statusEl.textContent = 'Setup failed: ' + e.message;
