@@ -47,3 +47,7 @@ spec:
           X-MaaS-Tier:
             plain:
               selector: auth.metadata.matchedTier.tier
+          X-MaaS-Group:
+            plain:
+              expression: |
+                '["' + auth.identity.user.groups.join('","') + '"]'
