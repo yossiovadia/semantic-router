@@ -62,9 +62,9 @@ deploy.sh handles everything automatically:
 
 ```bash
 # Run sequentially (rate limit: 10 req/min shared)
-./deploy/openshift/egress-demo/smoke-test.sh http://<gateway-url> --phase 3
+./deploy/openshift/egress-demo/tests/smoke-test.sh http://<gateway-url> --phase 3
 sleep 65
-./deploy/openshift/egress-demo/smoke-test-nb.sh http://<gateway-url>
+./deploy/openshift/egress-demo/tests/smoke-test-nb.sh http://<gateway-url>
 
 # Expected: 30/30 main + 31/31 NB tests passing
 ```
