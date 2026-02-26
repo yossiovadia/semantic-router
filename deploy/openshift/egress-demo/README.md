@@ -69,13 +69,16 @@ sleep 65
 # Expected: 30/30 main + 31/31 NB tests passing
 ```
 
-## Container Image
+## Container Images (pinned)
 
-Custom extproc image with tier-based access control:
+All images are pinned to sha256 digests for reproducible deploys. Change to `:latest` or update the digest to upgrade.
 
-```
-quay.io/jabadia/vsr-extproc:latest  (public, amd64)
-```
+| Image | Source | Pinned Digest |
+|-------|--------|---------------|
+| vsr-extproc | `quay.io/jabadia/vsr-extproc` | `sha256:7e2516...` |
+| vllm-openai | `vllm/vllm-openai` | `sha256:480115...` |
+| maas-api | `quay.io/opendatahub/maas-api` | `sha256:7d3e65...` |
+| envoy | `envoyproxy/envoy:v1.33.2` | tag-pinned |
 
 ## Namespaces
 
