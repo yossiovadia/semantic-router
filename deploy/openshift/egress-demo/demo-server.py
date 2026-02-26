@@ -441,7 +441,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             "kind": "TokenRequest",
             "spec": {
                 "audiences": ["vsr-demo-gateway-sa"],
-                "expirationSeconds": 600,
+                "expirationSeconds": 3600,
             },
         }
 

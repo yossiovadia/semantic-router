@@ -861,7 +861,7 @@ document.getElementById('query-model').addEventListener('change', updateModelHin
 
 // ---- Send Request ----
 
-async function sendRequest() {
+async function sendRequest(retried) {
   if (!state.selectedDept) return;
   const deptKey = state.selectedDept;
   const dept = DEPARTMENTS[deptKey];
@@ -954,6 +954,15 @@ async function sendRequest() {
     const respBody = data.response || data;
     const serverBlocked = respStatus === 403 || (respBody && respBody.error && respBody.error.code === 403);
     const isRateLimited = respStatus === 429;
+
+    // Auto-refresh token on 401 (expired) and retry once
+    if (respStatus === 401 && !retried) {
+      delete state.tokens[deptKey];
+      await ensureDeptUser(deptKey);
+      btn.disabled = false;
+      btn.textContent = 'Send Request';
+      return sendRequest(true);
+    }
     const respHeaders = data.headers || {};
 
     // Use server-selected model for all display (not client-side prediction)
