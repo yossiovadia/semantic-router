@@ -27,7 +27,8 @@ spec:
         effect: NoSchedule
       containers:
       - name: vllm
-        image: vllm/vllm-openai:latest
+        # Pinned digest — change to :latest to pull newest
+        image: vllm/vllm-openai@sha256:4801151759655c57606c844662e5213403c032a62d149c7ce61d615759a821ef
         args:
         - "--model"
         - "Qwen/Qwen2.5-7B-Instruct"

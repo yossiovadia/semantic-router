@@ -74,7 +74,8 @@ spec:
             cpu: "1"
       containers:
       - name: semantic-router
-        image: quay.io/jabadia/vsr-extproc:latest
+        # Pinned digest — change to :latest to pull newest, or update digest after rebuild
+        image: quay.io/jabadia/vsr-extproc@sha256:7e25167e15a4605084f3791ddc4f1f2dfd02d7be1851665c49370d8ecff4f226
         command: ["/usr/local/bin/router"]
         args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
         ports:
