@@ -104,7 +104,8 @@ spec:
       containers:
       - name: maas-api
         # Pinned digest — change to :latest to pull newest
-        image: quay.io/opendatahub/maas-api@sha256:7d3e65228300f3149a78c9ff11bfeecc8dd1053c3e7b8567069247b93711f6d2
+        # Pinned to post-subscription-merge version (requires MaaS CRDs)
+        image: quay.io/opendatahub/maas-api@sha256:db31333a5d71eff0f329ddf524a71974e31edae558a39af6e86dce7cc9c61707
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
