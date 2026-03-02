@@ -26,5 +26,5 @@ spec:
   limits:
     per-user-limit:
       rates:
-        - limit: 10
+        - limit: 200
           window: 1m

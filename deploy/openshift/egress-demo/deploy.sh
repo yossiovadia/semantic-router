@@ -77,6 +77,7 @@ if [[ "${cleanup:-}" == "true" ]]; then
     oc delete clusterrolebinding demo-ui-admin --ignore-not-found=true 2>/dev/null || true
     oc delete clusterrole demo-ui-admin --ignore-not-found=true 2>/dev/null || true
     oc delete crd llminferenceservices.serving.kserve.io --ignore-not-found=true 2>/dev/null || true
+    oc delete crd maasmodels.maas.opendatahub.io maassubscriptions.maas.opendatahub.io maasauthpolicies.maas.opendatahub.io --ignore-not-found=true 2>/dev/null || true
     # Namespaces
     oc delete namespace vsr-demo-tier-premium --ignore-not-found=true 2>/dev/null || true
     oc delete namespace vsr-demo-tier-enterprise --ignore-not-found=true 2>/dev/null || true
@@ -470,6 +471,16 @@ CRDEOF
 else
     success "CRD already exists"
 fi
+
+# ─── Create MaaS CRDs (needed by MaaS API subscription/model informers) ───
+log "Creating MaaS CRDs (MaaSModel, MaaSSubscription, MaaSAuthPolicy)..."
+for crd_name in maasmodels.maas.opendatahub.io maassubscriptions.maas.opendatahub.io maasauthpolicies.maas.opendatahub.io; do
+    if ! oc get crd "$crd_name" &>/dev/null; then
+        crd_file=$(echo "$crd_name" | sed 's/\.maas\.opendatahub\.io//' | sed 's/^/maas.opendatahub.io_/')
+        curl -sS "https://raw.githubusercontent.com/opendatahub-io/models-as-a-service/main/maas-controller/config/crd/bases/${crd_file}.yaml" | oc apply -f - 2>/dev/null || true
+    fi
+done
+success "MaaS CRDs ready"
 
 # ─── Deploy MaaS API ───
 log "Deploying MaaS API (tier lookup)..."

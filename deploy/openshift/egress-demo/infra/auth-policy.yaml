@@ -51,3 +51,11 @@ spec:
             plain:
               expression: |
                 '["' + auth.identity.user.groups.join('","') + '"]'
+        # Filters expose data to other Kuadrant components (Limitador/TokenRateLimitPolicy)
+        filters:
+          tier:
+            plain:
+              selector: auth.metadata.matchedTier.tier
+          userid:
+            plain:
+              selector: auth.identity.userid

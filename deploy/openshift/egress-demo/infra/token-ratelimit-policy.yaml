@@ -1,0 +1,40 @@
+# Per-tier token rate limiting via Kuadrant TokenRateLimitPolicy
+# TokenRateLimitPolicy evaluates AFTER auth (has access to auth.identity)
+# unlike RateLimitPolicy which evaluates BEFORE auth.
+# This enables per-tier rate limits using auth.identity.tier predicate.
+---
+apiVersion: kuadrant.io/v1alpha1
+kind: TokenRateLimitPolicy
+metadata:
+  name: vsr-demo-token-rate-limits
+  namespace: openshift-ingress
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: vsr-demo-gateway
+  limits:
+    free-tier-tokens:
+      rates:
+        - limit: 50
+          window: 1m
+      when:
+        - predicate: auth.identity.tier == "free"
+      counters:
+        - expression: auth.identity.userid
+    premium-tier-tokens:
+      rates:
+        - limit: 500
+          window: 1m
+      when:
+        - predicate: auth.identity.tier == "premium"
+      counters:
+        - expression: auth.identity.userid
+    enterprise-tier-tokens:
+      rates:
+        - limit: 5000
+          window: 1m
+      when:
+        - predicate: auth.identity.tier == "enterprise"
+      counters:
+        - expression: auth.identity.userid

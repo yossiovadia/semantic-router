@@ -293,7 +293,7 @@
     <h2>Session</h2>
     <div class="dept-info-box" id="session-stats" style="display:none; font-size:11px;"></div>
     <div class="dept-info-box" id="session-limits" style="font-size:11px; margin-top:6px;">
-      <div class="info-row"><span class="info-label">Rate limit: </span><span class="info-value">10 req/min</span></div>
+      <div class="info-row"><span class="info-label">Token limit: </span><span class="info-value" id="session-rate-limit">select a department</span></div>
       <div class="info-row"><span class="info-label">Token TTL: </span><span class="info-value">1 hour</span></div>
       <div class="info-row"><span class="info-label">Session: </span><span class="info-value">stateless (token-based)</span></div>
     </div>
@@ -428,6 +428,7 @@ const DEPARTMENTS = {
     username: 'intern-user',
     tier: 'free',
     models: ['qwen2.5-7b'],
+    tokenLimit: '50 tokens/min',
     description: 'Cost-optimized, on-prem only',
   },
   finance: {
@@ -435,6 +436,7 @@ const DEPARTMENTS = {
     username: 'finance-user',
     tier: 'premium',
     models: ['*'],
+    tokenLimit: '500 tokens/min',
     description: 'Full access, but PII forces internal',
   },
   principal: {
@@ -442,6 +444,7 @@ const DEPARTMENTS = {
     username: 'principal-user',
     tier: 'enterprise',
     models: ['*'],
+    tokenLimit: '5,000 tokens/min',
     description: 'Unrestricted access',
   },
 };
@@ -454,7 +457,7 @@ const MODEL_COSTS = {
 };
 
 // ---- Session cost tracking ----
-const sessionStats = { queries: 0, internalCount: 0, externalCount: 0, blockedCount: 0, totalCostUsd: 0 };
+const sessionStats = { queries: 0, internalCount: 0, externalCount: 0, blockedCount: 0, totalCostUsd: 0, totalTokens: 0, promptTokens: 0, completionTokens: 0 };
 
 function estimateCost(model, inputTokens, outputTokens) {
   const c = MODEL_COSTS[model];
@@ -462,12 +465,19 @@ function estimateCost(model, inputTokens, outputTokens) {
   return (c.input * inputTokens / 1e6) + (c.output * outputTokens / 1e6);
 }
 
-function updateSessionStats(model, routingType, inputTokens, outputTokens) {
+function updateSessionStats(model, routingType, inputTokens, outputTokens, usage) {
   sessionStats.queries++;
-  if (routingType === 'blocked') { sessionStats.blockedCount++; return; }
+  if (routingType === 'blocked') { sessionStats.blockedCount++; renderSessionStats(); return; }
   if (routingType === 'internal' || routingType === 'pii-forced') { sessionStats.internalCount++; }
   else { sessionStats.externalCount++; }
-  sessionStats.totalCostUsd += estimateCost(model, inputTokens, outputTokens);
+  // Use real token counts from model response if available, otherwise estimate
+  const realPrompt = (usage && usage.prompt_tokens) || inputTokens;
+  const realCompletion = (usage && usage.completion_tokens) || outputTokens;
+  const realTotal = (usage && usage.total_tokens) || (realPrompt + realCompletion);
+  sessionStats.promptTokens += realPrompt;
+  sessionStats.completionTokens += realCompletion;
+  sessionStats.totalTokens += realTotal;
+  sessionStats.totalCostUsd += estimateCost(model, realPrompt, realCompletion);
   renderSessionStats();
 }
 
@@ -481,6 +491,8 @@ function renderSessionStats() {
     '<div class="info-row"><span class="info-label">External: </span><span class="info-value" style="color:var(--accent);">' + sessionStats.externalCount + '</span></div>' +
     (sessionStats.blockedCount > 0 ? '<div class="info-row"><span class="info-label">Blocked: </span><span class="info-value" style="color:var(--red);">' + sessionStats.blockedCount + '</span></div>' : '') +
     '<div class="info-row" style="margin-top:4px; border-top:1px solid var(--border); padding-top:4px;">' +
+      '<span class="info-label">Tokens: </span><span class="info-value">' + sessionStats.totalTokens.toLocaleString() + ' <span style="color:var(--text-muted);">(' + sessionStats.promptTokens.toLocaleString() + ' in / ' + sessionStats.completionTokens.toLocaleString() + ' out)</span></span></div>' +
+    '<div class="info-row">' +
       '<span class="info-label">Est. cost: </span><span class="info-value">$' + sessionStats.totalCostUsd.toFixed(4) + '</span></div>';
   el.style.display = '';
 }
@@ -754,6 +766,7 @@ async function selectDept(deptKey) {
   // Render department-specific presets and routing rules
   renderPresets(deptKey);
   renderRoutingRules(deptKey);
+  document.getElementById('session-rate-limit').textContent = dept.tokenLimit || '10 req/min';
 
   // Reset panels
   resetArchDiagram();
@@ -995,7 +1008,10 @@ async function sendRequest(retried) {
       updateArchDiagram(displayModel, dept, false, totalMs);
       updateComponentLog(displayModel, dept, classification, false, isAuto, routingType, routingReason, respHeaders, data, totalMs);
       showModelResponse(respBody, false, displayModel, totalMs);
-      updateSessionStats(displayModel, routingType, estInputTokens, estOutputTokens);
+      const displayRoutingType = (displayModel === 'qwen2.5-7b') ? 'internal' : 'external';
+      // Extract real token usage from model response (falls back to estimate if unavailable)
+      const respUsage = (respBody && respBody.usage) ? respBody.usage : null;
+      updateSessionStats(displayModel, displayRoutingType, estInputTokens, estOutputTokens, respUsage);
     }
 
     // Show routing decision with real vSR signals from response headers
@@ -1202,7 +1218,8 @@ function showModelResponse(respBody, isBlocked, model, totalMs) {
       replyText = respBody.choices[0].message.content || '';
     }
     if (respBody && respBody.usage) {
-      tokensUsed = respBody.usage.total_tokens + ' tokens';
+      const u = respBody.usage;
+      tokensUsed = u.total_tokens + ' tokens (' + (u.prompt_tokens || 0) + ' in / ' + (u.completion_tokens || 0) + ' out)';
     }
   } catch (e) {
     replyText = JSON.stringify(respBody, null, 2);
