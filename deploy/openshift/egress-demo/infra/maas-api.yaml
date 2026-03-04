@@ -31,7 +31,7 @@ rules:
   resources: ["inferenceservices", "llminferenceservices"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["maas.opendatahub.io"]
-  resources: ["maasmodels", "maassubscriptions"]
+  resources: ["maasmodels", "maasmodelrefs", "maassubscriptions"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["gateway.networking.k8s.io"]
   resources: ["httproutes"]
