@@ -420,19 +420,20 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
             -H "Authorization: Bearer $token" \
             -d "{\"model\":\"auto\",\"messages\":[{\"role\":\"user\",\"content\":\"$query\"}],\"max_tokens\":5}"
         local model=$(grep 'x-vsr-selected-model' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
-        local pii_v=$(grep 'x-vsr-pii-violation' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
+        local decision=$(grep 'x-vsr-selected-decision' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
+        local pii_matched=$(grep 'x-vsr-matched-pii' "$HEADERS" | awk -F': ' '{print $2}' | tr -d '\r')
 
-        if [ "$exp" = "internal" ] && [ "$model" = "qwen2.5-7b" ] && [ "$pii_v" != "true" ]; then
+        if [ "$exp" = "internal" ] && [ "$model" = "qwen2.5-7b" ]; then
             echo -e "  ${GREEN}PASS${RESET} $label → internal ($model)"
             ((PASS++))
         elif [ "$exp" = "external" ] && [ "$model" = "claude-sonnet" ]; then
             echo -e "  ${GREEN}PASS${RESET} $label → external ($model)"
             ((PASS++))
-        elif [ "$exp" = "pii_block" ] && [ "$pii_v" = "true" ]; then
-            echo -e "  ${GREEN}PASS${RESET} $label → PII blocked"
+        elif [ "$exp" = "pii_block" ] && [ "$decision" = "pii_block" ]; then
+            echo -e "  ${GREEN}PASS${RESET} $label → PII blocked (fast_response)"
             ((PASS++))
         else
-            echo -e "  ${RED}FAIL${RESET} $label: expected=$exp got model=$model pii=$pii_v"
+            echo -e "  ${RED}FAIL${RESET} $label: expected=$exp got model=$model decision=$decision pii=$pii_matched"
             ((FAIL++))
         fi
     }
@@ -440,15 +441,15 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "  Intern presets:"
     verify_preset "General question" internal "What does an ETF stand for and how does it differ from a mutual fund?" "$INTERN_TOKEN"
     verify_preset "Client name+SSN (allowed)" internal "Look up account for Sarah Johnson, SSN 234-56-7890, and check her margin requirements" "$INTERN_TOKEN"
-    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
-    verify_preset "Email (PII → internal)" internal "Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns" "$INTERN_TOKEN"
+    # Email PII → instant block via fast_response (no model call)
+    verify_preset "Email (PII blocked)" pii_block "Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns" "$INTERN_TOKEN"
 
     echo "  Finance presets:"
     verify_preset "Market overview" internal "Give me a brief overview of the current state of the US treasury yield curve" "$FINANCE_TOKEN_V"
     verify_preset "Math → Claude" external "What is the integral of sin(x)dx and how do you solve it step by step? Show the derivation." "$FINANCE_TOKEN_V"
     verify_preset "Client name+acct (allowed)" internal "Pull the portfolio allocation for client Robert Chen, account 4532-1234-5678-9012" "$FINANCE_TOKEN_V"
-    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
-    verify_preset "Email (PII → internal)" internal "Forward the Q4 portfolio summary to robert.chen@client-corp.com with the allocation breakdown" "$FINANCE_TOKEN_V"
+    # Email PII → instant block via fast_response (no model call)
+    verify_preset "Email (PII blocked)" pii_block "Forward the Q4 portfolio summary to robert.chen@client-corp.com with the allocation breakdown" "$FINANCE_TOKEN_V"
 
     # Wait for rate limit window to reset between departments
     sleep 65
@@ -457,8 +458,8 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     verify_preset "BST → Claude" external "Implement a binary search tree in Python with insert, delete, and balanced rotation operations" "$FINANCE_TOKEN_V"
     verify_preset "Quick question" internal "Explain the concept of supply and demand in simple terms" "$FINANCE_TOKEN_V"
     verify_preset "Team name (allowed)" internal "Summarize the meeting notes from John Smith about the Q4 infrastructure budget planning" "$FINANCE_TOKEN_V"
-    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
-    verify_preset "Email (PII → internal)" internal "Email john.smith@company.com the project status update with the latest deployment metrics" "$FINANCE_TOKEN_V"
+    # Email PII → instant block via fast_response (no model call)
+    verify_preset "Email (PII blocked)" pii_block "Email john.smith@company.com the project status update with the latest deployment metrics" "$FINANCE_TOKEN_V"
 else
     echo -e "  ${YELLOW}SKIP${RESET} Auth gateway not configured — skipping preset verification"
     ((SKIP++))
