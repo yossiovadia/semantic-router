@@ -75,8 +75,9 @@ spec:
       containers:
       - name: semantic-router
         # Upstream vSR image with native authz support (PR #1321)
-        # Option A: try upstream directly. Fall back to our fork if models don't load.
-        image: ghcr.io/vllm-project/semantic-router/extproc:latest
+        # Pinned to digest — :latest broke overnight when binary was renamed.
+        # To update: pull :latest, verify /app/router-candle exists, pin new digest.
+        image: ghcr.io/vllm-project/semantic-router/extproc@sha256:4e235155bf68a5697b7bbe278fbe47abf78af507b15f097e05d9c0a3fe1146cf
         command: ["/app/router-candle"]
         args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
         ports:

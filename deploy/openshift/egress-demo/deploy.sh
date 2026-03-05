@@ -9,7 +9,7 @@
 #
 # Prerequisites:
 #   - oc login to OpenShift cluster (admin access for Kuadrant install)
-#   - Container images accessible (quay.io/jabadia/*, ghcr.io/vllm-project/*)
+#   - Container images accessible (ghcr.io/vllm-project/*)
 #
 # Usage:
 #   ./deploy.sh                 # Deploy with echo backend (no GPU, instant)
