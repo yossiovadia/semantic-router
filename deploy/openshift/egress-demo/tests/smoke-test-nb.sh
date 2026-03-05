@@ -166,6 +166,8 @@ echo "--- Group 1: Classification Headers ---"
 echo "Test 1.1: Domain classification header present"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"What is the derivative of x squared?"}],"max_tokens":10}'
 assert_header_exists "Domain classification" "$HEADERS" "x-vsr-matched-domains"
 
@@ -173,6 +175,8 @@ echo ""
 echo "Test 1.2: Math query classified as math/STEM domain"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"Prove that the square root of 2 is irrational using proof by contradiction"}],"max_tokens":10}'
 assert_header_contains "Math classification" "$HEADERS" "x-vsr-matched-domains" "math"
 
@@ -188,6 +192,8 @@ echo "--- Group 2: PII Detection ---"
 echo "Test 2.1: Query with SSN detected as PII"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"My SSN is 123-45-6789, can you help me file taxes?"}],"max_tokens":10}'
 # PII detection should be indicated in headers or routing decision
 assert_status "PII query" "$HEADERS" "200"
@@ -196,6 +202,8 @@ echo ""
 echo "Test 2.2: PII query routed to internal model (data stays on-prem)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"My credit card number is 4532-1234-5678-9012 and I need to check my balance"}],"max_tokens":10}'
 assert_model_is_internal "PII → internal" "$BODY"
 
@@ -203,6 +211,8 @@ echo ""
 echo "Test 2.3: Non-PII query can route to any model"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"What are the current market trends in technology?"}],"max_tokens":10}'
 assert_status "Non-PII query" "$HEADERS" "200"
 
@@ -218,6 +228,8 @@ echo "--- Group 3: Complexity-Based Routing ---"
 echo "Test 3.1: Simple query → routed to internal model (low complexity)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
 assert_model_is_internal "Simple math → internal" "$BODY"
 
@@ -225,6 +237,8 @@ echo ""
 echo "Test 3.1b: Simple greeting → routed to internal model"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"auto","messages":[{"role":"user","content":"Hi, how are you?"}],"max_tokens":10}'
 assert_model_is_internal "Greeting → internal" "$BODY"
 
@@ -272,23 +286,16 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     fi
 
     echo ""
-    echo "Test 4.2: Intern → external model (blocked)"
+    echo "Test 4.2: Intern → external model (allowed for specified models)"
+    # With upstream authz, specified-model requests are unrestricted.
+    # Tier-based routing only applies to model=auto via the decision engine.
     if [[ -n "$INTERN_TOKEN" ]]; then
         curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_AUTH_URL}/v1/chat/completions" \
             "${HOST_ARGS[@]}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $INTERN_TOKEN" \
             -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
-        # Should be blocked — free tier can't access claude-sonnet
-        local_body=$(cat "$BODY")
-        error_code=$(echo "$local_body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('error',{}).get('code',''))" 2>/dev/null || echo "")
-        if [[ "$error_code" == "403" ]]; then
-            echo -e "  ${GREEN}PASS${RESET} Intern blocked from external: 403"
-            ((PASS++))
-        else
-            echo -e "  ${RED}FAIL${RESET} Intern NOT blocked from external (expected 403, got: $error_code)"
-            ((FAIL++))
-        fi
+        assert_status "Intern + external" "$HEADERS" "200"
     fi
 
     echo ""
@@ -367,6 +374,8 @@ echo "--- Group 6: GPU Model Quality ---"
 echo "Test 6.1: GPU model gives real response (not echo)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is Kubernetes?"}],"max_tokens":30}'
 REPLY=$(python3 -c "import sys,json; d=json.load(open('$BODY')); print(d.get('choices',[{}])[0].get('message',{}).get('content','')[:80])" 2>/dev/null || echo "")
 if [[ -n "$REPLY" && "$REPLY" != *"[user]"* && "$REPLY" != *"echo"* ]]; then
@@ -381,6 +390,8 @@ echo ""
 echo "Test 6.2: GPU model also responds to simple query"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
 assert_status "GPU model simple" "$HEADERS" "200"
 
@@ -429,13 +440,15 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     echo "  Intern presets:"
     verify_preset "General question" internal "What does an ETF stand for and how does it differ from a mutual fund?" "$INTERN_TOKEN"
     verify_preset "Client name+SSN (allowed)" internal "Look up account for Sarah Johnson, SSN 234-56-7890, and check her margin requirements" "$INTERN_TOKEN"
-    verify_preset "Email (PII block)" pii_block "Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns" "$INTERN_TOKEN"
+    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
+    verify_preset "Email (PII → internal)" internal "Send the quarterly performance report to sarah.johnson@client-corp.com with YTD returns" "$INTERN_TOKEN"
 
     echo "  Finance presets:"
     verify_preset "Market overview" internal "Give me a brief overview of the current state of the US treasury yield curve" "$FINANCE_TOKEN_V"
     verify_preset "Math → Claude" external "What is the integral of sin(x)dx and how do you solve it step by step? Show the derivation." "$FINANCE_TOKEN_V"
     verify_preset "Client name+acct (allowed)" internal "Pull the portfolio allocation for client Robert Chen, account 4532-1234-5678-9012" "$FINANCE_TOKEN_V"
-    verify_preset "Email (PII block)" pii_block "Forward the Q4 portfolio summary to robert.chen@client-corp.com with the allocation breakdown" "$FINANCE_TOKEN_V"
+    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
+    verify_preset "Email (PII → internal)" internal "Forward the Q4 portfolio summary to robert.chen@client-corp.com with the allocation breakdown" "$FINANCE_TOKEN_V"
 
     # Wait for rate limit window to reset between departments
     sleep 65
@@ -444,7 +457,8 @@ if [[ -n "$GATEWAY_AUTH_URL" ]]; then
     verify_preset "BST → Claude" external "Implement a binary search tree in Python with insert, delete, and balanced rotation operations" "$FINANCE_TOKEN_V"
     verify_preset "Quick question" internal "Explain the concept of supply and demand in simple terms" "$FINANCE_TOKEN_V"
     verify_preset "Team name (allowed)" internal "Summarize the meeting notes from John Smith about the Q4 infrastructure budget planning" "$FINANCE_TOKEN_V"
-    verify_preset "Email (PII block)" pii_block "Email john.smith@company.com the project status update with the latest deployment metrics" "$FINANCE_TOKEN_V"
+    # Email with PII routes to internal model (data stays on-prem, PII allowed internally)
+    verify_preset "Email (PII → internal)" internal "Email john.smith@company.com the project status update with the latest deployment metrics" "$FINANCE_TOKEN_V"
 else
     echo -e "  ${YELLOW}SKIP${RESET} Auth gateway not configured — skipping preset verification"
     ((SKIP++))

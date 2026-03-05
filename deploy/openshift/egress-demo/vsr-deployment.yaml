@@ -74,9 +74,10 @@ spec:
             cpu: "1"
       containers:
       - name: semantic-router
-        # Pinned digest — change to :latest to pull newest, or update digest after rebuild
-        image: quay.io/jabadia/vsr-extproc@sha256:7e25167e15a4605084f3791ddc4f1f2dfd02d7be1851665c49370d8ecff4f226
-        command: ["/usr/local/bin/router"]
+        # Upstream vSR image with native authz support (PR #1321)
+        # Option A: try upstream directly. Fall back to our fork if models don't load.
+        image: ghcr.io/vllm-project/semantic-router/extproc:latest
+        command: ["/app/router-candle"]
         args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
         ports:
         - containerPort: 50051
@@ -89,7 +90,7 @@ spec:
         - name: CONFIG_FILE
           value: "/app/config.yaml"
         - name: LD_LIBRARY_PATH
-          value: "/usr/local/lib"
+          value: "/app/lib"
         - name: HOME
           value: "/tmp/home"
         securityContext:

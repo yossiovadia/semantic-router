@@ -51,6 +51,13 @@ spec:
             plain:
               expression: |
                 '["' + auth.identity.user.groups.join('","') + '"]'
+          # vSR authz headers — used by upstream decision engine for tier-based routing
+          x-authz-user-id:
+            plain:
+              selector: auth.identity.userid
+          x-authz-user-groups:
+            plain:
+              selector: auth.metadata.matchedTier.tier
         # Filters expose data to other Kuadrant components (Limitador/TokenRateLimitPolicy)
         filters:
           tier:

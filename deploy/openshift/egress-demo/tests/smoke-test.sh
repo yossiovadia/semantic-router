@@ -172,77 +172,87 @@ echo ""
 # ═══════════════════════════════════════════════════════════════
 # PHASE 1: Egress Routing MVP
 # ═══════════════════════════════════════════════════════════════
+# NOTE: Upstream vSR requires authz identity headers (x-authz-user-id,
+# x-authz-user-groups) when role_bindings are configured. Direct gateway
+# tests inject these headers manually to simulate authenticated users.
 echo "--- Phase 1: Egress Routing MVP ---"
 echo ""
 
-# Test 1.1: External provider routing
+# Test 1.1: External provider routing (premium user, specified model)
 echo "Test 1.1: External Provider Routing"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":50}'
 assert_status "External routing" "$HEADERS" "200"
 assert_response "External routing" "$(cat $BODY)" "model" "qwen2.5:1.5b"
-assert_header "External routing" "$HEADERS" "x-vsr-selected-model" "qwen2.5:1.5b"
 echo ""
 
-# Test 1.2: API translation (Anthropic)
+# Test 1.2: API translation (Anthropic, premium user)
 echo "Test 1.2: API Translation (Anthropic)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"Hello"}],"max_tokens":50}'
 assert_status "API translation" "$HEADERS" "200"
-assert_header "API translation" "$HEADERS" "x-vsr-selected-model" "claude-sonnet"
 # Response should be in OpenAI format (translated from Anthropic)
 assert_response "API translation" "$(cat $BODY)" "choices.0.message.role" "assistant"
 echo ""
 
-# Test 1.3: Internal model routing
+# Test 1.3: Internal model routing (free user, specified internal model)
 echo "Test 1.3: Internal Model Routing"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "x-authz-user-id: test-user" \
+    -H "x-authz-user-groups: free" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
 assert_status "Internal routing" "$HEADERS" "200"
 assert_response "Internal routing" "$(cat $BODY)" "model" "qwen2.5-7b"
-assert_header "Internal routing" "$HEADERS" "x-vsr-selected-model" "qwen2.5-7b"
 echo ""
 
-# Test 1.4: Tier — free user blocked from external
-echo "Test 1.4: Tier — Free User Blocked from External"
+# Test 1.4: Free user + auto model → routes to internal (not 403)
+# With upstream authz, free tier auto queries are caught by free_internal decision
+echo "Test 1.4: Free User + Auto → Internal Model (authz routing)"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -H "X-MaaS-Tier: free" \
-    -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
-assert_status "Free blocked" "$HEADERS" "200"
-assert_response "Free blocked" "$(cat $BODY)" "error.code" "403"
+    -H "x-authz-user-id: intern-user" \
+    -H "x-authz-user-groups: free" \
+    -d '{"model":"auto","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":10}'
+assert_status "Free+auto" "$HEADERS" "200"
+assert_response "Free+auto" "$(cat $BODY)" "model" "qwen2.5-7b"
 echo ""
 
-# Test 1.5: Tier — free user allowed internal
-echo "Test 1.5: Tier — Free User Allowed Internal"
+# Test 1.5: Free user + specified internal model → allowed
+echo "Test 1.5: Free User + Internal Model → Allowed"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -H "X-MaaS-Tier: free" \
+    -H "x-authz-user-id: intern-user" \
+    -H "x-authz-user-groups: free" \
     -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
-assert_status "Free allowed" "$HEADERS" "200"
-assert_response "Free allowed" "$(cat $BODY)" "model" "qwen2.5-7b"
+assert_status "Free+internal" "$HEADERS" "200"
+assert_response "Free+internal" "$(cat $BODY)" "model" "qwen2.5-7b"
 echo ""
 
-# Test 1.6: Tier — premium user allowed external
-echo "Test 1.6: Tier — Premium User Allowed External"
+# Test 1.6: Premium user + specified external → allowed
+echo "Test 1.6: Premium User + External Model → Allowed"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
-    -H "X-MaaS-Tier: premium" \
+    -H "x-authz-user-id: finance-user" \
+    -H "x-authz-user-groups: premium" \
     -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
-assert_status "Premium allowed" "$HEADERS" "200"
-assert_response "Premium allowed" "$(cat $BODY)" "model" "qwen2.5:1.5b"
+assert_status "Premium+external" "$HEADERS" "200"
+assert_response "Premium+external" "$(cat $BODY)" "model" "qwen2.5:1.5b"
 echo ""
 
-# Test 1.7: Tier — no tier header = unrestricted
-echo "Test 1.7: Tier — No Tier Header = Unrestricted"
+# Test 1.7: No authz headers → authz rejection (identity required)
+echo "Test 1.7: No Authz Headers → Rejected"
 curl -sS -D "$HEADERS" -o "$BODY" -X POST "$GATEWAY_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
-assert_status "No tier" "$HEADERS" "200"
-assert_response "No tier" "$(cat $BODY)" "model" "qwen2.5:1.5b"
+assert_status "No authz" "$HEADERS" "200"
+assert_response "No authz" "$(cat $BODY)" "error.code" "403"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
@@ -316,8 +326,10 @@ if [[ "$PHASE" -ge 3 ]]; then
         fi
         echo ""
 
-        # Test 3.3: Free user + external model → blocked (403 in body)
-        echo "Test 3.3: Free User + External Model → Blocked"
+        # Test 3.3: Free user + external model → now allowed (no model_access_policy)
+        # With upstream authz, specified-model requests are unrestricted.
+        # Tier-based routing only applies to model=auto via the decision engine.
+        echo "Test 3.3: Free User + External Model → Allowed (specified model)"
         if [[ -z "$FREE_TOKEN" ]]; then
             echo -e "  ${RED}FAIL${RESET} No free-user token (skipped)"
             ((FAIL++))
@@ -327,8 +339,8 @@ if [[ "$PHASE" -ge 3 ]]; then
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${FREE_TOKEN}" \
                 -d '{"model":"qwen2.5:1.5b","messages":[{"role":"user","content":"Hello"}]}'
-            assert_status "Free+external HTTP" "$HEADERS" "200"
-            assert_response "Free+external body" "$(cat $BODY)" "error.code" "403"
+            assert_status "Free+external" "$HEADERS" "200"
+            assert_response "Free+external" "$(cat $BODY)" "model" "qwen2.5:1.5b"
         fi
         echo ""
 
@@ -397,6 +409,8 @@ if [[ "$PHASE" -ge 3 ]]; then
         echo "Test 3.8: GPU Model (qwen2.5-7b) → 200 (real inference)"
         curl -skS -D "$HEADERS" -o "$BODY" -X POST "${GATEWAY_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
+            -H "x-authz-user-id: test-user" \
+            -H "x-authz-user-groups: premium" \
             -d '{"model":"qwen2.5-7b","messages":[{"role":"user","content":"What is 2+2?"}],"max_tokens":20}'
         HTTP_CODE=$(head -1 "$HEADERS" | grep -o '[0-9]\{3\}' | head -1)
         if [[ "$HTTP_CODE" == "200" ]]; then

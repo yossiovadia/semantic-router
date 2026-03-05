@@ -125,14 +125,76 @@ complexity_rules:
         - "What is Kubernetes?"
         - "What is a bond yield?"
 
+# --- PII Detection Rules (signal-based, like complexity_rules) ---
+# Named PII rules referenced by decision conditions (type: "pii").
+# The signal fires when PII types NOT in pii_types_allowed are detected.
+pii:
+  - name: "pii-block-egress"
+    description: "Block sensitive PII that must not leave the datacenter"
+    threshold: 0.7
+    pii_types_allowed:
+      - "PERSON"
+      - "PHONE_NUMBER"
+      - "STREET_ADDRESS"
+      - "ORGANIZATION"
+      - "DATE_TIME"
+      - "NRP"
+      - "US_SSN"
+      - "GPE"
+      - "ZIP_CODE"
+    # Types NOT listed (EMAIL_ADDRESS, CREDIT_CARD, DOMAIN_NAME, IP_ADDRESS,
+    # IBAN_CODE, US_DRIVER_LICENSE) trigger the signal → decision matches → block
+
+# --- Authz (upstream vSR PR #1321) ---
+# Reads identity from headers injected by Kuadrant AuthPolicy.
+# Replaces our custom model_access_policy with native tier-aware routing.
+authz:
+  fail_open: true  # Allow unauthenticated requests (direct gateway) to fall through
+  identity:
+    user_id_header: "x-authz-user-id"
+    user_groups_header: "x-authz-user-groups"
+
+# --- Role Bindings ---
+# Map tier groups (from Authorino) to roles used in decision conditions.
+role_bindings:
+  - name: "free-binding"
+    subjects:
+      - kind: Group
+        name: "free"
+    role: "free"
+  - name: "premium-binding"
+    subjects:
+      - kind: Group
+        name: "premium"
+    role: "premium"
+  - name: "enterprise-binding"
+    subjects:
+      - kind: Group
+        name: "enterprise"
+    role: "enterprise"
+
 # --- Decision-based Routing ---
 # When model="auto", vSR classifies the query and routes based on these rules.
 # Higher priority = evaluated first. First matching decision wins.
+# Authz conditions restrict which tiers match each decision.
 strategy: "priority"
 
 decisions:
-  # Easy queries always stay internal (cost optimized, regardless of domain)
-  # PII detected but allowed — data stays on-prem, no egress risk
+  # PII enforcement: block queries containing sensitive PII (emails, credit cards, etc.)
+  # References the pii-block-egress rule — fires when disallowed PII is detected.
+  - name: "pii_block"
+    description: "Block queries with email, credit card, or other egress-risky PII"
+    priority: 300
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "pii"
+          name: "pii-block-egress"
+    modelRefs:
+      - model: "qwen2.5-7b"
+        use_reasoning: false
+
+  # Easy queries always stay internal (all tiers, cost optimized)
   - name: "easy_internal"
     description: "Simple queries stay on-prem — no need for expensive external model"
     priority: 200
@@ -144,15 +206,21 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
-    plugins:
-      - type: "pii"
-        configuration:
-          enabled: true
-          threshold: 0.7
-          pii_types_allowed: ["PERSON", "PHONE_NUMBER", "STREET_ADDRESS", "ORGANIZATION", "DATE_TIME", "NRP", "US_SSN"]
 
-  # Specialized domain + medium/hard complexity → external model (when tier allows)
-  # Intern (free tier) is blocked by model_access_policy (403 for claude-sonnet)
+  # Free tier: ALL non-easy queries → internal model (no egress, no 403)
+  - name: "free_internal"
+    description: "Free tier always routes to internal GPU model"
+    priority: 150
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "authz"
+          name: "free"
+    modelRefs:
+      - model: "qwen2.5-7b"
+        use_reasoning: false
+
+  # Math domain → external model (free tier already caught at priority 150)
   # PII BLOCKED on external — data would leave the datacenter
   - name: "math_external"
     description: "Route math queries (medium/hard) to powerful external model"
@@ -165,13 +233,8 @@ decisions:
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
-    plugins:
-      - type: "pii"
-        configuration:
-          enabled: true
-          threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION", "DATE_TIME", "NRP"]
 
+  # CS domain → external model (free tier already caught at priority 150)
   - name: "cs_external"
     description: "Route CS/coding queries (medium/hard) to external model"
     priority: 100
@@ -183,15 +246,8 @@ decisions:
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
-    plugins:
-      - type: "pii"
-        configuration:
-          enabled: true
-          threshold: 0.7
-          pii_types_allowed: ["ORGANIZATION", "DATE_TIME", "NRP"]
 
-  # Default → GPU model (internal, high quality, data stays on-prem)
-  # PII detected but allowed — data stays on-prem, no egress risk
+  # Default catch-all → internal GPU model (all tiers, data stays on-prem)
   - name: "default_internal"
     description: "Default: route to internal GPU model"
     priority: 1
@@ -207,28 +263,8 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
-    plugins:
-      - type: "pii"
-        configuration:
-          enabled: true
-          threshold: 0.7
-          pii_types_allowed: ["PERSON", "PHONE_NUMBER", "STREET_ADDRESS", "ORGANIZATION", "DATE_TIME", "NRP", "US_SSN"]
 
 default_model: "qwen2.5-7b"
-
-# --- Tier-Based Model Access Policy ---
-model_access_policy:
-  free:
-    allowed_models:
-      - "qwen2.5-7b"
-  premium:
-    allowed_models:
-      - "qwen2.5-7b"
-      - "qwen2.5:1.5b"
-      - "claude-sonnet"
-  enterprise:
-    allowed_models:
-      - "*"
 
 # Required for header-based routing in Envoy
 clear_route_cache: true
