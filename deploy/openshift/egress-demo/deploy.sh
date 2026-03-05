@@ -473,29 +473,17 @@ else
 fi
 
 # ─── Create MaaS CRDs (needed by MaaS API informers) ───
-# Embedded as stubs — upstream removed these from their repo but MaaS API still watches them.
-log "Creating MaaS CRDs..."
-oc apply -f - <<'MAASCRDS'
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: maasmodelrefs.maas.opendatahub.io
-spec:
-  group: maas.opendatahub.io
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-  scope: Namespaced
-  names:
-    plural: maasmodelrefs
-    singular: maasmodelref
-    kind: MaaSModelRef
----
+MAAS_CRD_BASE="https://raw.githubusercontent.com/opendatahub-io/models-as-a-service/main/deployment/base/maas-controller/crd/bases"
+log "Creating MaaS CRDs (MaaSModelRef, MaaSSubscription, MaaSAuthPolicy)..."
+for crd_file in maas.opendatahub.io_maasmodelrefs maas.opendatahub.io_maassubscriptions maas.opendatahub.io_maasauthpolicies; do
+    crd_name=$(echo "$crd_file" | sed 's/maas\.opendatahub\.io_//' | sed 's/$/.maas.opendatahub.io/')
+    if ! oc get crd "$crd_name" &>/dev/null; then
+        curl -sS "${MAAS_CRD_BASE}/${crd_file}.yaml" | oc apply -f - 2>/dev/null || warn "Failed to install CRD: $crd_name"
+    fi
+done
+# Legacy CRD: MaaS API image still watches the pre-rename "maasmodels" resource.
+if ! oc get crd maasmodels.maas.opendatahub.io &>/dev/null; then
+    oc apply -f - <<'LEGACYCRD'
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -515,47 +503,8 @@ spec:
     plural: maasmodels
     singular: maasmodel
     kind: MaaSModel
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: maassubscriptions.maas.opendatahub.io
-spec:
-  group: maas.opendatahub.io
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-  scope: Namespaced
-  names:
-    plural: maassubscriptions
-    singular: maassubscription
-    kind: MaaSSubscription
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: maasauthpolicies.maas.opendatahub.io
-spec:
-  group: maas.opendatahub.io
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-  scope: Namespaced
-  names:
-    plural: maasauthpolicies
-    singular: maasauthpolicy
-    kind: MaaSAuthPolicy
-MAASCRDS
+LEGACYCRD
+fi
 success "MaaS CRDs ready"
 
 # ─── Deploy MaaS API ───
