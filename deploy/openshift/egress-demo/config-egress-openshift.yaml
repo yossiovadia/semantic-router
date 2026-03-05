@@ -129,8 +129,10 @@ complexity_rules:
 # Named PII rules referenced by decision conditions (type: "pii").
 # The signal fires when PII types NOT in pii_types_allowed are detected.
 pii:
+  # Rule 1: Fires on high-risk PII that must NEVER be processed (hard block).
+  # Allows identity PII (names, SSN) since those are handled by rule 2.
   - name: "pii-block-egress"
-    description: "Block sensitive PII that must not leave the datacenter"
+    description: "Block email, credit card, and other high-risk PII"
     threshold: 0.7
     pii_types_allowed:
       - "PERSON"
@@ -143,7 +145,21 @@ pii:
       - "GPE"
       - "ZIP_CODE"
     # Types NOT listed (EMAIL_ADDRESS, CREDIT_CARD, DOMAIN_NAME, IP_ADDRESS,
-    # IBAN_CODE, US_DRIVER_LICENSE) trigger the signal → decision matches → block
+    # IBAN_CODE, US_DRIVER_LICENSE) trigger → pii_block decision → fast_response
+
+  # Rule 2: Fires on identity PII (names, SSN, phone) that is OK on-prem
+  # but must NOT egress to external providers.
+  - name: "pii-keep-internal"
+    description: "Route queries with personal identity PII to internal model"
+    threshold: 0.7
+    pii_types_allowed:
+      - "ORGANIZATION"
+      - "DATE_TIME"
+      - "NRP"
+      - "GPE"
+      - "ZIP_CODE"
+    # Types NOT listed (PERSON, US_SSN, PHONE_NUMBER, STREET_ADDRESS) trigger
+    # → pii_internal decision → routes to on-prem GPU model
 
 # --- Authz (upstream vSR PR #1321) ---
 # Reads identity from headers injected by Kuadrant AuthPolicy.
@@ -182,6 +198,7 @@ strategy: "priority"
 decisions:
   # PII enforcement: block queries containing sensitive PII (emails, credit cards, etc.)
   # References the pii-block-egress rule — fires when disallowed PII is detected.
+  # fast_response returns an immediate error without calling any model.
   - name: "pii_block"
     description: "Block queries with email, credit card, or other egress-risky PII"
     priority: 300
@@ -190,6 +207,25 @@ decisions:
       conditions:
         - type: "pii"
           name: "pii-block-egress"
+    modelRefs:
+      - model: "qwen2.5-7b"
+        use_reasoning: false
+    plugins:
+      - type: "fast_response"
+        configuration:
+          message: "Request blocked: PII policy violation. Your query contains sensitive personal information (e.g., email address, credit card) that cannot be processed. Please remove PII and try again."
+
+  # PII routing: queries with personal identity PII (names, SSN, phone) stay on-prem.
+  # Data is processed by internal GPU model — user gets a real response, but
+  # sensitive data never leaves the datacenter. No egress risk.
+  - name: "pii_internal"
+    description: "Route identity PII to internal model — data stays on-prem"
+    priority: 250
+    rules:
+      operator: "AND"
+      conditions:
+        - type: "pii"
+          name: "pii-keep-internal"
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
