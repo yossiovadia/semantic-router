@@ -208,6 +208,26 @@ func (r *OpenAIRouter) handleRequestHeaders(v *ext_proc.ProcessingRequest_Reques
 		// are stored in ctx.Headers and read by the CredentialResolver at routing time.
 	}
 
+	// Strip user identity headers when explicitly configured as untrusted.
+	// When authz.trust_identity_headers is false, identity headers are treated as
+	// client-supplied and stripped to prevent spoofing. This blocks user impersonation
+	// via role_bindings, per-user rate limits, and memory isolation.
+	//
+	// Default is true (trust headers) for backward compatibility with deployments
+	// that use ext_authz, Envoy Gateway JWT, or other auth backends that inject
+	// identity headers before the request reaches ext_proc.
+	if !r.Config.Authz.ShouldTrustIdentityHeaders() {
+		userIDHeader := r.Config.Authz.Identity.GetUserIDHeader()
+		userGroupsHeader := r.Config.Authz.Identity.GetUserGroupsHeader()
+		if ctx.Headers[userIDHeader] != "" || ctx.Headers[userGroupsHeader] != "" {
+			logging.Warnf("Stripped untrusted identity headers (%s, %s) — trust_identity_headers is false. "+
+				"Set authz.trust_identity_headers: true if an auth backend injects these headers.",
+				userIDHeader, userGroupsHeader)
+			delete(ctx.Headers, userIDHeader)
+			delete(ctx.Headers, userGroupsHeader)
+		}
+	}
+
 	// Set request metadata on span
 	if ctx.RequestID != "" {
 		tracing.SetSpanAttributes(span,
