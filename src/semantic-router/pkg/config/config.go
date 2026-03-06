@@ -366,6 +366,14 @@ type InlineModels struct {
 	// Classifier configuration for text classification
 	Classifier `yaml:"classifier"`
 
+	// MaxEvaluationChars is a hard limit on the character count of text sent to
+	// signal evaluation (domain, complexity, embedding classifiers). Prompts
+	// exceeding this limit are truncated before any processing. This is a safety
+	// bound against DoS via giant prompts — signal evaluation latency grows
+	// super-linearly with input size.
+	// Default: 8192 characters (~2K tokens). Set to 0 to disable the limit.
+	MaxEvaluationChars int `yaml:"max_evaluation_chars,omitempty"`
+
 	// Prompt compression configuration — reduces long prompts before signal
 	// extraction to stay within latency budgets.
 	// Reference: Liu et al. "Lost in the Middle" (TACL 2024, arXiv:2307.03172)
