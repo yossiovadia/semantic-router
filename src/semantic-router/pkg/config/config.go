@@ -902,6 +902,12 @@ type LooperConfig struct {
 
 	// Headers are additional headers to include in requests to the endpoint
 	Headers map[string]string `yaml:"headers,omitempty"`
+
+	// InternalSecret is a shared secret used to authenticate looper requests.
+	// Auto-generated at startup if not set. The looper client sends this in the
+	// x-vsr-looper-secret header; the router validates it before accepting
+	// a request as an internal looper request.
+	InternalSecret string `yaml:"-"` // Not serialized — runtime only
 }
 
 // IsEnabled returns true if the looper endpoint is configured

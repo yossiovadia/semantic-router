@@ -2,6 +2,8 @@ package extproc
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -80,6 +82,16 @@ func NewOpenAIRouter(configPath string) (*OpenAIRouter, error) {
 		for i, d := range cfg.Decisions {
 			logging.Debugf("[NewOpenAIRouter]   decision[%d]: name=%q, modelRefs=%d, priority=%d", i, d.Name, len(d.ModelRefs), d.Priority)
 		}
+	}
+
+	// Generate looper internal secret if not already set
+	if cfg.Looper.IsEnabled() && cfg.Looper.InternalSecret == "" {
+		secretBytes := make([]byte, 32)
+		if _, randErr := rand.Read(secretBytes); randErr != nil {
+			return nil, fmt.Errorf("failed to generate looper internal secret: %w", randErr)
+		}
+		cfg.Looper.InternalSecret = hex.EncodeToString(secretBytes)
+		logging.Infof("Generated looper internal secret for request authentication")
 	}
 
 	// Load category mapping if classifier is enabled

@@ -2,6 +2,7 @@ package extproc
 
 import (
 	"context"
+	"crypto/subtle"
 	"strings"
 	"time"
 
@@ -198,10 +199,33 @@ func (r *OpenAIRouter) handleRequestHeaders(v *ext_proc.ProcessingRequest_Reques
 		if strings.ToLower(h.Key) == headers.RequestID {
 			ctx.RequestID = headerValue
 		}
-		// Check for looper request header
+		// Check for looper request header — validate shared secret to prevent external bypass.
+		// Without validation, any client could send x-vsr-looper-request: true to skip
+		// all security plugins (jailbreak, PII, authz, decision evaluation).
 		if h.Key == headers.VSRLooperRequest && headerValue == "true" {
-			ctx.LooperRequest = true
-			logging.Infof("Detected looper internal request, will skip plugin processing")
+			expectedSecret := r.Config.Looper.InternalSecret
+			if expectedSecret == "" {
+				// Looper not enabled or secret not generated — reject unconditionally
+				logging.Warnf("Rejected looper request: looper secret not configured (header from external client?)")
+			} else {
+				// Find the secret header (may appear in any order in the header list)
+				secret := ""
+				for _, sh := range v.RequestHeaders.Headers.Headers {
+					if sh.Key == headers.VSRLooperSecret {
+						secret = sh.Value
+						if secret == "" && len(sh.RawValue) > 0 {
+							secret = string(sh.RawValue)
+						}
+						break
+					}
+				}
+				if subtle.ConstantTimeCompare([]byte(secret), []byte(expectedSecret)) == 1 {
+					ctx.LooperRequest = true
+					logging.Infof("Validated looper internal request (secret match)")
+				} else {
+					logging.Warnf("Rejected looper request: invalid or missing secret")
+				}
+			}
 		}
 
 		// Note: ext_authz / Authorino injected headers (x-user-openai-key, x-user-anthropic-key)
