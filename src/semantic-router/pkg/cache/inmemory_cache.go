@@ -224,6 +224,7 @@ func (c *InMemoryCache) AddPendingRequest(
 	query string,
 	requestBody []byte,
 	ttlSeconds int,
+	userID string,
 ) error {
 	start := time.Now()
 
@@ -268,6 +269,7 @@ func (c *InMemoryCache) AddPendingRequest(
 		RequestBody:  requestBody,
 		Model:        model,
 		Query:        query,
+		UserID:       userID,
 		Embedding:    embedding,
 		Timestamp:    now,
 		LastAccessAt: now,
@@ -373,6 +375,7 @@ func (c *InMemoryCache) AddEntry(
 	requestBody []byte,
 	responseBody []byte,
 	ttlSeconds int,
+	userID string,
 ) error {
 	start := time.Now()
 
@@ -415,6 +418,7 @@ func (c *InMemoryCache) AddEntry(
 		ResponseBody: responseBody,
 		Model:        model,
 		Query:        query,
+		UserID:       userID,
 		Embedding:    embedding,
 		Timestamp:    now,
 		LastAccessAt: now,
@@ -459,12 +463,12 @@ func (c *InMemoryCache) AddEntry(
 }
 
 // FindSimilar searches for semantically similar cached requests using the default threshold
-func (c *InMemoryCache) FindSimilar(model string, query string) ([]byte, bool, error) {
-	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold)
+func (c *InMemoryCache) FindSimilar(model string, query string, userID string) ([]byte, bool, error) {
+	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold, userID)
 }
 
 // FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-func (c *InMemoryCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
+func (c *InMemoryCache) FindSimilarWithThreshold(model string, query string, threshold float32, userID string) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !c.enabled {
@@ -533,6 +537,11 @@ func (c *InMemoryCache) FindSimilarWithThreshold(model string, query string, thr
 				continue
 			}
 
+			// Skip entries not owned by this user (empty userID matches all)
+			if userID != "" && entry.UserID != "" && entry.UserID != userID {
+				continue
+			}
+
 			// Compute semantic similarity using dot product
 			var dotProduct float32
 			for i := 0; i < len(queryEmbedding) && i < len(entry.Embedding); i++ {
@@ -558,6 +567,11 @@ func (c *InMemoryCache) FindSimilarWithThreshold(model string, query string, thr
 			// Skip entries that have expired before considering them
 			if c.isExpired(entry, now) {
 				expiredCount++
+				continue
+			}
+
+			// Skip entries not owned by this user (empty userID matches all)
+			if userID != "" && entry.UserID != "" && entry.UserID != userID {
 				continue
 			}
 

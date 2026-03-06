@@ -13,6 +13,7 @@ type CacheEntry struct {
 	ResponseBody []byte
 	Model        string
 	Query        string
+	UserID       string // User who created this entry; used for per-user cache isolation
 	Embedding    []float32
 	Timestamp    time.Time // Creation time (when the entry was added or completed with a response)
 	LastAccessAt time.Time // Last access time
@@ -31,23 +32,24 @@ type CacheBackend interface {
 	// For local caches (in-memory), this may be a no-op
 	CheckConnection() error
 
-	// AddPendingRequest stores a request awaiting its response
-	AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error
+	// AddPendingRequest stores a request awaiting its response.
+	// userID scopes the entry to a specific user (empty = global/shared).
+	AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int, userID string) error
 
 	// UpdateWithResponse completes a pending request with the received response
 	UpdateWithResponse(requestID string, responseBody []byte, ttlSeconds int) error
 
-	// AddEntry stores a complete request-response pair in the cache
-	AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error
+	// AddEntry stores a complete request-response pair in the cache.
+	// userID scopes the entry to a specific user (empty = global/shared).
+	AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int, userID string) error
 
-	// FindSimilar searches for semantically similar cached requests
-	// Returns the cached response, match status, and any error
-	FindSimilar(model string, query string) ([]byte, bool, error)
+	// FindSimilar searches for semantically similar cached requests.
+	// userID filters results to entries owned by the specified user (empty = match all).
+	FindSimilar(model string, query string, userID string) ([]byte, bool, error)
 
-	// FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-	// This allows category-specific similarity thresholds
-	// Returns the cached response, match status, and any error
-	FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error)
+	// FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold.
+	// userID filters results to entries owned by the specified user (empty = match all).
+	FindSimilarWithThreshold(model string, query string, threshold float32, userID string) ([]byte, bool, error)
 
 	// Close releases all resources held by the cache backend
 	Close() error

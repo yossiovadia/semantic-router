@@ -419,7 +419,7 @@ func (c *MilvusCache) CheckConnection() error {
 }
 
 // AddPendingRequest stores a request that is awaiting its response
-func (c *MilvusCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error {
+func (c *MilvusCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int, userID string) error {
 	start := time.Now()
 
 	if !c.enabled {
@@ -545,7 +545,7 @@ func (c *MilvusCache) UpdateWithResponse(requestID string, responseBody []byte, 
 }
 
 // AddEntry stores a complete request-response pair in the cache
-func (c *MilvusCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error {
+func (c *MilvusCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int, userID string) error {
 	start := time.Now()
 
 	if !c.enabled {
@@ -746,12 +746,12 @@ func (c *MilvusCache) addEntry(id string, requestID string, model string, query 
 }
 
 // FindSimilar searches for semantically similar cached requests
-func (c *MilvusCache) FindSimilar(model string, query string) ([]byte, bool, error) {
-	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold)
+func (c *MilvusCache) FindSimilar(model string, query string, userID string) ([]byte, bool, error) {
+	return c.FindSimilarWithThreshold(model, query, c.similarityThreshold, userID)
 }
 
 // FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-func (c *MilvusCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
+func (c *MilvusCache) FindSimilarWithThreshold(model string, query string, threshold float32, userID string) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !c.enabled {

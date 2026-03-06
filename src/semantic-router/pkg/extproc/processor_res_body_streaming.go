@@ -323,6 +323,7 @@ func (r *OpenAIRouter) addStreamingCacheEntry(
 		streamingCacheRequestBody(ctx),
 		reconstructedJSON,
 		ttlSeconds,
+		r.getUserIDFromContext(ctx),
 	)
 }
 
