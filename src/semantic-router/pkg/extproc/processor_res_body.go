@@ -543,7 +543,7 @@ func (r *OpenAIRouter) cacheStreamingResponse(ctx *RequestContext) error {
 		}
 		// Get decision-specific TTL
 		ttlSeconds := r.Config.GetCacheTTLSecondsForDecision(ctx.VSRSelectedDecisionName)
-		err = r.Cache.AddEntry(ctx.RequestID, ctx.RequestModel, ctx.RequestQuery, requestBody, reconstructedJSON, ttlSeconds)
+		err = r.Cache.AddEntry(ctx.RequestID, ctx.RequestModel, ctx.RequestQuery, requestBody, reconstructedJSON, ttlSeconds, r.getUserIDFromContext(ctx))
 		if err != nil {
 			logging.Errorf("Error caching streaming response with AddEntry: %v", err)
 			// Fall back to UpdateWithResponse in case AddEntry fails

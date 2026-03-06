@@ -298,7 +298,7 @@ func (h *HybridCache) RebuildFromMilvus(ctx context.Context) error {
 }
 
 // AddPendingRequest stores a request awaiting its response
-func (h *HybridCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int) error {
+func (h *HybridCache) AddPendingRequest(requestID string, model string, query string, requestBody []byte, ttlSeconds int, userID string) error {
 	start := time.Now()
 
 	if !h.enabled {
@@ -319,7 +319,7 @@ func (h *HybridCache) AddPendingRequest(requestID string, model string, query st
 	}
 
 	// Store in Milvus (write-through)
-	if err := h.milvusCache.AddPendingRequest(requestID, model, query, requestBody, ttlSeconds); err != nil {
+	if err := h.milvusCache.AddPendingRequest(requestID, model, query, requestBody, ttlSeconds, userID); err != nil {
 		metrics.RecordCacheOperation("hybrid", "add_pending", "error", time.Since(start).Seconds())
 		return fmt.Errorf("milvus add pending failed: %w", err)
 	}
@@ -371,7 +371,7 @@ func (h *HybridCache) UpdateWithResponse(requestID string, responseBody []byte, 
 }
 
 // AddEntry stores a complete request-response pair
-func (h *HybridCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int) error {
+func (h *HybridCache) AddEntry(requestID string, model string, query string, requestBody, responseBody []byte, ttlSeconds int, userID string) error {
 	start := time.Now()
 
 	if !h.enabled {
@@ -392,7 +392,7 @@ func (h *HybridCache) AddEntry(requestID string, model string, query string, req
 	}
 
 	// Store in Milvus (write-through)
-	if err := h.milvusCache.AddEntry(requestID, model, query, requestBody, responseBody, ttlSeconds); err != nil {
+	if err := h.milvusCache.AddEntry(requestID, model, query, requestBody, responseBody, ttlSeconds, userID); err != nil {
 		metrics.RecordCacheOperation("hybrid", "add_entry", "error", time.Since(start).Seconds())
 		return fmt.Errorf("milvus add entry failed: %w", err)
 	}
@@ -500,7 +500,7 @@ func (h *HybridCache) Flush() error {
 }
 
 // FindSimilar searches for semantically similar cached requests
-func (h *HybridCache) FindSimilar(model string, query string) ([]byte, bool, error) {
+func (h *HybridCache) FindSimilar(model string, query string, userID string) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !h.enabled {
@@ -621,7 +621,7 @@ func (h *HybridCache) FindSimilar(model string, query string) ([]byte, bool, err
 }
 
 // FindSimilarWithThreshold searches for semantically similar cached requests using a specific threshold
-func (h *HybridCache) FindSimilarWithThreshold(model string, query string, threshold float32) ([]byte, bool, error) {
+func (h *HybridCache) FindSimilarWithThreshold(model string, query string, threshold float32, userID string) ([]byte, bool, error) {
 	start := time.Now()
 
 	if !h.enabled {

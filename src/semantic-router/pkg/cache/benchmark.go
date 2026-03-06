@@ -143,7 +143,7 @@ func populateCache(cache *InMemoryCache, size int) error {
 			responseBody := []byte(fmt.Sprintf("Response for: %s", query))
 
 			err := cache.AddEntry(requestID,
-				"test-model", query, []byte(query), responseBody, -1)
+				"test-model", query, []byte(query), responseBody, -1, "")
 			if err != nil {
 				errors <- fmt.Errorf("failed to add entry %d: %w", idx, err)
 				return
