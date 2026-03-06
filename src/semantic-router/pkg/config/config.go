@@ -366,6 +366,13 @@ type InlineModels struct {
 	// Classifier configuration for text classification
 	Classifier `yaml:"classifier"`
 
+	// Conversational Routing Momentum (CRM) — an asymmetric low-pass filter
+	// that prevents model bouncing in multi-turn conversations. Uses fast
+	// attack (quick escalation to expensive models) and slow release (gradual
+	// de-escalation) to maintain routing stability across conversation turns.
+	// Inspired by audio compressor attack/release dynamics.
+	RoutingMomentum RoutingMomentumConfig `yaml:"routing_momentum"`
+
 	// Prompt compression configuration — reduces long prompts before signal
 	// extraction to stay within latency budgets.
 	// Reference: Liu et al. "Lost in the Middle" (TACL 2024, arXiv:2307.03172)
@@ -1493,6 +1500,58 @@ type BatchSizeRangeConfig struct {
 //
 // Weight fields default to zero, which causes the downstream compressor to use its
 // built-in defaults (TextRank 0.20, Position 0.40, TF-IDF 0.35, Novelty 0.05).
+
+// RoutingMomentumConfig configures Conversational Routing Momentum (CRM),
+// an asymmetric low-pass filter that prevents model bouncing in multi-turn
+// conversations. Uses different time constants for escalation (attack) vs
+// de-escalation (release), inspired by audio compressor dynamics:
+//   - Fast attack: quickly escalate to expensive models when complexity spikes
+//   - Slow release: gradually decay, keeping conversations stable
+//
+// Momentum is computed from the conversation history in each request
+// (no server-side state). Historical messages use a cheap length-based
+// complexity proxy; only the current message gets full embedding classification.
+type RoutingMomentumConfig struct {
+	// Enabled activates CRM. Default: false (per-message routing).
+	Enabled bool `yaml:"enabled"`
+
+	// Attack controls escalation speed (0.0-1.0). Lower = faster escalation.
+	// 0.0 = instant, 1.0 = no change. Default: 0.3
+	Attack float64 `yaml:"attack,omitempty"`
+
+	// Release controls de-escalation speed (0.0-1.0). Higher = slower decay.
+	// 1.0 = never decay, 0.0 = instant drop. Default: 0.9
+	Release float64 `yaml:"release,omitempty"`
+
+	// Threshold is the momentum above which the complex/expensive decision
+	// is preferred. Default: 0.5
+	Threshold float64 `yaml:"threshold,omitempty"`
+}
+
+// GetAttack returns the attack parameter with default fallback.
+func (rm RoutingMomentumConfig) GetAttack() float64 {
+	if rm.Attack == 0 {
+		return 0.3
+	}
+	return rm.Attack
+}
+
+// GetRelease returns the release parameter with default fallback.
+func (rm RoutingMomentumConfig) GetRelease() float64 {
+	if rm.Release == 0 {
+		return 0.9
+	}
+	return rm.Release
+}
+
+// GetThreshold returns the threshold parameter with default fallback.
+func (rm RoutingMomentumConfig) GetThreshold() float64 {
+	if rm.Threshold == 0 {
+		return 0.5
+	}
+	return rm.Threshold
+}
+
 type PromptCompressionConfig struct {
 	// Enabled controls whether prompt compression is applied before signal extraction.
 	Enabled bool `yaml:"enabled"`

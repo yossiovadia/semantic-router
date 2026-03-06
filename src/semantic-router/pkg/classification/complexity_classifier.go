@@ -222,7 +222,7 @@ func (c *ComplexityClassifier) preloadCandidateEmbeddings() error {
 
 // Classify evaluates the query against ALL complexity rules independently (text-only).
 // For CUA requests with screenshots, use ClassifyWithImage instead.
-func (c *ComplexityClassifier) Classify(query string) ([]string, error) {
+func (c *ComplexityClassifier) Classify(query string) ([]string, map[string]float64, error) {
 	return c.ClassifyWithImage(query, "")
 }
 
@@ -234,17 +234,19 @@ func (c *ComplexityClassifier) Classify(query string) ([]string, error) {
 // The text query is always compared against the text knowledge base.
 // The difficulty score fuses both channels: d(t) = max(|d_vis|, |d_sem|).
 //
-// Returns: all matched rules in format "rulename:difficulty"
-// (e.g., ["cua_difficulty:hard", "cua_difficulty:easy"])
-func (c *ComplexityClassifier) ClassifyWithImage(query string, imageURL string) ([]string, error) {
+// Returns:
+//   - matched rules in format "rulename:difficulty" (e.g., ["cua_difficulty:hard"])
+//   - scores map: normalized difficulty score per rule (0.0=easy, 1.0=hard)
+//   - error
+func (c *ComplexityClassifier) ClassifyWithImage(query string, imageURL string) ([]string, map[string]float64, error) {
 	if len(c.rules) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Compute text query embedding once
 	queryOutput, err := getEmbeddingWithModelType(query, c.modelType, 0)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute query embedding: %w", err)
+		return nil, nil, fmt.Errorf("failed to compute query embedding: %w", err)
 	}
 	queryEmbedding := queryOutput.Embedding
 
@@ -271,6 +273,7 @@ func (c *ComplexityClassifier) ClassifyWithImage(query string, imageURL string) 
 	}
 
 	var matchedRules []string
+	var scores map[string]float64
 
 	for i := range c.rules {
 		rule := &c.rules[i]
@@ -353,7 +356,13 @@ func (c *ComplexityClassifier) ClassifyWithImage(query string, imageURL string) 
 		}
 
 		matchedRules = append(matchedRules, fmt.Sprintf("%s:%s", rule.Name, difficulty))
+
+		// Store normalized score (0.0=easy, 1.0=hard) for CRM and quality-based routing
+		if scores == nil {
+			scores = make(map[string]float64, len(c.rules))
+		}
+		scores[rule.Name] = (float64(difficultySignal) + 1.0) / 2.0
 	}
 
-	return matchedRules, nil
+	return matchedRules, scores, nil
 }

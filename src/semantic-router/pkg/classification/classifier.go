@@ -1642,7 +1642,7 @@ func (c *Classifier) EvaluateAllSignalsWithContext(text string, contextText stri
 		go func() {
 			defer wg.Done()
 			start := time.Now()
-			matchedRules, err := c.complexityClassifier.ClassifyWithImage(textForSignal(config.SignalTypeComplexity), imgArg)
+			matchedRules, complexityScores, err := c.complexityClassifier.ClassifyWithImage(textForSignal(config.SignalTypeComplexity), imgArg)
 			elapsed := time.Since(start)
 			latencySeconds := elapsed.Seconds()
 
@@ -1662,6 +1662,13 @@ func (c *Classifier) EvaluateAllSignalsWithContext(text string, contextText stri
 			} else {
 				mu.Lock()
 				results.MatchedComplexityRules = matchedRules
+				// Store numerical complexity scores for CRM (routing momentum)
+				for ruleName, score := range complexityScores {
+					if results.SignalConfidences == nil {
+						results.SignalConfidences = make(map[string]float64)
+					}
+					results.SignalConfidences["complexity:"+ruleName] = score
+				}
 				mu.Unlock()
 			}
 		}()

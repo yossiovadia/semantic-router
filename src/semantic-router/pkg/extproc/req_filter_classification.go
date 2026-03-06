@@ -145,6 +145,14 @@ func (r *OpenAIRouter) performDecisionEvaluation(originalModel string, userConte
 		signals.MatchedFactCheckRules, signals.MatchedUserFeedbackRules, signals.MatchedPreferenceRules,
 		signals.MatchedLanguageRules, signals.MatchedModalityRules, signals.MatchedJailbreakRules, signals.MatchedPIIRules)
 
+	// Apply Conversational Routing Momentum (CRM) if enabled.
+	// CRM uses an asymmetric low-pass filter to prevent model bouncing in
+	// multi-turn conversations. It adjusts the complexity signal based on
+	// the conversation's momentum rather than the current message alone.
+	if r.Config.RoutingMomentum.Enabled && len(ctx.AllUserMessages) > 1 {
+		r.applyRoutingMomentum(signals, ctx)
+	}
+
 	// Set signal span attributes
 	allMatchedRules := []string{}
 	allMatchedRules = append(allMatchedRules, signals.MatchedKeywordRules...)

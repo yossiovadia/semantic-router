@@ -158,6 +158,34 @@ func extractUserAndNonUserContent(req *openai.ChatCompletionNewParams) (string, 
 	return userContent, nonUser
 }
 
+// extractAllUserMessages returns all user message texts from the conversation
+// history in chronological order. Used by CRM (routing momentum) to compute
+// complexity signal history across conversation turns.
+func extractAllUserMessages(req *openai.ChatCompletionNewParams) []string {
+	var messages []string
+	for _, msg := range req.Messages {
+		if msg.OfUser == nil {
+			continue
+		}
+		var text string
+		if msg.OfUser.Content.OfString.Value != "" {
+			text = msg.OfUser.Content.OfString.Value
+		} else if len(msg.OfUser.Content.OfArrayOfContentParts) > 0 {
+			var parts []string
+			for _, part := range msg.OfUser.Content.OfArrayOfContentParts {
+				if part.OfText != nil {
+					parts = append(parts, part.OfText.Text)
+				}
+			}
+			text = strings.Join(parts, " ")
+		}
+		if text != "" {
+			messages = append(messages, text)
+		}
+	}
+	return messages
+}
+
 // statusCodeToEnum converts HTTP status code to typev3.StatusCode enum
 func statusCodeToEnum(statusCode int) typev3.StatusCode {
 	switch statusCode {

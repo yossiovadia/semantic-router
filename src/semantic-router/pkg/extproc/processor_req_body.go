@@ -92,6 +92,11 @@ func (r *OpenAIRouter) handleRequestBody(v *ext_proc.ProcessingRequest_RequestBo
 	// Get content from messages
 	userContent, nonUserMessages := extractUserAndNonUserContent(openAIRequest)
 
+	// Extract all user messages for CRM (routing momentum) if enabled
+	if r.Config.RoutingMomentum.Enabled {
+		ctx.AllUserMessages = extractAllUserMessages(openAIRequest)
+	}
+
 	// Store user content for later use in hallucination detection
 	ctx.UserContent = userContent
 
