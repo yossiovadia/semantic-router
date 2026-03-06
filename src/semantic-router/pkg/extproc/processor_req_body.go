@@ -270,7 +270,8 @@ func (r *OpenAIRouter) handleAnthropicRouting(openAIRequest *openai.ChatCompleti
 	// Resolve API key for Anthropic via credential chain (ext_authz headers → static config)
 	accessKey, err := r.CredentialResolver.KeyForProvider(authz.ProviderAnthropic, targetModel, ctx.Headers)
 	if err != nil {
-		return r.createErrorResponse(401, fmt.Sprintf("Credential resolution failed for model %s: %v", targetModel, err)), nil
+		logging.Errorf("Credential resolution failed for model %s: %v", targetModel, err)
+		return r.createErrorResponse(401, "Authentication failed. Check your API key configuration."), nil
 	}
 	if accessKey == "" {
 		// fail_open=true path: no key but allowed through — warn operator
@@ -626,17 +627,20 @@ func (r *OpenAIRouter) createRoutingResponse(model string, endpoint string, endp
 	// Resolve provider type and auth format from endpoint's provider profile
 	profile, profileErr := r.Config.GetProviderProfileForEndpoint(endpointName)
 	if profileErr != nil {
-		return r.createErrorResponse(500, fmt.Sprintf("Provider profile resolution failed for endpoint %s: %v", endpointName, profileErr))
+		logging.Errorf("Provider profile resolution failed for endpoint %s: %v", endpointName, profileErr)
+		return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 	}
 	llmProvider, authHeader, authPrefix, authErr := resolveProviderAuth(profile)
 	if authErr != nil {
-		return r.createErrorResponse(500, fmt.Sprintf("Provider auth resolution failed for endpoint %s: %v", endpointName, authErr))
+		logging.Errorf("Provider auth resolution failed for endpoint %s: %v", endpointName, authErr)
+		return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 	}
 
 	// Resolve API key via credential chain (ext_authz headers → static config)
 	accessKey, credErr := r.CredentialResolver.KeyForProvider(llmProvider, model, ctx.Headers)
 	if credErr != nil {
-		return r.createErrorResponse(401, fmt.Sprintf("Credential resolution failed for model %s: %v", model, credErr))
+		logging.Errorf("Credential resolution failed for model %s: %v", model, credErr)
+		return r.createErrorResponse(401, "Authentication failed. Check your API key configuration.")
 	}
 	if accessKey != "" {
 		value := accessKey
@@ -696,7 +700,8 @@ func (r *OpenAIRouter) createRoutingResponse(model string, endpoint string, endp
 	} else if profile != nil {
 		chatPath, pathErr := profile.ResolveChatPath()
 		if pathErr != nil {
-			return r.createErrorResponse(500, fmt.Sprintf("Chat path resolution failed for endpoint %s: %v", endpointName, pathErr))
+			logging.Errorf("Chat path resolution failed for endpoint %s: %v", endpointName, pathErr)
+			return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 		}
 		if chatPath != "" {
 			setHeaders = append(setHeaders, &core.HeaderValueOption{
@@ -755,17 +760,20 @@ func (r *OpenAIRouter) createSpecifiedModelResponse(model string, upstreamModel 
 	// Resolve provider type and auth format from endpoint's provider profile
 	profile, profileErr := r.Config.GetProviderProfileForEndpoint(endpointName)
 	if profileErr != nil {
-		return r.createErrorResponse(500, fmt.Sprintf("Provider profile resolution failed for endpoint %s: %v", endpointName, profileErr))
+		logging.Errorf("Provider profile resolution failed for endpoint %s: %v", endpointName, profileErr)
+		return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 	}
 	llmProvider, authHeader, authPrefix, authErr := resolveProviderAuth(profile)
 	if authErr != nil {
-		return r.createErrorResponse(500, fmt.Sprintf("Provider auth resolution failed for endpoint %s: %v", endpointName, authErr))
+		logging.Errorf("Provider auth resolution failed for endpoint %s: %v", endpointName, authErr)
+		return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 	}
 
 	// Resolve API key via credential chain (ext_authz headers → static config)
 	accessKey, credErr := r.CredentialResolver.KeyForProvider(llmProvider, model, ctx.Headers)
 	if credErr != nil {
-		return r.createErrorResponse(401, fmt.Sprintf("Credential resolution failed for model %s: %v", model, credErr))
+		logging.Errorf("Credential resolution failed for model %s: %v", model, credErr)
+		return r.createErrorResponse(401, "Authentication failed. Check your API key configuration.")
 	}
 	if accessKey != "" {
 		value := accessKey
@@ -834,7 +842,8 @@ func (r *OpenAIRouter) createSpecifiedModelResponse(model string, upstreamModel 
 	} else if profile != nil {
 		chatPath, pathErr := profile.ResolveChatPath()
 		if pathErr != nil {
-			return r.createErrorResponse(500, fmt.Sprintf("Chat path resolution failed for endpoint %s: %v", endpointName, pathErr))
+			logging.Errorf("Chat path resolution failed for endpoint %s: %v", endpointName, pathErr)
+			return r.createErrorResponse(500, "Internal routing error. Contact your administrator.")
 		}
 		if chatPath != "" {
 			setHeaders = append(setHeaders, &core.HeaderValueOption{
