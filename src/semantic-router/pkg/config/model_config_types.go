@@ -82,6 +82,41 @@ type MCPCategoryModel struct {
 	TimeoutSeconds int               `yaml:"timeout_seconds,omitempty"`
 }
 
+// RoutingMomentumConfig configures Conversational Routing Momentum (CRM),
+// an asymmetric low-pass filter that prevents model bouncing in multi-turn
+// conversations. Uses different time constants for escalation (attack) vs
+// de-escalation (release), inspired by audio compressor dynamics.
+type RoutingMomentumConfig struct {
+	Enabled   bool    `yaml:"enabled"`
+	Attack    float64 `yaml:"attack,omitempty"`
+	Release   float64 `yaml:"release,omitempty"`
+	Threshold float64 `yaml:"threshold,omitempty"`
+}
+
+// GetAttack returns the attack parameter with default fallback (0.3).
+func (rm RoutingMomentumConfig) GetAttack() float64 {
+	if rm.Attack == 0 {
+		return 0.3
+	}
+	return rm.Attack
+}
+
+// GetRelease returns the release parameter with default fallback (0.9).
+func (rm RoutingMomentumConfig) GetRelease() float64 {
+	if rm.Release == 0 {
+		return 0.9
+	}
+	return rm.Release
+}
+
+// GetThreshold returns the threshold parameter with default fallback (0.5).
+func (rm RoutingMomentumConfig) GetThreshold() float64 {
+	if rm.Threshold == 0 {
+		return 0.5
+	}
+	return rm.Threshold
+}
+
 // PromptCompressionConfig controls NLP-based prompt compression before signal extraction.
 type PromptCompressionConfig struct {
 	Enabled        bool     `yaml:"enabled"`
