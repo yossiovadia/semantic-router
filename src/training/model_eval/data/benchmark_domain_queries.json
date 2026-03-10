@@ -1,0 +1,4622 @@
+[
+  {
+    "query": "What is the derivative of x^3 + 2x?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Solve the system of equations: 2x + y = 5, x - y = 1",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Prove that the square root of 2 is irrational",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is a Fourier transform used for?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between permutations and combinations",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "State the fundamental theorem of calculus",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is the determinant of a 3x3 matrix?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of limits in calculus",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What are the properties of a normal distribution?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Define a vector space and give an example",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between convergent and divergent series?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Explain Bayes' theorem with an example",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is a differential equation and where is it used?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the properties of prime numbers",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is the chain rule in differentiation?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "how do i calculate compound interest",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "what's 15% tip on $47.50",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how many ways can 5 people sit in a row",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the probability of rolling two sixes",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you find the area of a triangle",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "can you explain standard deviation in simple terms",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "what does the integral symbol mean",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how do logarithms work",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "whats the difference between mean median and mode",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how to convert fractions to decimals",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "i need help with quadratic equations",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "why is pi irrational",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "explain matrices to a beginner",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you graph a parabola",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "integrate sin(x)dx",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "eigenvalue",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "linear algebra basics",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "pythagorean theorem",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "factoring polynomials",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "binomial distribution formula",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "cross product two vectors",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "taylor series expansion",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "greatest common divisor algorithm",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "complex numbers multiplication",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "What is the statistical significance of a p-value in hypothesis testing?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "How is linear regression used to predict outcomes?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the mathematical model behind neural networks?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "How do you calculate the trajectory of a projectile?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the math behind compound interest rates in banking?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "Explain Newton's second law of motion",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the relationship between wavelength and frequency?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the photoelectric effect and its significance",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "How does a black hole form from stellar collapse?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the Heisenberg uncertainty principle?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of wave-particle duality",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the law of conservation of energy?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the four fundamental forces of nature",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is special relativity and how does it differ from general relativity?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the Doppler effect for sound and light",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is electromagnetic induction?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe Ohm's law and its applications",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What are Maxwell's equations and why are they important?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of entropy in thermodynamics",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the standard model of particle physics?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "why does light bend through a prism",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how fast does sound travel in water vs air",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "can anything go faster than light",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why is the sky blue",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do magnets work",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "what would happen if you fell into a black hole",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why does ice float on water",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a nuclear reactor generate electricity",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes lightning happen",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do airplanes stay in the air",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is dark matter and dark energy",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do lasers work",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why do objects fall at the same rate regardless of weight",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "thermodynamics entropy",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "quantum entanglement explained",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "speed of light vacuum",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "centripetal force formula",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "nuclear fusion vs fission",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "Snell's law refraction",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "buoyancy Archimedes principle",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "gravitational waves detection",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "superconductivity zero resistance",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "What is the physics behind how solar panels convert sunlight to electricity?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "How do radio waves carry information through the atmosphere?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "What causes the tides in the ocean?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "Why do stars twinkle but planets don't?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the difference between covalent and ionic bonds?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Balance the equation: Fe + O2 -> Fe2O3",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Explain Le Chatelier's principle with an example",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is the pH scale and how does it work?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the process of electrolysis",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is an oxidation-reduction reaction?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between exothermic and endothermic reactions",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What are the different types of chemical bonds?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the periodic trends in electronegativity",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is Avogadro's number and why is it important?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how a buffer solution maintains pH",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between molarity and molality?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the process of titration",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is an ideal gas and when does the ideal gas law apply?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of hybridization in organic chemistry",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "why does baking soda and vinegar react",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "is water really H2O or is it more complicated",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes gold not rust like iron",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how does soap clean things at the molecular level",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "why does salt melt ice on roads",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes peppers spicy chemically",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how do batteries store and release energy",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "why does mixing bleach and ammonia create toxic gas",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the chemistry behind cooking an egg",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how does rust form on metal",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some metals conduct electricity better",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes diamonds so hard chemically",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "periodic table noble gases",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "oxidation reduction reaction",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "covalent bond example",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "acid base neutralization",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "electron configuration carbon",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "molar mass calculation",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "organic chemistry functional groups",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "catalyst reaction rate",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "What chemical reactions occur during photosynthesis?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the molecular structure of common medications like aspirin?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "How does the ozone layer protect us chemically?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "Explain the process of mitosis and its stages",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of RNA in protein synthesis?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the structure and function of the cell membrane",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "How does natural selection drive evolution?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between prokaryotic and eukaryotic cells?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the krebs cycle and its role in cellular respiration",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What are the different types of genetic mutations?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the process of meiosis and how it differs from mitosis",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the central dogma of molecular biology?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of ecological succession",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of enzymes in biological reactions?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the structure of DNA and its base pairing rules",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the endocrine system and how does it regulate hormones?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how the immune system fights infections",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is biodiversity and why does it matter for ecosystems?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "why do leaves change color in fall",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does CRISPR gene editing work",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "are viruses alive or not",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do animals hibernate",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do we need to sleep",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do fish breathe underwater",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes some people taller than others",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do plants know to grow toward light",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do humans have different blood types",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do bacteria become resistant to antibiotics",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the microbiome and why does it matter",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "can we bring extinct species back to life",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "photosynthesis chloroplast",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "DNA replication enzyme",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "mitochondria ATP",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "dominant recessive alleles",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "food chain ecosystem",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "symbiosis mutualism parasitism",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "neuron synapse signal",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "stem cell differentiation",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "How do genetic factors influence susceptibility to diseases?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the biological basis of memory formation in the brain?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "How do ecosystems respond to climate change?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the difference between a stack and a queue?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Explain Big O notation and why it matters",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is a hash table and how does collision resolution work?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the difference between TCP and UDP",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is recursion and when should you avoid it?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the CAP theorem in distributed systems",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between a process and a thread?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Describe how garbage collection works in managed languages",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is a relational database and how does normalization work?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Explain public key cryptography and how RSA works",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between compiled and interpreted languages?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the OSI model and its seven layers",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is dynamic programming and when should you use it?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how virtual memory and paging work in operating systems",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is the halting problem and why is it undecidable?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "how do i sort a list in python",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what's the difference between git merge and git rebase",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "explain machine learning to me like im 5",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how does the internet actually work",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what language should i learn first for programming",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how do websites remember that im logged in",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what is docker and why do developers use it",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how does google search work so fast",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "can you explain what an API is",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how do apps on my phone talk to servers",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what is a SQL injection attack",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how does version control help teams work together",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "binary search tree",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "REST API vs GraphQL",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "object oriented programming",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "linked list implementation",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "microservices architecture",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "DNS resolution process",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "cache invalidation strategies",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "deadlock prevention algorithms",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "How is cryptography used to secure online banking transactions?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What algorithms power recommendation systems like Netflix?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "How does blockchain technology work at a technical level?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What were the main causes of World War I?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Analyze the impact of the Industrial Revolution on society",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What led to the fall of the Roman Empire?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the significance of the Magna Carta",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "How did the Cold War shape international relations?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What was the significance of the printing press in European history?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the causes and consequences of the American Civil War",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What role did the Silk Road play in connecting civilizations?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the impact of colonialism on Africa",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What were the key events of the French Revolution?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "How did the Treaty of Versailles contribute to World War II?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the rise and fall of the Ottoman Empire",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What was the significance of the Renaissance?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "How did the Black Death transform medieval Europe?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What were the main achievements of ancient Greek civilization?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "who built the pyramids and how",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "why did the soviet union collapse",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what happened during the french revolution",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did ancient romans build their roads",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what was life like during the middle ages",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "why did the titanic sink",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did the civil rights movement change america",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what caused the great depression",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "who were the vikings and where did they come from",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "why was the berlin wall built and torn down",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did ancient egyptians preserve mummies",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what started the spanish inquisition",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "ancient rome government",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "renaissance art period",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "mesopotamia civilization",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "samurai feudal japan",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "D-Day Normandy invasion",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "apollo moon landing",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "mongol empire expansion",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "industrial revolution timeline",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "How did the Opium Wars affect China's relationship with the West?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "What historical events led to the creation of the United Nations?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "How did the Protestant Reformation change European politics?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "Explain Kant's categorical imperative",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is the trolley problem and its ethical implications?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Compare utilitarianism and deontological ethics",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is Descartes' cogito argument?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Discuss Plato's allegory of the cave",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is the problem of evil in philosophy of religion?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Explain John Rawls' theory of justice",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is the ship of Theseus paradox?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Describe Nietzsche's concept of the will to power",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is the mind-body problem in philosophy?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between rationalism and empiricism",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is Aristotle's virtue ethics?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the philosophical concept of phenomenology",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is logical positivism and why was it influential?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of social contract theory",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "is free will real or are we all deterministic",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what's the meaning of life according to different philosophers",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "does god exist logical arguments",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the difference between morals and ethics",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "is it ever okay to lie",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what would a just society look like",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "can machines ever be truly conscious",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what is existentialism in simple terms",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "are human rights universal or culturally relative",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes something beautiful philosophically",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "is there objective truth or is everything relative",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what is stoicism and how can it help today",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "existentialism Sartre",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "epistemology knowledge belief",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "utilitarianism greatest good",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "Socratic method questioning",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "nihilism meaning",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "Occam's razor principle",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "determinism compatibilism",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "Is artificial intelligence a threat to human autonomy and dignity?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the ethical implications of genetic engineering?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "Should animals have legal rights from a philosophical perspective?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What is cognitive behavioral therapy and how does it work?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain Maslow's hierarchy of needs",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between classical and operant conditioning?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the stages of cognitive development according to Piaget",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the bystander effect and what causes it?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the Stanford prison experiment and its implications",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is attachment theory and its different styles?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the difference between short-term and long-term memory",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the Milgram obedience experiment?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain confirmation bias and how it affects decision making",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between personality disorders in the DSM?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the fight-or-flight response",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is cognitive dissonance theory?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the nature versus nurture debate",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of dopamine in motivation and reward?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "why do people procrastinate even when they know better",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does social media affect mental health",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes anxiety disorders",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do we dream and what do dreams mean",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does childhood trauma affect adults",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some people become addicted and others don't",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "what is gaslighting and how do you recognize it",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does meditation affect the brain",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do we feel embarrassed",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes depression at a chemical level",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does group pressure influence individual decisions",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do people remember traumatic events so vividly",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "Pavlov conditioning experiment",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "introvert vs extrovert personality",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "cognitive bias types",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "Freud unconscious mind",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "PTSD symptoms treatment",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "emotional intelligence EQ",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "heuristics decision making",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "neuroplasticity brain change",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "How does color psychology influence marketing and consumer behavior?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What psychological factors contribute to political polarization?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "How does sleep deprivation affect cognitive performance?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is GDP and how is it calculated?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the law of supply and demand",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What causes inflation and how is it measured?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the difference between fiscal and monetary policy",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is a trade deficit and does it matter?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain comparative advantage in international trade",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the Phillips curve and is it still relevant?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the different types of market structures",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What are externalities and how do governments address them?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of elasticity of demand",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is quantitative easing and how does it work?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the role of the central bank in the economy",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the multiplier effect in macroeconomics?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of opportunity cost",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What causes economic recessions?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "why are gas prices going up",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how does the stock market actually work",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what happens when the fed raises interest rates",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "why does the government print more money",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is a recession and when is the next one coming",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do tariffs affect prices at the store",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "why is housing so expensive right now",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is cryptocurrency and does it have real value",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how does national debt affect regular people",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some countries have stronger currencies",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes unemployment to rise",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do interest rates affect my mortgage",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "recession vs depression",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "marginal cost revenue",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "Keynesian economics principles",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "supply chain disruption effects",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "consumer price index CPI",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "free trade agreements impact",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "monopoly oligopoly competition",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "How do economic sanctions affect a country's population?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the economic impact of climate change policies?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "How does immigration affect wages and employment?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the elements of a valid contract?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between civil and criminal law",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What is the doctrine of precedent in common law?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the Miranda rights and their legal basis",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What constitutes intellectual property infringement?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of due process under the 14th Amendment",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between tort law and contract law?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the role of the Supreme Court in judicial review",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What is the burden of proof in criminal vs civil cases?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of habeas corpus",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What are the key principles of international humanitarian law?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the process of filing an appeal",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What is strict liability and when does it apply?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between statute law and common law",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What protections does the First Amendment provide?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "can my landlord evict me without notice",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "do i need a lawyer for small claims court",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what's the difference between a felony and misdemeanor",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "can i sue someone for defamation online",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what happens if i get caught shoplifting",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "do i have to talk to the police if they stop me",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a prenuptial agreement work",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what are my rights as a tenant",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "can my employer fire me for no reason",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the difference between custody and guardianship",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "how does bankruptcy work and should i consider it",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "is it legal to record a conversation without consent",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "habeas corpus legal principle",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "copyright vs trademark vs patent",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "double jeopardy clause",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "statute of limitations",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "class action lawsuit requirements",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "eminent domain property rights",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "whistleblower protection laws",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "Are terms of service agreements legally enforceable?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What legal protections exist for gig economy workers?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "How does international law handle cyber warfare?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What is a SWOT analysis and how is it used in strategic planning?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the difference between B2B and B2C business models",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is the balanced scorecard framework?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Describe Porter's Five Forces model",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of a board of directors in corporate governance?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of supply chain management",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is lean manufacturing and its core principles?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the stages of the product life cycle",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between a merger and an acquisition?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Explain stakeholder theory in corporate strategy",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is organizational behavior and why does it matter?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the different leadership styles and their effectiveness",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is total quality management?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of brand equity",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between a startup and a small business?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "how do i write a business plan for a startup",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "should I incorporate as LLC or S-corp",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is product market fit and how do you find it",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do i negotiate a raise with my boss",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes a good marketing strategy",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do franchises work",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the best way to price my product",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do i read a balance sheet",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what does a CFO actually do",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do companies decide to go public with an IPO",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is agile project management",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you build a remote team culture",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "KPI metrics dashboard",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "venture capital funding rounds",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "profit margin calculation",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "employee retention strategies",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "market segmentation targeting",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "SaaS business model revenue",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "competitive advantage strategy",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "How should companies handle ESG and sustainability reporting?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the business case for diversity in the workplace?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "How do companies value intellectual property for acquisition?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the symptoms and treatment options for Type 2 diabetes?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how vaccines work to build immunity",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between antibiotics and antivirals?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the stages of wound healing",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What are the risk factors for cardiovascular disease?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the mechanism of action of common pain relievers",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between type 1 and type 2 diabetes?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the stages of cancer development",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of cholesterol in heart disease?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how kidney dialysis works",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What are autoimmune diseases and how are they treated?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the difference between viral and bacterial infections",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What is the recommended vaccination schedule for children?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how blood pressure medication works",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What are the warning signs of a stroke?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "my knee hurts when i run what should i do",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how many hours of sleep do adults need",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "is intermittent fasting actually healthy",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what foods lower blood pressure",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how often should i get a health checkup",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what are the side effects of ibuprofen",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how do i know if i have a food allergy",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "is cracking your knuckles bad for you",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what does it mean when your eye twitches",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how much water should i drink per day",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes heartburn and how do i stop it",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "should i stretch before or after exercise",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "blood pressure normal range",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "vitamin D deficiency symptoms",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "BMI calculation meaning",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "flu vs cold differences",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "iron deficiency anemia",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "CPR steps procedure",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "gluten intolerance celiac",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "antibiotic resistance problem",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "How does chronic stress affect physical health?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the relationship between gut health and mental well-being?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "How does air pollution affect respiratory health?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the difference between stress and strain in materials?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how a PID controller works in a feedback system",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What factors determine the load-bearing capacity of a beam?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the design considerations for a heat exchanger",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What is finite element analysis and when is it used?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the principles of signal processing in communications",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What is the purpose of a Bode plot in control systems?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the difference between AC and DC motors",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What are the main types of manufacturing processes?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how a transistor amplifies a signal",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What is the Von Mises yield criterion?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the working principle of a hydraulic system",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What is VLSI design methodology?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of fatigue failure in metals",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What are the key considerations in designing a power grid?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "how do bridges not fall down",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what's the best programming language for embedded systems",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a car engine convert fuel to motion",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do elevators know which floor to go to",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "why do buildings sway in the wind",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do noise cancelling headphones work",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes some materials stronger than others",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a 3D printer actually print objects",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do self-driving cars avoid obstacles",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some phone chargers charge faster than others",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how does wireless charging work",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what happens inside a CPU when it runs a program",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "CAD design tolerances",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "HVAC system efficiency",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "PCB circuit board design",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "CNC machining process",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "robotics actuators sensors",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "structural steel beam calculation",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "diesel engine combustion cycle",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "fiber optic cable transmission",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "How are wind turbines designed to maximize energy capture?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "What engineering challenges exist in building earthquake-resistant structures?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "How do engineers design prosthetic limbs that respond to nerve signals?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "Hello, how are you today?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Tell me a joke",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What should I have for dinner tonight?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Can you help me write a birthday card?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What's the weather like in Paris right now?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Translate hello to Japanese",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What time is it in Tokyo?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Can you recommend a good movie?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Help me plan a vacation itinerary",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What is the best recipe for chocolate cake?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I tie a tie?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What are some good books to read this summer?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I get a stain out of a white shirt?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What are fun things to do in New York City?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I train my dog to sit?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Can you write me a poem about the ocean?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What should I name my cat?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I start a garden at home?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What is the best way to learn a new language?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "Can you tell me a fun fact?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I fix a leaky faucet?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What's a good workout for beginners?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I organize my closet?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What are the rules of chess?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I parallel park?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "asdfghjkl",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "qwerty 12345",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": ".",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "aaa bbb ccc",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "xyzzy plugh",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "thanks bye",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "ok",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "help",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "never mind",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "good morning",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "lol",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "yes please",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "hmm interesting",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "What zodiac sign is March?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "How many calories are in an avocado?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What color paint should I use for my bedroom?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "How do I pick a good watermelon at the store?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the most popular baby name this year?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the Fibonacci sequence and where does it appear in nature?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of mathematical induction",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is a Markov chain and how is it used?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the relationship between derivatives and integrals",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "What is the central limit theorem?",
+    "expected": "math",
+    "style": "academic"
+  },
+  {
+    "query": "how do you calculate the volume of a sphere",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the fibonacci sequence in simple terms",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "help me understand trigonometry",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you solve a system of inequalities",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the difference between discrete and continuous math",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you calculate standard error",
+    "expected": "math",
+    "style": "conversational"
+  },
+  {
+    "query": "Laplace transform application",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "set theory basics",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "partial differential equations",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "number theory primes",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "geometric series sum formula",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "matrix inverse calculation",
+    "expected": "math",
+    "style": "short"
+  },
+  {
+    "query": "What mathematical concepts are essential for understanding machine learning?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "How is game theory applied in economics and politics?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the mathematics behind GPS positioning?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "How do actuaries use statistics to calculate insurance premiums?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the math behind music theory and harmony?",
+    "expected": "math",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the principle of superposition in wave physics?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of escape velocity",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is Coulomb's law and how does it describe electric force?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the concept of angular momentum conservation",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "What is Bernoulli's principle in fluid dynamics?",
+    "expected": "physics",
+    "style": "academic"
+  },
+  {
+    "query": "why do boomerangs come back",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a microwave oven heat food",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why are sunsets red and orange",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "what would zero gravity feel like",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do fiber optics carry data using light",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why does helium make your voice high",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do speakers convert electricity into sound",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "why does hot air rise",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "what happens to matter at absolute zero",
+    "expected": "physics",
+    "style": "conversational"
+  },
+  {
+    "query": "Planck constant energy",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "acoustic resonance frequency",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "terminal velocity falling object",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "Faraday law electromagnetic induction",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "plasma fourth state matter",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "refraction index glass",
+    "expected": "physics",
+    "style": "short"
+  },
+  {
+    "query": "How do particle accelerators like CERN work?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "What physics principles make MRI scanners possible?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "Why is space cold if the sun is so hot?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "What causes aurora borealis at the poles?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "How do noise barriers on highways reduce sound?",
+    "expected": "physics",
+    "style": "boundary"
+  },
+  {
+    "query": "What is polymerization and how are plastics made?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of molecular orbital theory",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What is chromatography and how is it used?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "Describe radioactive decay and half-life",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "What are isomers in organic chemistry?",
+    "expected": "chemistry",
+    "style": "academic"
+  },
+  {
+    "query": "why does food go bad over time",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the chemistry of sunscreen",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how do glow sticks produce light",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "why does alcohol evaporate faster than water",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes permanent markers permanent",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how do antacids neutralize stomach acid",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "what happens chemically when bread rises",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "why does chlorine kill bacteria in pools",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "how is perfume made from chemicals",
+    "expected": "chemistry",
+    "style": "conversational"
+  },
+  {
+    "query": "isotope radioactive decay",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "polymer chain reaction",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "solubility product constant",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "Lewis dot structure",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "galvanic cell electrochemistry",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "stoichiometry balanced equation",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "hydrogen bonding water properties",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "enthalpy entropy Gibbs free energy",
+    "expected": "chemistry",
+    "style": "short"
+  },
+  {
+    "query": "What chemicals are in drinking water and are they safe?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "How do forensic scientists use chemical analysis at crime scenes?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the chemical process behind fermentation in beer and wine?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "How do chemists design new pharmaceutical drugs?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "What chemical reactions power a lithium-ion battery?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "Why does caramelization happen when you heat sugar?",
+    "expected": "chemistry",
+    "style": "boundary"
+  },
+  {
+    "query": "What is epigenetics and how does it affect gene expression?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the process of apoptosis in cells",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What are the different biomes and their characteristics?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the nitrogen cycle in ecosystems",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the role of telomeres in aging?",
+    "expected": "biology",
+    "style": "academic"
+  },
+  {
+    "query": "how do chameleons change color",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some animals migrate thousands of miles",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do mushrooms grow so fast overnight",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do cats purr",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do birds navigate during migration",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do humans have fingerprints",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a caterpillar turn into a butterfly",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "why can some lizards regrow their tails",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do coral reefs form",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes poison ivy itchy",
+    "expected": "biology",
+    "style": "conversational"
+  },
+  {
+    "query": "carnivore herbivore omnivore",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "phototropism auxin growth",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "cell organelle function",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "genetic drift population",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "xylem phloem plant transport",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "anaerobic respiration fermentation",
+    "expected": "biology",
+    "style": "short"
+  },
+  {
+    "query": "How do deep sea creatures survive extreme pressure?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the biological clock and how does it regulate sleep?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "How do plants defend themselves against herbivores?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "Why are some species more vulnerable to extinction than others?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "How does the placebo effect work biologically?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "What role do gut bacteria play in digestion?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "How do electric eels generate electricity?",
+    "expected": "biology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the difference between a graph and a tree data structure?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how TLS/SSL encryption secures web traffic",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is a race condition in concurrent programming?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the MapReduce paradigm for distributed computing",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between breadth-first and depth-first search?",
+    "expected": "computer science",
+    "style": "academic"
+  },
+  {
+    "query": "how do I fix a merge conflict in git",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the difference between frontend and backend",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how do databases store data efficiently",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "why is my code running slow and how do I profile it",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what is containerization and how is it different from VMs",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you prevent a website from being hacked",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what is CI/CD and why do teams use it",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "how does image recognition in AI work",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "what are design patterns in software engineering",
+    "expected": "computer science",
+    "style": "conversational"
+  },
+  {
+    "query": "heap vs stack memory allocation",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "Dijkstra shortest path",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "NoSQL vs SQL databases",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "agile scrum methodology",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "load balancer round robin",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "regex pattern matching",
+    "expected": "computer science",
+    "style": "short"
+  },
+  {
+    "query": "How do self-driving cars process sensor data in real time?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What computer science concepts power large language models?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "How do streaming services handle millions of concurrent viewers?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the difference between AI, ML, and deep learning?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "How does two-factor authentication improve security?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What algorithms are used in GPS navigation?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "How do video games render 3D graphics in real time?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What makes quantum computing different from classical computing?",
+    "expected": "computer science",
+    "style": "boundary"
+  },
+  {
+    "query": "What was the role of espionage during the Cold War?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "How did the Meiji Restoration modernize Japan?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What were the causes of the Crusades?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the impact of the Atlantic slave trade on Africa",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "What was the significance of the Battle of Stalingrad?",
+    "expected": "history",
+    "style": "academic"
+  },
+  {
+    "query": "how did ancient civilizations tell time without clocks",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what was daily life like in ancient egypt",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did the roman aqueducts work",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "why did prohibition fail in america",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what happened at pompeii when vesuvius erupted",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did the space race between the US and USSR unfold",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what were the crusades really about",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did genghis khan build such a huge empire",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "what caused the irish potato famine",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "how did women gain the right to vote",
+    "expected": "history",
+    "style": "conversational"
+  },
+  {
+    "query": "Byzantine Empire Constantinople",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "Aztec Mayan Inca civilizations",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "cold war proxy conflicts",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "Gutenberg printing press impact",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "Alexander the Great conquests",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "Hiroshima Nagasaki aftermath",
+    "expected": "history",
+    "style": "short"
+  },
+  {
+    "query": "How did the discovery of the Americas change European economies?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "What were the lasting effects of British colonialism in India?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "How did the telegraph change warfare in the 19th century?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "What historical factors led to the rise of fascism in Europe?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "How did the Marshall Plan reshape postwar Europe?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "What role did propaganda play in World War II?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "How did the Enlightenment influence the American Revolution?",
+    "expected": "history",
+    "style": "boundary"
+  },
+  {
+    "query": "What is Hume's problem of induction?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of the Overman in Nietzsche's philosophy",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is pragmatism according to William James?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the Chinese Room argument against strong AI",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "What is the veil of ignorance in political philosophy?",
+    "expected": "philosophy",
+    "style": "academic"
+  },
+  {
+    "query": "what is the difference between knowledge and wisdom",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "can something be true for you but not for me",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "do numbers exist or are they invented",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what would happen if everyone always told the truth",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "is it wrong to eat meat from an ethical standpoint",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "what did confucius teach about living a good life",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "does the end justify the means",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "can we ever truly understand another person's experience",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "why do humans seek meaning in life",
+    "expected": "philosophy",
+    "style": "conversational"
+  },
+  {
+    "query": "phenomenology Husserl consciousness",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "categorical imperative duty",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "solipsism external world",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "aesthetics beauty art",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "Wittgenstein language games",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "moral relativism absolutism",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "Taoism wu wei principle",
+    "expected": "philosophy",
+    "style": "short"
+  },
+  {
+    "query": "What are the philosophical implications of brain-computer interfaces?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "Is privacy a fundamental right or a social construct?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the philosophy behind restorative justice?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "Do corporations have moral responsibilities beyond profit?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What would Aristotle say about social media addiction?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "Is there a moral obligation to future generations regarding climate change?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "Can war ever be morally justified under just war theory?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the philosophical basis for punishment in criminal justice?",
+    "expected": "philosophy",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the Dunning-Kruger effect?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of learned helplessness",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is schema theory in cognitive psychology?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the different stages of grief",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "What is the mere exposure effect?",
+    "expected": "psychology",
+    "style": "academic"
+  },
+  {
+    "query": "why do people follow crowd behavior even when it seems wrong",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how do habits form in the brain",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "what is imposter syndrome and how do you deal with it",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do people stay in unhealthy relationships",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does music affect your mood",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do we forget things we just learned",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes some people more resilient than others",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "why do phobias develop and how are they treated",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "how does screen time affect children's development",
+    "expected": "psychology",
+    "style": "conversational"
+  },
+  {
+    "query": "sunk cost fallacy decision",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "Erikson psychosocial stages",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "placebo nocebo effect",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "serial position effect memory",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "anchoring bias negotiation",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "delayed gratification marshmallow test",
+    "expected": "psychology",
+    "style": "short"
+  },
+  {
+    "query": "Why do people make irrational financial decisions?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "How do cult leaders manipulate followers psychologically?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What psychological techniques improve athletic performance?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "How does loneliness affect physical health?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "Why do eyewitness testimonies often get details wrong?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What role does psychology play in user experience design?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "How do interrogation techniques exploit psychological vulnerabilities?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What psychological effects does remote work have on employees?",
+    "expected": "psychology",
+    "style": "boundary"
+  },
+  {
+    "query": "What is moral hazard in financial markets?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of diminishing marginal returns",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is a Giffen good and does it exist in practice?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the concept of the tragedy of the commons",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "What is the Laffer curve and its implications for tax policy?",
+    "expected": "economics",
+    "style": "academic"
+  },
+  {
+    "query": "why do prices go up when there's a shortage",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how does a country's credit rating affect its economy",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is a bubble in the stock market",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "why do minimum wage increases cause debate",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do subsidies affect farmers and food prices",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the gig economy and how is it changing work",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "why does the value of the dollar change over time",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "how do trade wars affect consumers",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "what is universal basic income and would it work",
+    "expected": "economics",
+    "style": "conversational"
+  },
+  {
+    "query": "GDP per capita purchasing power",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "stagflation causes solutions",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "balance of payments deficit",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "game theory Nash equilibrium",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "economic inequality Gini coefficient",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "central bank independence",
+    "expected": "economics",
+    "style": "short"
+  },
+  {
+    "query": "How does automation affect employment and wages?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the economics of renewable energy vs fossil fuels?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "How does an aging population affect a country's economy?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What economic factors drive gentrification?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "How do carbon taxes work and are they effective?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the economic impact of student loan debt?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "How does foreign aid affect developing economies?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What causes hyperinflation and how do countries recover?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "How do sovereign wealth funds invest national resources?",
+    "expected": "economics",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the exclusionary rule in criminal procedure?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of sovereign immunity",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between mediation and arbitration?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the doctrine of respondeat superior",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "What are fiduciary duties and who owes them?",
+    "expected": "law",
+    "style": "academic"
+  },
+  {
+    "query": "what happens if someone breaks a non-compete agreement",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "how does child custody work after a divorce",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "can i get in trouble for leaving a bad review online",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what are my rights if i get pulled over by police",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "how does probation work vs parole",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the process of getting a restraining order",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "how do immigration courts work",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "what constitutes self-defense legally",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "can you go to jail for not paying taxes",
+    "expected": "law",
+    "style": "conversational"
+  },
+  {
+    "query": "power of attorney types",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "plea bargain process",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "negligence duty of care",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "extradition treaty requirements",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "zoning laws land use",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "GDPR data protection regulation",
+    "expected": "law",
+    "style": "short"
+  },
+  {
+    "query": "What legal frameworks govern artificial intelligence and bias?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "How do international courts enforce human rights violations?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What legal challenges arise from deepfake technology?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "How does antitrust law apply to big tech companies?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the legal implications of self-driving car accidents?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "How do environmental regulations balance business interests?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What legal protections exist for online privacy?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "How does maritime law differ from land-based legal systems?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What legal issues arise from gene editing technologies?",
+    "expected": "law",
+    "style": "boundary"
+  },
+  {
+    "query": "What is disruptive innovation according to Christensen?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of economies of scale",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between a profit center and cost center?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the BCG growth-share matrix",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "What is six sigma and how does it improve quality?",
+    "expected": "business",
+    "style": "academic"
+  },
+  {
+    "query": "how do you retain good employees in a competitive market",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the best way to handle a difficult customer",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do subscription business models work",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes a good pitch deck for investors",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do companies decide when to expand internationally",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is the difference between revenue and profit",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do loyalty programs increase customer retention",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "what is a pivot in startup terminology",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "how do you calculate return on investment",
+    "expected": "business",
+    "style": "conversational"
+  },
+  {
+    "query": "cash flow statement analysis",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "customer acquisition cost CAC",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "OKR goal setting framework",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "dropshipping ecommerce model",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "minimum viable product MVP",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "accounts receivable turnover",
+    "expected": "business",
+    "style": "short"
+  },
+  {
+    "query": "How do companies measure and improve employee engagement?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the business impact of remote work on office real estate?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "How do companies navigate supply chain risks?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What is corporate social responsibility and does it affect profits?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "How do family businesses handle succession planning?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What business strategies work best during a recession?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "How do companies protect trade secrets?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the role of data analytics in business decision making?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "How do nonprofit organizations generate revenue?",
+    "expected": "business",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the mechanism of action of statins for cholesterol?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Explain how immunotherapy treats cancer",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What are the complications of uncontrolled hypertension?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "Describe how insulin resistance develops into diabetes",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "What is the difference between an MRI and CT scan?",
+    "expected": "health",
+    "style": "academic"
+  },
+  {
+    "query": "why do i get headaches after staring at a screen too long",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes muscle cramps during exercise",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how do i know if i should see a doctor for back pain",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what does drinking enough water actually do for your body",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "are probiotics really helpful for digestion",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "why do cuts heal faster when you're young",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "what causes seasonal allergies and how do i manage them",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "is sitting all day really as bad as they say",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "how do i know if i'm getting enough nutrients",
+    "expected": "health",
+    "style": "conversational"
+  },
+  {
+    "query": "cholesterol HDL LDL levels",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "asthma inhaler types",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "diabetes A1C target",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "migraine triggers prevention",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "sunburn treatment prevention",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "appendicitis symptoms emergency",
+    "expected": "health",
+    "style": "short"
+  },
+  {
+    "query": "How does long COVID affect people months after infection?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the connection between oral health and heart disease?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "How does altitude affect the human body?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the health effects of microplastics in food and water?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "How does shift work affect long-term health?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the impact of processed food on metabolic health?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "How do wearable fitness trackers measure heart rate accurately?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the health benefits and risks of cold water swimming?",
+    "expected": "health",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the Nyquist sampling theorem and its importance in signal processing?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Explain the concept of impedance matching in electrical circuits",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What are the different types of welding and their applications?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "Describe the principles behind a turbofan jet engine",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "What is the purpose of a flywheel in mechanical systems?",
+    "expected": "engineering",
+    "style": "academic"
+  },
+  {
+    "query": "how do skyscrapers handle wind loads without toppling",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what engineering goes into making a smartphone waterproof",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do dams generate hydroelectric power",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "why do some roads have rumble strips",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do engineers design airplane wings to be flexible",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what makes some buildings earthquake-proof",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how do tunnel boring machines work underground",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "how does regenerative braking in electric cars work",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "what goes into designing a safe roller coaster",
+    "expected": "engineering",
+    "style": "conversational"
+  },
+  {
+    "query": "FPGA vs ASIC chip design",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "suspension bridge cable tension",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "gear ratio torque speed",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "thermal expansion joint design",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "PWM motor speed control",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "wastewater treatment process",
+    "expected": "engineering",
+    "style": "short"
+  },
+  {
+    "query": "How are lithium-ion batteries designed for safety?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "What engineering challenges exist in building space elevators?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "How do engineers design medical devices like pacemakers?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "What makes a building energy efficient from an engineering perspective?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "How do desalination plants convert seawater to drinking water?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "What engineering goes into making solar panels more efficient?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "How do engineers design ventilation systems for underground mines?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the engineering behind noise-canceling technology?",
+    "expected": "engineering",
+    "style": "boundary"
+  },
+  {
+    "query": "Who won the Super Bowl last year?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What's a good gift for a 10-year-old?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I remove a wine stain from carpet?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What are some fun party games for adults?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I sharpen a kitchen knife?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What is the best time to visit Japan?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I unclog a drain without chemicals?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What's a good beginner musical instrument?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "How do I get my toddler to eat vegetables?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "What should I pack for a camping trip?",
+    "expected": "other",
+    "style": "conversational"
+  },
+  {
+    "query": "zzzzz",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "!@#$%^",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "test test test",
+    "expected": "other",
+    "style": "gibberish"
+  },
+  {
+    "query": "no thanks",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "cool",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "whatever",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "idk",
+    "expected": "other",
+    "style": "short"
+  },
+  {
+    "query": "How many steps should I walk per day?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the most popular programming language in 2024?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "How do I take better photos with my phone?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What is the fastest animal on earth?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "How do I improve my handwriting?",
+    "expected": "other",
+    "style": "boundary"
+  },
+  {
+    "query": "What are the most spoken languages in the world?",
+    "expected": "other",
+    "style": "boundary"
+  }
+]
