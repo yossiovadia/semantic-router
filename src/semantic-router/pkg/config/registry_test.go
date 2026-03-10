@@ -25,7 +25,7 @@ func TestToLegacyRegistry_IncludesAliases(t *testing.T) {
 		"mmbert-pii-detector",
 	)
 	assertRegistryAliases(t, registry,
-		"LLM-Semantic-Router/lora_intent_classifier_bert-base-uncased_model",
+		"llm-semantic-router/mmbert32k-intent-classifier-merged",
 		"models/mom-domain-classifier",
 		"models/category_classifier_modernbert-base_model",
 		"models/lora_intent_classifier_bert-base-uncased_model",

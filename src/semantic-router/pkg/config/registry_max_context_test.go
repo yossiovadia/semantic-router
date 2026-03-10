@@ -5,21 +5,15 @@ import (
 )
 
 // TestMaxContextLength_SafeValues verifies that MaxContextLength reflects
-// the actual training context length (512 tokens) for BERT LoRA models,
-// while BaseModelMaxContext indicates the base model's capability (32K)
+// the model's supported context length
 func TestMaxContextLength_SafeValues(t *testing.T) {
-	// Test Domain Classifier
+	// Test Domain Classifier (mmBERT-32K merged model)
 	domainModel := GetModelByPath("models/mom-domain-classifier")
 	if domainModel == nil {
 		t.Fatal("Domain classifier model not found")
 	}
-	// MaxContextLength should be 512 (trained context length)
-	if domainModel.MaxContextLength != 512 {
-		t.Errorf("Domain Classifier: Expected MaxContextLength=512 (trained length), got %d", domainModel.MaxContextLength)
-	}
-	// BaseModelMaxContext should be 32768 (base model capability)
-	if domainModel.BaseModelMaxContext != 32768 {
-		t.Errorf("Domain Classifier: Expected BaseModelMaxContext=32768 (base model supports 32K), got %d", domainModel.BaseModelMaxContext)
+	if domainModel.MaxContextLength != 32768 {
+		t.Errorf("Domain Classifier: Expected MaxContextLength=32768, got %d", domainModel.MaxContextLength)
 	}
 
 	// Test PII Detector
@@ -50,16 +44,13 @@ func TestMaxContextLength_SafeValues(t *testing.T) {
 // TestMaxContextLength_ByAlias verifies that MaxContextLength and BaseModelMaxContext
 // are correct when accessing models by their aliases
 func TestMaxContextLength_ByAlias(t *testing.T) {
-	// Test Domain Classifier by alias
+	// Test Domain Classifier by alias (mmBERT-32K merged model)
 	domainByAlias := GetModelByPath("domain-classifier")
 	if domainByAlias == nil {
 		t.Fatal("Domain classifier not found by alias")
 	}
-	if domainByAlias.MaxContextLength != 512 {
-		t.Errorf("Domain Classifier (by alias): Expected MaxContextLength=512, got %d", domainByAlias.MaxContextLength)
-	}
-	if domainByAlias.BaseModelMaxContext != 32768 {
-		t.Errorf("Domain Classifier (by alias): Expected BaseModelMaxContext=32768, got %d", domainByAlias.BaseModelMaxContext)
+	if domainByAlias.MaxContextLength != 32768 {
+		t.Errorf("Domain Classifier (by alias): Expected MaxContextLength=32768, got %d", domainByAlias.MaxContextLength)
 	}
 
 	// Test PII Detector by alias

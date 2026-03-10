@@ -66,17 +66,16 @@ type ModelSpec struct {
 var DefaultModelRegistry = []ModelSpec{
 	// Domain/Intent Classification
 	{
-		LocalPath:           "models/mom-domain-classifier",
-		RepoID:              "LLM-Semantic-Router/lora_intent_classifier_bert-base-uncased_model",
-		Aliases:             []string{"domain-classifier", "intent-classifier", "category-classifier", "category_classifier_modernbert-base_model", "lora_intent_classifier_bert-base-uncased_model"},
-		Purpose:             PurposeDomainClassification,
-		Description:         "Domain/intent classifier using BERT-base-uncased LoRA adapter. Can be used with ModernBERT-base-32k base model for extended context, but LoRA weights were trained on 512-token context.",
-		ParameterSize:       "149M (ModernBERT-base-32k) + classifier",
-		UsesLoRA:            true,
-		NumClasses:          14,    // MMLU categories
-		MaxContextLength:    512,   // LoRA weights trained on 512 tokens - safe maximum
-		BaseModelMaxContext: 32768, // Base model (ModernBERT-base-32k) supports 32K, but use with caution beyond MaxContextLength
-		Tags:                []string{"classification", "lora", "mmlu", "domain", "modernbert"},
+		LocalPath:        "models/mom-domain-classifier",
+		RepoID:           "llm-semantic-router/mmbert32k-intent-classifier-merged",
+		Aliases:          []string{"domain-classifier", "intent-classifier", "category-classifier", "category_classifier_modernbert-base_model", "lora_intent_classifier_bert-base-uncased_model"},
+		Purpose:          PurposeDomainClassification,
+		Description:      "mmBERT-32K merged intent classifier for MMLU-Pro categories",
+		ParameterSize:    "307M",
+		UsesLoRA:         false,
+		NumClasses:       14, // MMLU categories
+		MaxContextLength: 32768,
+		Tags:             []string{"classification", "merged", "mmlu", "domain", "mmbert-32k"},
 	},
 
 	// PII Detection - BERT LoRA
