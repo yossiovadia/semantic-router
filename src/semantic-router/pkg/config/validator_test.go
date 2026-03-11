@@ -378,65 +378,34 @@ var _ = Describe("validateConfigStructure", func() {
 		Expect(err.Error()).To(ContainSubstring("legacy latency config is no longer supported"))
 	})
 
-	It("accepts remom with reasonable breadth_schedule", func() {
-		cfg := &RouterConfig{
-			IntelligentRouting: IntelligentRouting{
-				Decisions: []Decision{{
-					Name: "remom-ok",
-					ModelRefs: []ModelRef{{
-						Model:                 "model-a",
-						ModelReasoningControl: ModelReasoningControl{UseReasoning: boolPtr(false)},
-					}},
-					Algorithm: &AlgorithmConfig{
-						Type:  "remom",
-						ReMoM: &ReMoMAlgorithmConfig{BreadthSchedule: []int{4}},
-					},
-				}},
-			},
-		}
-		Expect(validateConfigStructure(cfg)).To(Succeed())
+})
+
+var _ = Describe("validateReMoMBreadthSchedule", func() {
+	It("accepts reasonable breadth_schedule", func() {
+		err := validateReMoMBreadthSchedule("remom-ok", "remom", &ReMoMAlgorithmConfig{
+			BreadthSchedule: []int{4},
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("rejects remom with excessive breadth_schedule", func() {
-		cfg := &RouterConfig{
-			IntelligentRouting: IntelligentRouting{
-				Decisions: []Decision{{
-					Name: "remom-expensive",
-					ModelRefs: []ModelRef{{
-						Model:                 "model-a",
-						ModelReasoningControl: ModelReasoningControl{UseReasoning: boolPtr(false)},
-					}},
-					Algorithm: &AlgorithmConfig{
-						Type:  "remom",
-						ReMoM: &ReMoMAlgorithmConfig{BreadthSchedule: []int{32, 16, 8, 4, 4}},
-					},
-				}},
-			},
-		}
-		err := validateConfigStructure(cfg)
+	It("rejects excessive breadth_schedule", func() {
+		err := validateReMoMBreadthSchedule("remom-expensive", "remom", &ReMoMAlgorithmConfig{
+			BreadthSchedule: []int{32, 16, 8, 4, 4},
+		})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("backend calls per request"))
 		Expect(err.Error()).To(ContainSubstring("max 64"))
 	})
 
-	It("rejects remom with zero breadth value", func() {
-		cfg := &RouterConfig{
-			IntelligentRouting: IntelligentRouting{
-				Decisions: []Decision{{
-					Name: "remom-zero",
-					ModelRefs: []ModelRef{{
-						Model:                 "model-a",
-						ModelReasoningControl: ModelReasoningControl{UseReasoning: boolPtr(false)},
-					}},
-					Algorithm: &AlgorithmConfig{
-						Type:  "remom",
-						ReMoM: &ReMoMAlgorithmConfig{BreadthSchedule: []int{4, 0}},
-					},
-				}},
-			},
-		}
-		err := validateConfigStructure(cfg)
+	It("rejects zero breadth value", func() {
+		err := validateReMoMBreadthSchedule("remom-zero", "remom", &ReMoMAlgorithmConfig{
+			BreadthSchedule: []int{4, 0},
+		})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("must be positive"))
+	})
+
+	It("skips validation for non-remom types", func() {
+		Expect(validateReMoMBreadthSchedule("x", "confidence", nil)).To(Succeed())
 	})
 })
