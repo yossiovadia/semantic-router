@@ -149,6 +149,10 @@ func (r *OpenAIRouter) updateResponseCache(ctx *RequestContext, responseBody []b
 	if ctx.RequestID == "" || responseBody == nil {
 		return
 	}
+	if hasPersonalizedContext(ctx) {
+		logging.Infof("Skipping cache write for request %s: response contains personalized context (RAG/memory/PII)", ctx.RequestID)
+		return
+	}
 
 	ttlSeconds := -1
 	if r != nil && r.Config != nil {
