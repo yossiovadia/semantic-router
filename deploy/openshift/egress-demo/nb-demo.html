@@ -1124,12 +1124,20 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
       '<div class="routing-label">Semantic Cache</div>' +
       '<div class="routing-value" style="color:var(--green);">HIT — instant response from cache</div>' +
       '<div class="routing-detail">Semantically similar query was previously answered. No model inference needed.</div>' +
-      '</div>';
+      '<div id="cache-inspector-toggle" style="margin-top:6px;">' +
+      '<a href="#" onclick="toggleCacheInspector(); return false;" style="font-size:11px; color:var(--accent); text-decoration:none;">' +
+      '<span id="cache-inspector-arrow">▸</span> View cached entries <span style="color:var(--text-muted); font-size:10px;">(Redis)</span></a>' +
+      '<div id="cache-inspector-body" style="display:none; margin-top:8px;"></div>' +
+      '</div></div>';
   } else if (classification.fromServer) {
     cacheHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
       '<div class="routing-label">Semantic Cache</div>' +
       '<div class="routing-value" style="color:var(--text-muted);">MISS — response cached for future queries</div>' +
-      '</div>';
+      '<div id="cache-inspector-toggle" style="margin-top:6px;">' +
+      '<a href="#" onclick="toggleCacheInspector(); return false;" style="font-size:11px; color:var(--accent); text-decoration:none;">' +
+      '<span id="cache-inspector-arrow">▸</span> View cached entries <span style="color:var(--text-muted); font-size:10px;">(Redis)</span></a>' +
+      '<div id="cache-inspector-body" style="display:none; margin-top:8px;"></div>' +
+      '</div></div>';
   }
 
   // RAG
@@ -1214,6 +1222,87 @@ function showVsrHeaders(headers) {
         '<td style="padding:2px 6px; color:' + color + ';">' + esc(v) + '</td></tr>';
     }).join('') + '</table>';
   section.style.display = '';
+}
+
+// ---- Cache Inspector (collapsible Redis view) ----
+
+var cacheInspectorOpen = false;
+
+function toggleCacheInspector() {
+  cacheInspectorOpen = !cacheInspectorOpen;
+  var arrow = document.getElementById('cache-inspector-arrow');
+  var body = document.getElementById('cache-inspector-body');
+  if (!body) return;
+  if (cacheInspectorOpen) {
+    arrow.textContent = '▾';
+    body.style.display = '';
+    loadCacheInspector();
+  } else {
+    arrow.textContent = '▸';
+    body.style.display = 'none';
+  }
+}
+
+function loadCacheInspector() {
+  var body = document.getElementById('cache-inspector-body');
+  if (!body) return;
+  body.innerHTML = '<span style="color:var(--text-muted); font-size:11px;"><span class="spinner"></span> Loading cache entries...</span>';
+
+  fetch('/api/admin/cache').then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) { body.innerHTML = '<span style="color:var(--red); font-size:11px;">' + esc(data.error) + '</span>'; return; }
+    var entries = data.entries || [];
+    if (entries.length === 0) {
+      body.innerHTML = '<span style="color:var(--text-muted); font-size:11px;">Cache is empty.</span>';
+      return;
+    }
+    var html = '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">' +
+      '<span style="font-size:11px; color:var(--text-muted);">' + entries.length + ' cached entries</span>' +
+      '<button onclick="clearCacheInspector()" style="background:none; border:1px solid var(--red); color:var(--red); cursor:pointer; padding:2px 8px; border-radius:3px; font-size:10px;">Clear All</button>' +
+      '</div>';
+    html += '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+    html += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);">' +
+      '<th style="padding:4px 6px; text-align:left;">Query</th>' +
+      '<th style="padding:4px 6px; text-align:left;">Response</th>' +
+      '<th style="padding:4px 6px; text-align:left;">Age</th>' +
+      '<th style="padding:4px 2px;"></th></tr>';
+    entries.forEach(function(e) {
+      var ago = cacheTimeSince(e.timestamp);
+      var q = e.query.length > 40 ? e.query.substring(0, 40) + '...' : e.query;
+      var r = e.response_preview || '-';
+      if (r.length > 50) r = r.substring(0, 50) + '...';
+      var dot = e.has_response ? '<span style="color:var(--green);">●</span>' : '<span style="color:var(--yellow);">○</span>';
+      html += '<tr style="border-bottom:1px solid var(--border);">' +
+        '<td style="padding:4px 6px;" title="' + esc(e.query) + '">' + dot + ' ' + esc(q) + '</td>' +
+        '<td style="padding:4px 6px; color:var(--text-muted);" title="' + esc(e.response_preview || '') + '">' + esc(r) + '</td>' +
+        '<td style="padding:4px 6px; color:var(--text-muted); white-space:nowrap;">' + ago + '</td>' +
+        '<td style="padding:4px 2px;"><button onclick="deleteCacheEntry(\'' + esc(e.key) + '\')" style="background:none; border:1px solid var(--border); color:var(--red); cursor:pointer; padding:1px 4px; border-radius:3px; font-size:9px;" title="Delete">✕</button></td></tr>';
+    });
+    html += '</table>';
+    body.innerHTML = html;
+  }).catch(function(err) {
+    body.innerHTML = '<span style="color:var(--red); font-size:11px;">Failed: ' + esc(err.message) + '</span>';
+  });
+}
+
+function clearCacheInspector() {
+  if (!confirm('Clear all cache entries?')) return;
+  fetch('/api/admin/cache', { method: 'DELETE' }).then(function(r) { return r.json(); }).then(function() {
+    loadCacheInspector();
+  });
+}
+
+function deleteCacheEntry(key) {
+  fetch('/api/admin/cache/' + encodeURIComponent(key), { method: 'DELETE' }).then(function(r) { return r.json(); }).then(function() {
+    loadCacheInspector();
+  });
+}
+
+function cacheTimeSince(ts) {
+  var s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h';
+  return Math.floor(s / 86400) + 'd';
 }
 
 // ---- Model Response ----
