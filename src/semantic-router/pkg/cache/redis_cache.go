@@ -31,9 +31,16 @@ type RedisCache struct {
 	enabled             bool
 	hitCount            int64
 	missCount           int64
+	lastSimilarity      uint64 // atomic; stores float32 bits of last search similarity
 	lastCleanupTime     *time.Time
 	mu                  sync.RWMutex
 	embeddingModel      string // "bert", "qwen3", "gemma", or "mmbert"
+}
+
+// LastSimilarity returns the similarity score from the most recent FindSimilarWithThreshold call.
+func (c *RedisCache) LastSimilarity() float32 {
+	bits := atomic.LoadUint64(&c.lastSimilarity)
+	return math.Float32frombits(uint32(bits & 0xFFFFFFFF)) //nolint:gosec // intentional truncation: float32 bits fit in 32 bits
 }
 
 // RedisCacheOptions contains configuration parameters for Redis cache initialization
@@ -681,6 +688,9 @@ func (c *RedisCache) FindSimilarWithThreshold(model string, query string, thresh
 	}
 
 	similarity, responseBody, ok := c.extractSearchResult(searchResult.Docs[0])
+	// Store similarity for callers that need it (e.g., response headers)
+	atomic.StoreUint64(&c.lastSimilarity, uint64(math.Float32bits(similarity)))
+
 	if !ok {
 		logging.Infof("RedisCache.FindSimilar: extractSearchResult returned false")
 		c.recordCacheMiss("error", time.Since(start))

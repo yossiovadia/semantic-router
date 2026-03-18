@@ -173,6 +173,16 @@ func (r *OpenAIRouter) handleResponseHeaders(v *ext_proc.ProcessingRequest_Respo
 			},
 		})
 
+		// Add cache similarity header (for both hits and misses, when a lookup was performed)
+		if ctx.VSRCacheSimilarity > 0 {
+			setHeaders = append(setHeaders, &core.HeaderValueOption{
+				Header: &core.HeaderValue{
+					Key:      "x-vsr-cache-similarity",
+					RawValue: []byte(fmt.Sprintf("%.4f", ctx.VSRCacheSimilarity)),
+				},
+			})
+		}
+
 		// Add signal tracking headers
 		if len(ctx.VSRMatchedKeywords) > 0 {
 			setHeaders = append(setHeaders, &core.HeaderValueOption{

@@ -96,8 +96,11 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 			tracing.RecordError(span, cacheErr)
 			tracing.EndPluginSpan(span, "error", lookupTime, "lookup_failed")
 		} else if found {
-			// Mark this request as a cache hit
+			// Mark this request as a cache hit and store similarity
 			ctx.VSRCacheHit = true
+			if rc, ok := r.Cache.(*cache.RedisCache); ok {
+				ctx.VSRCacheSimilarity = rc.LastSimilarity()
+			}
 
 			// Set VSR decision context even for cache hits so headers are populated
 			// The categoryName passed here is the decision name from classification
@@ -122,13 +125,16 @@ func (r *OpenAIRouter) handleCaching(ctx *RequestContext, categoryName string) (
 				"threshold":  threshold,
 			})
 			// Return immediate response from cache
-			response := http.CreateCacheHitResponse(cachedResponse, ctx.ExpectStreamingResponse, categoryName, ctx.VSRSelectedDecisionName, ctx.VSRMatchedKeywords)
+			response := http.CreateCacheHitResponse(cachedResponse, ctx.ExpectStreamingResponse, categoryName, ctx.VSRSelectedDecisionName, ctx.VSRMatchedKeywords, ctx.VSRCacheSimilarity)
 			r.updateRouterReplayStatus(ctx, 200, ctx.ExpectStreamingResponse)
 			r.attachRouterReplayResponse(ctx, cachedResponse, true)
 			ctx.TraceContext = spanCtx
 			return response, true
 		} else {
-			// Cache miss - record cache plugin miss with decision name
+			// Cache miss — store best similarity for response headers
+			if rc, ok := r.Cache.(*cache.RedisCache); ok {
+				ctx.VSRCacheSimilarity = rc.LastSimilarity()
+			}
 			metrics.RecordCachePluginMiss(categoryName, "semantic-cache")
 			tracing.EndPluginSpan(span, "success", lookupTime, "cache_miss")
 		}
