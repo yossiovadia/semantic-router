@@ -18,6 +18,16 @@ import ssl
 import time
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+try:
+    import redis as redis_lib
+except ImportError:
+    redis_lib = None
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis-cache")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+CACHE_INDEX = "idx_semantic_cache"
+CACHE_PREFIX = "cache:"
 from pathlib import Path
 
 
@@ -125,6 +135,9 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/admin/config":
             self._admin_get_config()
+            return
+        if self.path == "/api/admin/cache":
+            self._admin_get_cache()
             return
 
         # Static file serving
@@ -658,6 +671,12 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/admin/users"):
             self._admin_delete_user()
             return
+        if self.path == "/api/admin/cache":
+            self._admin_clear_cache()
+            return
+        if self.path.startswith("/api/admin/cache/"):
+            self._admin_delete_cache_entry()
+            return
         self.send_error(404)
 
     def _admin_delete_user(self):
@@ -694,6 +713,118 @@ class DemoHandler(SimpleHTTPRequestHandler):
                 {"error": f"K8s API error ({status}): {data.get('message', data)}"},
                 status,
             )
+
+    # ── Cache management ─────────────────────────────────────────────────
+
+    def _get_redis(self):
+        """Get a Redis connection. Returns None if redis-py not installed or connection fails."""
+        if redis_lib is None:
+            return None
+        try:
+            r = redis_lib.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True,
+                                socket_connect_timeout=2, socket_timeout=5)
+            r.ping()
+            return r
+        except Exception:
+            return None
+
+    def _admin_get_cache(self):
+        """List all cached entries with stats."""
+        r = self._get_redis()
+        if r is None:
+            self._send_json({"error": "Redis not available", "entries": [], "stats": {}}, 503)
+            return
+
+        try:
+            # Get all cache keys
+            keys = list(r.scan_iter(match=f"{CACHE_PREFIX}*", count=500))
+
+            entries = []
+            for key in keys:
+                data = r.hgetall(key)
+                if not data:
+                    continue
+                # Extract response preview
+                response_body = data.get("response_body", "")
+                response_preview = ""
+                if response_body:
+                    try:
+                        resp = json.loads(response_body)
+                        content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        response_preview = content[:120] + ("..." if len(content) > 120 else "")
+                    except (json.JSONDecodeError, IndexError, KeyError):
+                        response_preview = response_body[:120]
+
+                entries.append({
+                    "key": key,
+                    "query": data.get("query", ""),
+                    "model": data.get("model", ""),
+                    "request_id": data.get("request_id", ""),
+                    "timestamp": int(data.get("timestamp", 0)),
+                    "response_preview": response_preview,
+                    "has_response": bool(response_body),
+                    "ttl": r.ttl(key),
+                })
+
+            # Sort by timestamp descending (newest first)
+            entries.sort(key=lambda e: e["timestamp"], reverse=True)
+
+            # Get index stats
+            stats = {"total_entries": len(entries), "hit_count": 0, "miss_count": 0, "hit_ratio": 0}
+            try:
+                info = r.ft(CACHE_INDEX).info()
+                stats["total_entries"] = int(getattr(info, "num_docs", len(entries)))
+            except Exception:
+                pass
+
+            self._send_json({"entries": entries, "stats": stats})
+        except Exception as e:
+            self._send_json({"error": f"Redis error: {e}", "entries": [], "stats": {}}, 500)
+        finally:
+            r.close()
+
+    def _admin_clear_cache(self):
+        """Clear all cached entries."""
+        r = self._get_redis()
+        if r is None:
+            self._send_json({"error": "Redis not available"}, 503)
+            return
+
+        try:
+            # Delete all cache keys
+            keys = list(r.scan_iter(match=f"{CACHE_PREFIX}*", count=1000))
+            deleted = 0
+            if keys:
+                deleted = r.delete(*keys)
+            self._send_json({"deleted": deleted, "message": f"Cleared {deleted} cache entries"})
+        except Exception as e:
+            self._send_json({"error": f"Redis error: {e}"}, 500)
+        finally:
+            r.close()
+
+    def _admin_delete_cache_entry(self):
+        """Delete a single cache entry by key."""
+        # Path: /api/admin/cache/<key>
+        key = urllib.parse.unquote(self.path.split("/api/admin/cache/", 1)[-1])
+        if not key:
+            self._send_json({"error": "Cache key required"}, 400)
+            return
+
+        r = self._get_redis()
+        if r is None:
+            self._send_json({"error": "Redis not available"}, 503)
+            return
+
+        try:
+            deleted = r.delete(key)
+            if deleted:
+                self._send_json({"deleted": key})
+            else:
+                self._send_json({"error": f"Key '{key}' not found"}, 404)
+        except Exception as e:
+            self._send_json({"error": f"Redis error: {e}"}, 500)
+        finally:
+            r.close()
 
     # ── OPTIONS (CORS preflight) ─────────────────────────────────────────
 

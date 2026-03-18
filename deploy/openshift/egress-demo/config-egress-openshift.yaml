@@ -34,7 +34,31 @@ prompt_guard:
   enabled: false
 
 semantic_cache:
-  enabled: false
+  enabled: true
+  # Using in-memory until upstream merges Redis KNN fix (PR #1587).
+  # Redis config is ready — just change backend_type to "redis" once fixed.
+  backend_type: "memory"
+  similarity_threshold: 0.85
+  max_entries: 100
+  ttl_seconds: 0  # No auto-expiry — cleared via pod restart or admin UI
+  embedding_model: "mmbert"
+  # Redis config (for when PR #1587 merges):
+  # redis:
+  #   connection:
+  #     host: "redis-cache"
+  #     port: 6379
+  #   index:
+  #     name: "idx_semantic_cache"
+  #     prefix: "cache:"
+  #     index_type: "HNSW"
+  #     vector_field:
+  #       name: "embedding"
+  #       metric_type: "COSINE"
+  #   search:
+  #     top_k: 1
+  #   development:
+  #     auto_create_index: true
+  #     drop_index_on_startup: true
 
 # --- Vector Store (local RAG) ---
 vector_store:
@@ -229,6 +253,10 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
   # Easy queries always stay internal (all tiers, cost optimized)
   - name: "easy_internal"
@@ -242,6 +270,10 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
   # Free tier: ALL non-easy queries → internal model (no egress, no 403)
   - name: "free_internal"
@@ -255,6 +287,10 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
   # Math domain → external model (free tier already caught at priority 150)
   # PII BLOCKED on external — data would leave the datacenter
@@ -269,6 +305,10 @@ decisions:
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
   # CS domain → external model (free tier already caught at priority 150)
   - name: "cs_external"
@@ -282,6 +322,10 @@ decisions:
     modelRefs:
       - model: "claude-sonnet"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
   # Default catch-all → internal GPU model (all tiers, data stays on-prem)
   - name: "default_internal"
@@ -299,6 +343,10 @@ decisions:
     modelRefs:
       - model: "qwen2.5-7b"
         use_reasoning: false
+    plugins:
+      - type: "semantic-cache"
+        configuration:
+          enabled: true
 
 default_model: "qwen2.5-7b"
 

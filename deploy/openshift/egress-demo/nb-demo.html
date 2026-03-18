@@ -1027,12 +1027,14 @@ async function sendRequest(retried) {
       // Build server-informed classification
       const serverPiiTypes = respHeaders['x-vsr-pii-types'] ? respHeaders['x-vsr-pii-types'].split(',').map(s => s.trim()) : [];
       const serverPiiDetected = serverPiiTypes.length > 0;
+      const serverCacheHit = respHeaders['x-vsr-cache-hit'] === 'true';
       const serverClassification = {
         domain: serverDomain,
         confidence: parseFloat(respHeaders['x-vsr-selected-confidence'] || classification.confidence),
         complexity: difficulty,
         piiDetected: serverPiiDetected,
         piiTypes: serverPiiTypes,
+        cacheHit: serverCacheHit,
         fromServer: true,
       };
 
@@ -1115,6 +1117,21 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
     '<div class="routing-detail">' + esc(piiDetail) + '</div>' +
     '</div>';
 
+  // Cache
+  let cacheHtml = '';
+  if (classification.cacheHit) {
+    cacheHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
+      '<div class="routing-label">Semantic Cache</div>' +
+      '<div class="routing-value" style="color:var(--green);">HIT — instant response from cache</div>' +
+      '<div class="routing-detail">Semantically similar query was previously answered. No model inference needed.</div>' +
+      '</div>';
+  } else if (classification.fromServer) {
+    cacheHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
+      '<div class="routing-label">Semantic Cache</div>' +
+      '<div class="routing-value" style="color:var(--text-muted);">MISS — response cached for future queries</div>' +
+      '</div>';
+  }
+
   // RAG
   let ragHtml = '';
   if (!ragEnabled && classification && document.getElementById('rag-toggle-section').style.display !== 'none') {
@@ -1136,7 +1153,7 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
       '</div></div>';
   }
 
-  grid.innerHTML = domainHtml + complexHtml + piiHtml + piiExtraHtml + ragHtml;
+  grid.innerHTML = domainHtml + complexHtml + piiHtml + piiExtraHtml + cacheHtml + ragHtml;
 
   // Decision
   let decisionColor;

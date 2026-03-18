@@ -1,4 +1,5 @@
 FROM python:3.11-slim
+RUN pip install --no-cache-dir redis
 WORKDIR /app
 COPY demo.html admin.html nb-demo.html demo-server.py ./
 EXPOSE 8888

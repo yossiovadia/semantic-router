@@ -174,6 +174,11 @@ oc create configmap rag-docs \
     --from-file="$SCRIPT_DIR/rag-docs/" \
     -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
 
+# ─── Deploy Redis (semantic cache backend) ───
+log "Deploying Redis Stack (semantic cache)..."
+oc apply -f "$SCRIPT_DIR/infra/redis.yaml"
+oc wait --for=condition=Ready pod -l app=redis-cache -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "Redis not ready yet"
+
 log "Deploying vSR router + Envoy (ExtProc)..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
 
