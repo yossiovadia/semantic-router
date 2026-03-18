@@ -431,6 +431,23 @@
       </div>
     </div>
 
+    <!-- Semantic Cache -->
+    <div class="panel" id="cache-panel">
+      <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <span>Semantic Cache (Redis)</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="cache-stats" style="font-size:11px; color:var(--text-muted);"></span>
+          <button class="sidebar-btn danger" onclick="clearCache()" style="font-size:11px; padding:3px 10px; margin:0;">Clear All</button>
+          <button class="sidebar-btn" onclick="loadCache()" style="font-size:11px; padding:3px 10px; margin:0;">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="cache-body">
+        <div id="cache-entries" style="max-height:300px; overflow-y:auto;">
+          <span class="empty-state">Loading cache entries...</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Credential Switch Visualization -->
     <div class="cred-switch" id="cred-switch">
       <div class="cred-card user-cred" id="cred-user">
@@ -1346,6 +1363,82 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ─── Cache Management ────────────────────────────────
+
+async function loadCache() {
+  const container = document.getElementById('cache-entries');
+  const statsEl = document.getElementById('cache-stats');
+  try {
+    const resp = await fetch('/api/admin/cache');
+    const data = await resp.json();
+    if (data.error) {
+      container.innerHTML = '<span class="empty-state">' + esc(data.error) + '</span>';
+      return;
+    }
+    const entries = data.entries || [];
+    statsEl.textContent = entries.length + ' entries';
+
+    if (entries.length === 0) {
+      container.innerHTML = '<span class="empty-state">Cache is empty. Send some queries to populate it.</span>';
+      return;
+    }
+
+    container.innerHTML = '<table style="width:100%; border-collapse:collapse; font-size:12px;">' +
+      '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted); text-align:left;">' +
+      '<th style="padding:6px 8px;">Query</th>' +
+      '<th style="padding:6px 8px;">Model</th>' +
+      '<th style="padding:6px 8px;">Response Preview</th>' +
+      '<th style="padding:6px 8px;">Cached</th>' +
+      '<th style="padding:6px 4px;"></th></tr>' +
+      entries.map(function(e) {
+        var ago = e.timestamp ? timeSince(e.timestamp) : '-';
+        var queryShort = e.query.length > 50 ? e.query.substring(0, 50) + '...' : e.query;
+        var respShort = e.response_preview || (e.has_response ? '(response stored)' : '(pending)');
+        if (respShort.length > 60) respShort = respShort.substring(0, 60) + '...';
+        var statusDot = e.has_response
+          ? '<span style="color:var(--green);">●</span>'
+          : '<span style="color:var(--yellow);">○</span>';
+        return '<tr style="border-bottom:1px solid var(--border);">' +
+          '<td style="padding:6px 8px;" title="' + esc(e.query) + '">' + statusDot + ' ' + esc(queryShort) + '</td>' +
+          '<td style="padding:6px 8px; color:var(--text-muted);">' + esc(e.model) + '</td>' +
+          '<td style="padding:6px 8px; color:var(--text-muted); font-size:11px;" title="' + esc(e.response_preview) + '">' + esc(respShort) + '</td>' +
+          '<td style="padding:6px 8px; color:var(--text-muted); white-space:nowrap;">' + ago + '</td>' +
+          '<td style="padding:6px 4px;"><button onclick="deleteCacheEntry(\'' + esc(e.key) + '\')" style="background:none; border:1px solid var(--border); color:var(--red); cursor:pointer; padding:2px 6px; border-radius:3px; font-size:10px;" title="Delete this entry">✕</button></td>' +
+          '</tr>';
+      }).join('') +
+      '</table>';
+  } catch (e) {
+    container.innerHTML = '<span class="empty-state">Failed to load cache: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function clearCache() {
+  if (!confirm('Clear all cache entries?')) return;
+  try {
+    const resp = await fetch('/api/admin/cache', { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.error) { alert('Error: ' + data.error); return; }
+    loadCache();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function deleteCacheEntry(key) {
+  try {
+    const resp = await fetch('/api/admin/cache/' + encodeURIComponent(key), { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.error) { alert('Error: ' + data.error); return; }
+    loadCache();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+function timeSince(ts) {
+  var seconds = Math.floor(Date.now() / 1000 - ts);
+  if (seconds < 60) return seconds + 's ago';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  return Math.floor(seconds / 86400) + 'd ago';
+}
+
 // ─── Init ───────────────────────────────────────────
 
 async function init() {
@@ -1354,6 +1447,7 @@ async function init() {
     loadUsers(),
     loadTiers(),
     loadProviders(),
+    loadCache(),
   ]);
 }
 

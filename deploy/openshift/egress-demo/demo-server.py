@@ -721,12 +721,23 @@ class DemoHandler(SimpleHTTPRequestHandler):
         if redis_lib is None:
             return None
         try:
-            r = redis_lib.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True,
+            # decode_responses=False to handle binary embedding fields
+            r = redis_lib.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=False,
                                 socket_connect_timeout=2, socket_timeout=5)
             r.ping()
             return r
         except Exception:
             return None
+
+    @staticmethod
+    def _decode(val):
+        """Decode bytes to str, return empty string on failure."""
+        if isinstance(val, bytes):
+            try:
+                return val.decode("utf-8")
+            except UnicodeDecodeError:
+                return ""
+        return str(val) if val else ""
 
     def _admin_get_cache(self):
         """List all cached entries with stats."""
@@ -736,16 +747,20 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         try:
-            # Get all cache keys
-            keys = list(r.scan_iter(match=f"{CACHE_PREFIX}*", count=500))
+            keys = list(r.scan_iter(match=CACHE_PREFIX.encode() + b"*", count=500))
 
             entries = []
             for key in keys:
                 data = r.hgetall(key)
                 if not data:
                     continue
-                # Extract response preview
-                response_body = data.get("response_body", "")
+
+                query = self._decode(data.get(b"query", b""))
+                model = self._decode(data.get(b"model", b""))
+                request_id = self._decode(data.get(b"request_id", b""))
+                timestamp = int(self._decode(data.get(b"timestamp", b"0")) or 0)
+                response_body = self._decode(data.get(b"response_body", b""))
+
                 response_preview = ""
                 if response_body:
                     try:
@@ -753,30 +768,22 @@ class DemoHandler(SimpleHTTPRequestHandler):
                         content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
                         response_preview = content[:120] + ("..." if len(content) > 120 else "")
                     except (json.JSONDecodeError, IndexError, KeyError):
-                        response_preview = response_body[:120]
+                        response_preview = response_body[:80]
 
                 entries.append({
-                    "key": key,
-                    "query": data.get("query", ""),
-                    "model": data.get("model", ""),
-                    "request_id": data.get("request_id", ""),
-                    "timestamp": int(data.get("timestamp", 0)),
+                    "key": key.decode("utf-8") if isinstance(key, bytes) else key,
+                    "query": query,
+                    "model": model,
+                    "request_id": request_id,
+                    "timestamp": timestamp,
                     "response_preview": response_preview,
                     "has_response": bool(response_body),
                     "ttl": r.ttl(key),
                 })
 
-            # Sort by timestamp descending (newest first)
             entries.sort(key=lambda e: e["timestamp"], reverse=True)
 
-            # Get index stats
             stats = {"total_entries": len(entries), "hit_count": 0, "miss_count": 0, "hit_ratio": 0}
-            try:
-                info = r.ft(CACHE_INDEX).info()
-                stats["total_entries"] = int(getattr(info, "num_docs", len(entries)))
-            except Exception:
-                pass
-
             self._send_json({"entries": entries, "stats": stats})
         except Exception as e:
             self._send_json({"error": f"Redis error: {e}", "entries": [], "stats": {}}, 500)
@@ -791,8 +798,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         try:
-            # Delete all cache keys
-            keys = list(r.scan_iter(match=f"{CACHE_PREFIX}*", count=1000))
+            keys = list(r.scan_iter(match=CACHE_PREFIX.encode() + b"*", count=1000))
             deleted = 0
             if keys:
                 deleted = r.delete(*keys)
@@ -804,7 +810,6 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def _admin_delete_cache_entry(self):
         """Delete a single cache entry by key."""
-        # Path: /api/admin/cache/<key>
         key = urllib.parse.unquote(self.path.split("/api/admin/cache/", 1)[-1])
         if not key:
             self._send_json({"error": "Cache key required"}, 400)
@@ -816,7 +821,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         try:
-            deleted = r.delete(key)
+            deleted = r.delete(key.encode("utf-8") if isinstance(key, str) else key)
             if deleted:
                 self._send_json({"deleted": key})
             else:
