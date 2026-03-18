@@ -673,6 +673,8 @@ func (c *RedisCache) FindSimilarWithThreshold(model string, query string, thresh
 		return nil, false, nil
 	}
 
+	logging.Infof("RedisCache.FindSimilar: query=%q, total=%d, knnQuery=%q", query, searchResult.Total, knnQuery)
+
 	if searchResult.Total == 0 {
 		c.recordCacheMiss("miss", time.Since(start))
 		return nil, false, nil
@@ -680,6 +682,7 @@ func (c *RedisCache) FindSimilarWithThreshold(model string, query string, thresh
 
 	similarity, responseBody, ok := c.extractSearchResult(searchResult.Docs[0])
 	if !ok {
+		logging.Infof("RedisCache.FindSimilar: extractSearchResult returned false")
 		c.recordCacheMiss("error", time.Since(start))
 		return nil, false, nil
 	}

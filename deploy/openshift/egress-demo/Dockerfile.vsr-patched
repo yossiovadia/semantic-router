@@ -1,0 +1,34 @@
+# Patched vSR image: rebuilds Go binary with Redis KNN fix (PR #1587)
+# Uses upstream image's Rust libraries — only recompiles the Go router.
+
+FROM ghcr.io/vllm-project/semantic-router/extproc@sha256:4e235155bf68a5697b7bbe278fbe47abf78af507b15f097e05d9c0a3fe1146cf AS upstream
+
+FROM golang:1.24 AS go-builder
+
+# Match the repo layout so go.mod replace directives work:
+#   /repo/candle-binding/   (go.mod + stub)
+#   /repo/ml-binding/       (go.mod + stub)
+#   /repo/src/semantic-router/  (full Go source)
+WORKDIR /repo
+
+# Copy Rust shared libraries from upstream image
+COPY --from=upstream /app/lib/libcandle_semantic_router.so /usr/local/lib/
+COPY --from=upstream /app/lib/libml_semantic_router.so /usr/local/lib/
+# Also check for nlp_binding
+COPY --from=upstream /app/lib/libnlp_binding.so /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
+# Copy Go binding stubs (for go.mod replace directives)
+COPY candle-binding/ ./candle-binding/
+COPY ml-binding/ ./ml-binding/
+
+# Copy Go source
+COPY src/semantic-router/ ./src/semantic-router/
+
+# Build from the correct directory
+WORKDIR /repo/src/semantic-router
+RUN CGO_ENABLED=1 go build -o /repo/router-candle cmd/main.go
+
+# Stage 2: Replace binary in upstream image
+FROM upstream
+COPY --from=go-builder /repo/router-candle /app/router-candle

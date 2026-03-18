@@ -35,30 +35,32 @@ prompt_guard:
 
 semantic_cache:
   enabled: true
-  # Using in-memory until upstream merges Redis KNN fix (PR #1587).
-  # Redis config is ready — just change backend_type to "redis" once fixed.
-  backend_type: "memory"
+  backend_type: "redis"
   similarity_threshold: 0.85
-  max_entries: 100
-  ttl_seconds: 0  # No auto-expiry — cleared via pod restart or admin UI
+  max_entries: 500
+  ttl_seconds: 0  # No auto-expiry — cleared via admin UI
   embedding_model: "mmbert"
-  # Redis config (for when PR #1587 merges):
-  # redis:
-  #   connection:
-  #     host: "redis-cache"
-  #     port: 6379
-  #   index:
-  #     name: "idx_semantic_cache"
-  #     prefix: "cache:"
-  #     index_type: "HNSW"
-  #     vector_field:
-  #       name: "embedding"
-  #       metric_type: "COSINE"
-  #   search:
-  #     top_k: 1
-  #   development:
-  #     auto_create_index: true
-  #     drop_index_on_startup: true
+  redis:
+    connection:
+      host: "redis-cache"
+      port: 6379
+      database: 0
+      timeout: 5
+    index:
+      name: "idx_semantic_cache"
+      prefix: "cache:"
+      index_type: "HNSW"
+      vector_field:
+        name: "embedding"
+        metric_type: "COSINE"
+      params:
+        m: 16
+        ef_construction: 64
+    search:
+      topk: 1
+    development:
+      auto_create_index: true
+      drop_index_on_startup: true
 
 # --- Vector Store (local RAG) ---
 vector_store:
