@@ -261,6 +261,8 @@ decisions:
           enabled: true
 
   # Easy queries always stay internal (all tiers, cost optimized)
+  # Higher cache threshold (0.99) for short queries where small numerical
+  # differences matter (e.g., "2+2" vs "2+3" are 0.96 similar but different).
   - name: "easy_internal"
     description: "Simple queries stay on-prem — no need for expensive external model"
     priority: 200
@@ -276,6 +278,7 @@ decisions:
       - type: "semantic-cache"
         configuration:
           enabled: true
+          similarity_threshold: 0.99
 
   # Free tier: ALL non-easy queries → internal model (no egress, no 403)
   - name: "free_internal"
