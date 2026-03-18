@@ -90,7 +90,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
         print(f"[Demo UI] {args[0]}")
 
     # Only serve these files — prevent directory traversal to deploy scripts/configs
-    ALLOWED_FILES = {"/demo.html", "/admin.html", "/nb-demo.html", "/architecture.png"}
+    ALLOWED_FILES = {"/nb-demo.html", "/architecture.png"}
 
     def _send_json(self, data, status=200):
         """Send a JSON response with CORS headers."""
@@ -141,12 +141,8 @@ class DemoHandler(SimpleHTTPRequestHandler):
             return
 
         # Static file serving
-        if self.path == "/" or self.path == "":
-            self.path = "/demo.html"
-        if self.path == "/nb-demo" or self.path == "/nb-demo.html":
+        if self.path in ("/", "", "/nb-demo", "/nb-demo.html", "/demo.html", "/admin", "/admin.html"):
             self.path = "/nb-demo.html"
-        if self.path == "/admin" or self.path == "/admin.html":
-            self.path = "/admin.html"
         if self.path not in self.ALLOWED_FILES:
             self.send_error(404)
             return

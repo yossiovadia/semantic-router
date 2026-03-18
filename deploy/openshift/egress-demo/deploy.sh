@@ -124,8 +124,6 @@ if ! oc get imagestream demo-ui -n "$NAMESPACE" &>/dev/null; then
 fi
 BUILD_TMP=$(mktemp -d)
 cp "$SCRIPT_DIR/Dockerfile.demo-ui" "$BUILD_TMP/Dockerfile"
-cp "$SCRIPT_DIR/demo.html" "$BUILD_TMP/"
-cp "$SCRIPT_DIR/admin.html" "$BUILD_TMP/"
 cp "$SCRIPT_DIR/nb-demo.html" "$BUILD_TMP/"
 cp "$SCRIPT_DIR/demo-server.py" "$BUILD_TMP/"
 oc start-build demo-ui --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
