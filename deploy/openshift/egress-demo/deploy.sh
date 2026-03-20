@@ -177,6 +177,37 @@ log "Deploying Redis Stack (semantic cache)..."
 oc apply -f "$SCRIPT_DIR/infra/redis.yaml"
 oc wait --for=condition=Ready pod -l app=redis-cache -n "$NAMESPACE" --timeout=120s 2>/dev/null || warn "Redis not ready yet"
 
+# ─── Create HF token secret (for model downloads) ───
+if [[ -n "${HF_TOKEN:-}" ]]; then
+    log "Creating HuggingFace token secret..."
+    oc create secret generic hf-token --from-literal=token="$HF_TOKEN" \
+        -n "$NAMESPACE" --dry-run=client -o yaml | oc apply -f -
+    success "HF token secret created"
+else
+    if ! oc get secret hf-token -n "$NAMESPACE" &>/dev/null; then
+        warn "HF_TOKEN not set — model downloads may be rate-limited. Set HF_TOKEN env var to fix."
+    fi
+fi
+
+# ─── Build patched vSR image ───
+# Upstream :latest moved to v0.3 config format which is incompatible.
+# We build from pre-v0.3 upstream + our Go patches (KNN fix, similarity header).
+log "Building patched vSR image..."
+if ! oc get imagestream vsr-patched -n "$NAMESPACE" &>/dev/null; then
+    oc new-build --name vsr-patched --binary --strategy=docker -n "$NAMESPACE"
+fi
+BUILD_TMP=$(mktemp -d)
+cp "$SCRIPT_DIR/Dockerfile.vsr-patched" "$BUILD_TMP/Dockerfile"
+mkdir -p "$BUILD_TMP/candle-binding" "$BUILD_TMP/ml-binding" "$BUILD_TMP/src/semantic-router"
+cp "$PROJECT_ROOT/candle-binding/go.mod" "$BUILD_TMP/candle-binding/"
+cp "$PROJECT_ROOT/candle-binding/semantic-router.go" "$BUILD_TMP/candle-binding/"
+cp "$PROJECT_ROOT/ml-binding/go.mod" "$BUILD_TMP/ml-binding/"
+cp "$PROJECT_ROOT/ml-binding/ml_binding.go" "$BUILD_TMP/ml-binding/"
+cp -r "$PROJECT_ROOT/src/semantic-router/"* "$BUILD_TMP/src/semantic-router/"
+oc start-build vsr-patched --from-dir="$BUILD_TMP" --follow -n "$NAMESPACE" || true
+rm -rf "$BUILD_TMP"
+success "vSR patched image built"
+
 log "Deploying vSR router + Envoy (ExtProc)..."
 oc apply -n "$NAMESPACE" -f "$SCRIPT_DIR/vsr-deployment.yaml"
 
