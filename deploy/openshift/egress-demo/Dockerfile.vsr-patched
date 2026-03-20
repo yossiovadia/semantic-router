@@ -1,6 +1,8 @@
-# Patched vSR image: rebuilds Go binary with Redis KNN fix (PR #1587)
+# Patched vSR image: adds x-vsr-cache-similarity header to upstream.
 # Uses upstream image's Rust libraries — only recompiles the Go router.
 
+# Pre-v0.3 config format upstream image. Upstream :latest moved to v0.3
+# canonical config which is incompatible with our YAML.
 FROM ghcr.io/vllm-project/semantic-router/extproc@sha256:4e235155bf68a5697b7bbe278fbe47abf78af507b15f097e05d9c0a3fe1146cf AS upstream
 
 FROM golang:1.24 AS go-builder
@@ -25,9 +27,9 @@ COPY ml-binding/ ./ml-binding/
 # Copy Go source
 COPY src/semantic-router/ ./src/semantic-router/
 
-# Build from the correct directory
+# Build from the correct directory — -a flag forces rebuild of all packages
 WORKDIR /repo/src/semantic-router
-RUN CGO_ENABLED=1 go build -o /repo/router-candle cmd/main.go
+RUN CGO_ENABLED=1 go build -a -o /repo/router-candle cmd/main.go
 
 # Stage 2: Replace binary in upstream image
 FROM upstream

@@ -1024,6 +1024,7 @@ async function sendRequest(retried) {
       const serverPiiTypes = respHeaders['x-vsr-pii-types'] ? respHeaders['x-vsr-pii-types'].split(',').map(s => s.trim()) : [];
       const serverPiiDetected = serverPiiTypes.length > 0;
       const serverCacheHit = respHeaders['x-vsr-cache-hit'] === 'true';
+      const serverCacheSimilarity = parseFloat(respHeaders['x-vsr-cache-similarity'] || '0');
       const serverClassification = {
         domain: serverDomain,
         confidence: parseFloat(respHeaders['x-vsr-selected-confidence'] || classification.confidence),
@@ -1031,6 +1032,7 @@ async function sendRequest(retried) {
         piiDetected: serverPiiDetected,
         piiTypes: serverPiiTypes,
         cacheHit: serverCacheHit,
+        cacheSimilarity: serverCacheSimilarity,
         fromServer: true,
       };
 
@@ -1116,9 +1118,10 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
   // Cache
   let cacheHtml = '';
   if (classification.cacheHit) {
+    var simLabel = classification.cacheSimilarity > 0 ? ' (similarity: ' + classification.cacheSimilarity.toFixed(4) + ')' : '';
     cacheHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
       '<div class="routing-label">Semantic Cache</div>' +
-      '<div class="routing-value" style="color:var(--green);">HIT — instant response from cache</div>' +
+      '<div class="routing-value" style="color:var(--green);">HIT — instant response from cache' + simLabel + '</div>' +
       '<div class="routing-detail">Semantically similar query was previously answered. No model inference needed.</div>' +
       '<div id="cache-inspector-toggle" style="margin-top:6px;">' +
       '<a href="#" onclick="toggleCacheInspector(); return false;" style="font-size:11px; color:var(--accent); text-decoration:none;">' +
@@ -1126,9 +1129,10 @@ function showRoutingDecision(classification, model, type, reason, isAuto, ragRes
       '<div id="cache-inspector-body" style="display:none; margin-top:8px;"></div>' +
       '</div></div>';
   } else if (classification.fromServer) {
+    var missSimLabel = classification.cacheSimilarity > 0 ? ' (best match: ' + classification.cacheSimilarity.toFixed(4) + ')' : '';
     cacheHtml = '<div class="routing-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">' +
       '<div class="routing-label">Semantic Cache</div>' +
-      '<div class="routing-value" style="color:var(--text-muted);">MISS — response cached for future queries</div>' +
+      '<div class="routing-value" style="color:var(--text-muted);">MISS — response cached for future queries' + missSimLabel + '</div>' +
       '<div id="cache-inspector-toggle" style="margin-top:6px;">' +
       '<a href="#" onclick="toggleCacheInspector(); return false;" style="font-size:11px; color:var(--accent); text-decoration:none;">' +
       '<span id="cache-inspector-arrow">▸</span> View cached entries <span style="color:var(--text-muted); font-size:10px;">(Redis)</span></a>' +

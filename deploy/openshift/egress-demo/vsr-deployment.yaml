@@ -67,17 +67,19 @@ spec:
           mountPath: /models
         resources:
           requests:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "250m"
           limits:
-            memory: "2Gi"
+            memory: "4Gi"
             cpu: "1"
       containers:
       - name: semantic-router
-        # Upstream vSR image with native authz support (PR #1321)
-        # Pinned to digest — :latest broke overnight when binary was renamed.
-        # To update: pull :latest, verify /app/router-candle exists, pin new digest.
-        image: ghcr.io/vllm-project/semantic-router/extproc@sha256:4e235155bf68a5697b7bbe278fbe47abf78af507b15f097e05d9c0a3fe1146cf
+        # Patched vSR image — built on-cluster from Dockerfile.vsr-patched.
+        # Base: upstream pre-v0.3 config format (sha256:4e235155...) + our Go patches
+        # (KNN fix PR #1587, x-vsr-cache-similarity header).
+        # Upstream :latest moved to v0.3 config format which is incompatible.
+        # TODO: Migrate config to v0.3 and switch to upstream image.
+        image: image-registry.openshift-image-registry.svc:5000/vsr-egress-demo/vsr-patched:latest
         command: ["/app/router-candle"]
         args: ["-config", "/app/config.yaml", "-port=50051", "-enable-api=true", "-api-port=8080"]
         ports:
