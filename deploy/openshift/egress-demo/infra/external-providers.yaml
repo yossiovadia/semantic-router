@@ -10,73 +10,35 @@ metadata:
     app: vsr-egress-demo
     zone: external
 ---
-# Mock Anthropic endpoint (simulates api.anthropic.com)
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mock-anthropic
-  namespace: external-providers
-  labels:
-    app: mock-anthropic
-    zone: external
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mock-anthropic
-  template:
-    metadata:
-      labels:
-        app: mock-anthropic
-        zone: external
-    spec:
-      containers:
-      - name: mock-anthropic
-        image: image-registry.openshift-image-registry.svc:5000/vsr-egress-demo/mock-anthropic:latest
-        ports:
-        - containerPort: 8003
-          name: http
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: ["ALL"]
-          seccompProfile:
-            type: RuntimeDefault
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8003
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8003
-          initialDelaySeconds: 3
-          periodSeconds: 5
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "50m"
-          limits:
-            memory: "1Gi"
-            cpu: "250m"
----
+# LLM Katan Anthropic endpoint (external emulator at configurable IP)
+# To change the IP: update the Endpoints address below, then oc apply -f
 apiVersion: v1
 kind: Service
 metadata:
-  name: mock-anthropic
+  name: llm-katan-anthropic
   namespace: external-providers
   labels:
-    app: mock-anthropic
     zone: external
 spec:
   ports:
   - name: http
-    port: 8003
-    targetPort: 8003
-  selector:
-    app: mock-anthropic
+    port: 8000
+    targetPort: 8000
+  clusterIP: None  # headless — resolved via Endpoints below
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: llm-katan-anthropic
+  namespace: external-providers
+  labels:
+    zone: external
+subsets:
+- addresses:
+  - ip: "3.150.113.9"   # LLM Katan emulator — change this if IP changes
+  ports:
+  - name: http
+    port: 8000
 ---
 # External model provider (simulates api.openai.com-compatible endpoint)
 apiVersion: apps/v1

@@ -83,8 +83,8 @@ vllm_endpoints:
     port: 8000
     weight: 1
   - name: "anthropic-endpoint"
-    address: "mock-anthropic.external-providers.svc.cluster.local"
-    port: 8003
+    address: "llm-katan-anthropic.external-providers.svc.cluster.local"
+    port: 8000
     weight: 1
   - name: "gpu-endpoint"
     address: "vllm-gpu"

@@ -120,7 +120,7 @@ static_resources:
                 address: llm-katan-external.external-providers.svc.cluster.local
                 port_value: 8000
 
-  # Mock Anthropic service (in external-providers namespace)
+  # LLM Katan Anthropic emulator (external, via headless service)
   - name: anthropic_cluster
     type: STRICT_DNS
     connect_timeout: 10s
@@ -132,8 +132,8 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: mock-anthropic.external-providers.svc.cluster.local
-                port_value: 8003
+                address: llm-katan-anthropic.external-providers.svc.cluster.local
+                port_value: 8000
 
   # GPU model (vLLM on GPU node)
   - name: gpu_cluster
