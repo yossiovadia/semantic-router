@@ -106,6 +106,35 @@ type RouterConfig struct {
 	ToolSelection `yaml:",inline"`
 	// Model access policy for tier-based model restriction
 	ModelAccessPolicy map[string]TierAccessConfig `yaml:"model_access_policy,omitempty"`
+	// Authz configuration for header-based identity
+	Authz AuthzConfig `yaml:"authz,omitempty"`
+	// Role bindings map groups/tiers to roles used in decision conditions
+	RoleBindings []RoleBinding `yaml:"role_bindings,omitempty"`
+}
+
+// AuthzConfig configures header-based identity extraction
+type AuthzConfig struct {
+	FailOpen bool           `yaml:"fail_open,omitempty"`
+	Identity AuthzIdentity  `yaml:"identity,omitempty"`
+}
+
+// AuthzIdentity specifies which headers contain user identity
+type AuthzIdentity struct {
+	UserIDHeader     string `yaml:"user_id_header,omitempty"`
+	UserGroupsHeader string `yaml:"user_groups_header,omitempty"`
+}
+
+// RoleBinding maps subjects (groups) to roles for decision conditions
+type RoleBinding struct {
+	Name     string          `yaml:"name"`
+	Subjects []RoleSubject   `yaml:"subjects"`
+	Role     string          `yaml:"role"`
+}
+
+// RoleSubject identifies a group or user for role binding
+type RoleSubject struct {
+	Kind string `yaml:"kind"`
+	Name string `yaml:"name"`
 }
 
 // TierAccessConfig defines which models a tier can access

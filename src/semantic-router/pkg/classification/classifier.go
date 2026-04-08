@@ -979,6 +979,7 @@ type SignalResults struct {
 	TokenCount               int      // Total token count
 	MatchedComplexityRules   []string // Matched complexity rules with difficulty level (e.g. "code_complexity:hard")
 	MatchedPIIRules          []string // PII rule names matched (denied PII types detected)
+	MatchedAuthzRules        []string // Authz role names matched from request headers
 
 	// Signal metrics (only populated in eval mode)
 	Metrics *SignalMetricsCollection
@@ -1603,6 +1604,7 @@ func (c *Classifier) EvaluateDecisionWithEngine(signals *SignalResults) (*decisi
 		ContextRules:      signals.MatchedContextRules,
 		ComplexityRules:   signals.MatchedComplexityRules,
 		PIIRules:          signals.MatchedPIIRules,
+		AuthzRules:        signals.MatchedAuthzRules,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("decision evaluation failed: %w", err)

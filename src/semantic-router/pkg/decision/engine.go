@@ -70,6 +70,7 @@ type SignalMatches struct {
 	ContextRules      []string // Context rule names matched (e.g. "low_token_count")
 	ComplexityRules   []string // Complexity rules with difficulty level (e.g. "code_complexity:hard")
 	PIIRules          []string // PII rule names matched (denied PII types detected)
+	AuthzRules        []string // Authz role names matched from request headers
 }
 
 // DecisionResult represents the result of decision evaluation
@@ -195,6 +196,8 @@ func (e *DecisionEngine) evaluateRuleCombinationWithSignals(
 			conditionMatched = slices.Contains(signals.ComplexityRules, condition.Name)
 		case "pii":
 			conditionMatched = slices.Contains(signals.PIIRules, condition.Name)
+		case "authz":
+			conditionMatched = slices.Contains(signals.AuthzRules, condition.Name)
 		default:
 			continue
 		}

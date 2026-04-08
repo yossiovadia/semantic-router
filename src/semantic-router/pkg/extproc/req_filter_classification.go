@@ -87,6 +87,22 @@ func (r *OpenAIRouter) performDecisionEvaluation(originalModel string, userConte
 	ctx.VSRContextTokenCount = signals.TokenCount
 	ctx.VSRMatchedComplexity = signals.MatchedComplexityRules
 
+	// Inject authz signal from request headers (tier-based routing)
+	// The x-authz-user-groups header is injected by Authorino AuthPolicy
+	if r.Config != nil && r.Config.Authz.Identity.UserGroupsHeader != "" {
+		if tierValue, ok := ctx.Headers[r.Config.Authz.Identity.UserGroupsHeader]; ok && tierValue != "" {
+			// Map tier to role via role_bindings config
+			for _, binding := range r.Config.RoleBindings {
+				for _, subject := range binding.Subjects {
+					if subject.Name == tierValue {
+						signals.MatchedAuthzRules = append(signals.MatchedAuthzRules, binding.Role)
+						logging.Infof("[Authz Signal] Matched role %q from tier %q", binding.Role, tierValue)
+					}
+				}
+			}
+		}
+	}
+
 	// Set fact-check context fields from signal results
 	// This replaces the old performFactCheckClassification call to avoid duplicate computation
 	r.setFactCheckFromSignals(ctx, signals.MatchedFactCheckRules)
