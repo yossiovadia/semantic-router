@@ -978,6 +978,7 @@ type SignalResults struct {
 	MatchedContextRules      []string // Matched context rule names (e.g. "low_token_count")
 	TokenCount               int      // Total token count
 	MatchedComplexityRules   []string // Matched complexity rules with difficulty level (e.g. "code_complexity:hard")
+	MatchedPIIRules          []string // PII rule names matched (denied PII types detected)
 
 	// Signal metrics (only populated in eval mode)
 	Metrics *SignalMetricsCollection
@@ -1488,6 +1489,75 @@ func (c *Classifier) EvaluateAllSignalsWithContext(text string, contextText stri
 		logging.Infof("[Signal Computation] Complexity signal not used in any decision, skipping evaluation")
 	}
 
+	// Evaluate PII rules (only if used in decisions and PII detection is enabled)
+	if isSignalTypeUsed(usedSignals, config.SignalTypePII) && len(c.Config.PIIRules) > 0 && c.IsPIIEnabled() {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			start := time.Now()
+
+			// Run PII detection once
+			tokenResult, err := c.piiInference.ClassifyTokens(text, c.Config.PIIMappingPath)
+			if err != nil {
+				logging.Errorf("[Signal Computation] PII detection failed: %v", err)
+				return
+			}
+
+			// Translate entity types and collect unique PII types
+			detectedTypes := make(map[string]bool)
+			for _, entity := range tokenResult.Entities {
+				translatedType := c.PIIMapping.TranslatePIIType(entity.EntityType)
+				if translatedType != "" && translatedType != "O" && translatedType != "NO_PII" {
+					// Strip BIO prefix for comparison
+					baseType := translatedType
+					if len(translatedType) > 2 && translatedType[1] == '-' {
+						prefix := translatedType[0]
+						if prefix == 'B' || prefix == 'I' || prefix == 'O' || prefix == 'E' {
+							baseType = translatedType[2:]
+						}
+					}
+					detectedTypes[baseType] = true
+				}
+			}
+
+			if len(detectedTypes) == 0 {
+				logging.Infof("[Signal Computation] PII detection found no PII types")
+				return
+			}
+
+			logging.Infof("[Signal Computation] PII detection found types: %v", detectedTypes)
+
+			// Evaluate each PII rule: a rule matches when detected PII types
+			// are NOT in the rule's allowed list (i.e., denied PII found)
+			for _, rule := range c.Config.PIIRules {
+				allowedSet := make(map[string]bool)
+				for _, t := range rule.PIITypesAllowed {
+					allowedSet[t] = true
+				}
+
+				hasDenied := false
+				for piiType := range detectedTypes {
+					if !allowedSet[piiType] {
+						hasDenied = true
+						break
+					}
+				}
+
+				if hasDenied {
+					logging.Infof("[Signal Computation] PII rule %q matched (denied PII detected)", rule.Name)
+					mu.Lock()
+					results.MatchedPIIRules = append(results.MatchedPIIRules, rule.Name)
+					mu.Unlock()
+				}
+			}
+
+			elapsed := time.Since(start)
+			logging.Infof("[Signal Computation] PII signal evaluation completed in %v", elapsed)
+		}()
+	} else if !isSignalTypeUsed(usedSignals, config.SignalTypePII) {
+		logging.Infof("[Signal Computation] PII signal not used in any decision, skipping evaluation")
+	}
+
 	// Wait for all signal evaluations to complete
 	wg.Wait()
 
@@ -1532,6 +1602,7 @@ func (c *Classifier) EvaluateDecisionWithEngine(signals *SignalResults) (*decisi
 		LatencyRules:      signals.MatchedLatencyRules,
 		ContextRules:      signals.MatchedContextRules,
 		ComplexityRules:   signals.MatchedComplexityRules,
+		PIIRules:          signals.MatchedPIIRules,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("decision evaluation failed: %w", err)

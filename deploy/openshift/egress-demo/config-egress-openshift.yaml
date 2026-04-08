@@ -224,7 +224,7 @@ strategy: "priority"
 decisions:
   # PII enforcement: block queries containing sensitive PII (emails, credit cards, etc.)
   # References the pii-block-egress rule — fires when disallowed PII is detected.
-  # fast_response returns an immediate error without calling any model.
+  # PII plugin performs post-decision policy check and blocks denied types.
   - name: "pii_block"
     description: "Block queries with email, credit card, or other egress-risky PII"
     priority: 300
@@ -237,9 +237,19 @@ decisions:
       - model: "qwen2.5-7b"
         use_reasoning: false
     plugins:
-      - type: "fast_response"
+      - type: "pii"
         configuration:
-          message: "Request blocked: PII policy violation. Your query contains sensitive personal information (e.g., email address, credit card) that cannot be processed. Please remove PII and try again."
+          enabled: true
+          pii_types_allowed:
+            - "PERSON"
+            - "PHONE_NUMBER"
+            - "STREET_ADDRESS"
+            - "ORGANIZATION"
+            - "DATE_TIME"
+            - "NRP"
+            - "US_SSN"
+            - "GPE"
+            - "ZIP_CODE"
 
   # PII routing: queries with personal identity PII (names, SSN, phone) stay on-prem.
   # Data is processed by internal GPU model — user gets a real response, but
@@ -259,6 +269,15 @@ decisions:
       - type: "semantic-cache"
         configuration:
           enabled: true
+      - type: "pii"
+        configuration:
+          enabled: true
+          pii_types_allowed:
+            - "ORGANIZATION"
+            - "DATE_TIME"
+            - "NRP"
+            - "GPE"
+            - "ZIP_CODE"
 
   # Easy queries always stay internal (all tiers, cost optimized)
   # Higher cache threshold (0.99) for short queries where small numerical

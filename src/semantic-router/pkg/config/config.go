@@ -41,6 +41,7 @@ const (
 	SignalTypeLatency      = "latency"
 	SignalTypeContext      = "context"
 	SignalTypeComplexity   = "complexity"
+	SignalTypePII         = "pii"
 )
 
 // API format constants for model backends
@@ -444,6 +445,10 @@ type Signals struct {
 	// Complexity rules for complexity-based classification using embedding similarity
 	// When matched, outputs the rule name with difficulty level (e.g., "code_complexity:hard", "math_complexity:easy")
 	ComplexityRules []ComplexityRule `yaml:"complexity_rules,omitempty"`
+
+	// PII detection rules for signal-based PII detection
+	// Named rules referenced by decision conditions (type: "pii")
+	PIIRules []PIIRule `yaml:"pii,omitempty"`
 }
 
 // BackendModels represents the configuration for backend models
@@ -2296,6 +2301,15 @@ type ComplexityRule struct {
 	Easy        ComplexityCandidates `yaml:"easy"`
 	Description string               `yaml:"description,omitempty"`
 	Composer    *RuleCombination     `yaml:"composer,omitempty"` // Optional: filter based on other signals
+}
+
+// PIIRule defines a named PII detection signal rule.
+// The signal fires when PII types NOT in PIITypesAllowed are detected.
+type PIIRule struct {
+	Name            string   `yaml:"name"`
+	Description     string   `yaml:"description,omitempty"`
+	Threshold       float32  `yaml:"threshold"`
+	PIITypesAllowed []string `yaml:"pii_types_allowed,omitempty"`
 }
 
 // ModelReasoningControl represents reasoning mode control on model level
