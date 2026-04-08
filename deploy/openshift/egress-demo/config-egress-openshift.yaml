@@ -269,15 +269,9 @@ decisions:
       - type: "semantic-cache"
         configuration:
           enabled: true
-      - type: "pii"
-        configuration:
-          enabled: true
-          pii_types_allowed:
-            - "ORGANIZATION"
-            - "DATE_TIME"
-            - "NRP"
-            - "GPE"
-            - "ZIP_CODE"
+      # No PII plugin here — pii_internal routes to on-prem GPU, so all
+      # PII types are safe. The signal-level rule already ensures this
+      # decision only matches when identity PII is detected.
 
   # Easy queries always stay internal (all tiers, cost optimized)
   # Higher cache threshold (0.99) for short queries where small numerical
